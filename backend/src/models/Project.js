@@ -1,0 +1,192 @@
+const mongoose = require("mongoose");
+const Schema = mongoose.Schema;
+
+// Milestone Schema
+const MilestoneSchema = new Schema({
+  title: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  description: {
+    type: String,
+    required: true,
+  },
+  amount: {
+    type: Number,
+    required: true,
+  },
+  dueDate: {
+    type: Date,
+  },
+  status: {
+    type: String,
+    enum: ["pending", "in_progress", "submitted", "revision_requested", "completed"],
+    default: "pending",
+  },
+  submissionDetails: {
+    type: String,
+  },
+  submissionDate: {
+    type: Date,
+  },
+  feedback: {
+    type: String,
+  },
+  attachments: [
+    {
+      type: Schema.Types.ObjectId,
+      ref: "Attachment",
+    },
+  ],
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+// Attachment Schema
+const AttachmentSchema = new Schema({
+  filename: {
+    type: String,
+    required: true,
+  },
+  originalname: {
+    type: String,
+    required: true,
+  },
+  mimetype: {
+    type: String,
+    required: true,
+  },
+  size: {
+    type: Number,
+    required: true,
+  },
+  url: {
+    type: String,
+    required: true,
+  },
+  uploadedBy: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  uploadedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+// Project Schema
+const ProjectSchema = new Schema({
+  title: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  description: {
+    type: String,
+    required: true,
+  },
+  client: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  freelancer: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  job: {
+    type: Schema.Types.ObjectId,
+    ref: "Job",
+  },
+  category: {
+    type: String,
+    required: true,
+  },
+  skills: [
+    {
+      type: String,
+    },
+  ],
+  budget: {
+    type: Number,
+    required: true,
+  },
+  startDate: {
+    type: Date,
+  },
+  deadline: {
+    type: Date,
+    required: true,
+  },
+  completedDate: {
+    type: Date,
+  },
+  status: {
+    type: String,
+    enum: ["pending", "in_progress", "completed", "cancelled", "disputed"],
+    default: "pending",
+  },
+  completionPercentage: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100,
+  },
+  milestones: [MilestoneSchema],
+  attachments: [
+    {
+      type: Schema.Types.ObjectId,
+      ref: "Attachment",
+    },
+  ],
+  clientReview: {
+    type: Schema.Types.ObjectId,
+    ref: "Review",
+  },
+  freelancerReview: {
+    type: Schema.Types.ObjectId,
+    ref: "Review",
+  },
+  contract: {
+    type: String,
+  },
+  paymentType: {
+    type: String,
+    enum: ["fixed", "hourly"],
+    default: "fixed",
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+// Update the updatedAt field before saving
+ProjectSchema.pre("save", function (next) {
+  this.updatedAt = Date.now();
+  next();
+});
+
+MilestoneSchema.pre("save", function (next) {
+  this.updatedAt = Date.now();
+  next();
+});
+
+// Create models
+const Attachment = mongoose.model("Attachment", AttachmentSchema);
+const Project = mongoose.model("Project", ProjectSchema);
+
+module.exports = { Project, Attachment };
