@@ -27,7 +27,7 @@ app.use("/api/auth", authRoutes);
 
 // Serve static files from the frontend/dist directory
 app.use(
-  express.static(path.join(__dirname, "../../../studieshq/frontend/dist"), {
+  express.static(path.join(__dirname, "../../../frontend/dist"), {
     setHeaders: (res, path) => {
       if (path.endsWith(".js")) {
         res.setHeader("Content-Type", "application/javascript");
@@ -38,7 +38,7 @@ app.use(
 
 // Serve index.html for all other routes (SPA support)
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../../../studieshq/frontend/dist/index.html"));
+  res.sendFile(path.join(__dirname, "../../../frontend/dist/index.html"));
 });
 
 // Error handler
