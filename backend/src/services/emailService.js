@@ -22,7 +22,7 @@ const transporter = nodemailer.createTransport({
 exports.sendVerificationEmail = async (email, name, verificationToken) => {
   const verificationUrl = `${
     process.env.FRONTEND_URL || "http://localhost:5173"
-  }/verify-email?token=${verificationToken}`;
+  }/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
 
   const mailOptions = {
     from: `"StudiesHQ" <${process.env.SMPT_MAIL}>`,

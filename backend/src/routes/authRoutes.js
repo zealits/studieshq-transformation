@@ -88,4 +88,11 @@ router.post(
   authController.resetPassword
 );
 
+/**
+ * @route   GET /api/auth/check-verification/:email
+ * @desc    Check user verification status
+ * @access  Public
+ */
+router.get("/check-verification/:email", authController.checkVerificationStatus);
+
 module.exports = router;

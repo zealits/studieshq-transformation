@@ -43,7 +43,7 @@ exports.register = async (req, res) => {
 
     // Generate verification token
     const verificationToken = crypto.randomBytes(20).toString("hex");
-    user.verificationToken = crypto.createHash("sha256").update(verificationToken).digest("hex");
+    user.verificationToken = verificationToken;
     user.verificationTokenExpire = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
 
     await user.save();
@@ -118,11 +118,12 @@ exports.register = async (req, res) => {
  */
 exports.verifyEmail = async (req, res) => {
   try {
-    // Get hashed token
-    const verificationToken = crypto.createHash("sha256").update(req.params.token).digest("hex");
+    // Get token from params
+    const token = req.params.token;
 
+    // Find user with matching verification token
     const user = await User.findOne({
-      verificationToken,
+      verificationToken: token,
       verificationTokenExpire: { $gt: Date.now() },
     });
 
@@ -247,7 +248,7 @@ exports.resendVerification = async (req, res) => {
 
     // Generate new verification token
     const verificationToken = crypto.randomBytes(20).toString("hex");
-    user.verificationToken = crypto.createHash("sha256").update(verificationToken).digest("hex");
+    user.verificationToken = verificationToken;
     user.verificationTokenExpire = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
 
     await user.save();
@@ -321,7 +322,7 @@ exports.updateProfile = async (req, res) => {
 
       // Generate new verification token
       const verificationToken = crypto.randomBytes(20).toString("hex");
-      user.verificationToken = crypto.createHash("sha256").update(verificationToken).digest("hex");
+      user.verificationToken = verificationToken;
       user.verificationTokenExpire = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
 
       // Send verification email
@@ -459,6 +460,30 @@ exports.resetPassword = async (req, res) => {
     await user.save();
 
     res.status(200).json({ success: true, message: "Password updated successfully" });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+/**
+ * @desc    Check user verification status
+ * @route   GET /api/auth/check-verification/:email
+ * @access  Public
+ */
+exports.checkVerificationStatus = async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.params.email });
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      isVerified: user.isVerified,
+      message: user.isVerified ? "Email is verified" : "Email is not verified yet",
+    });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ success: false, error: "Server error" });

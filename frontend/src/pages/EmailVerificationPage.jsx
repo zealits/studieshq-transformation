@@ -6,15 +6,21 @@ import api from "../api/axios";
 const EmailVerificationPage = () => {
   const [status, setStatus] = useState("verifying"); // verifying, success, error
   const [message, setMessage] = useState("");
+  const [email, setEmail] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
     const verifyEmail = async () => {
       try {
-        // Get token from URL query parameters
+        // Get token and email from URL query parameters
         const params = new URLSearchParams(location.search);
         const token = params.get("token");
+        const emailParam = params.get("email");
+
+        if (emailParam) {
+          setEmail(emailParam);
+        }
 
         if (!token) {
           setStatus("error");
@@ -23,10 +29,31 @@ const EmailVerificationPage = () => {
         }
 
         // Call the API to verify the email
-        const response = await api.get(`/api/auth/verify-email/${token}`);
+        try {
+          await api.get(`/api/auth/verify-email/${token}`);
+        } catch (error) {
+          console.error("Error verifying email with token:", error);
+          // Continue to check verification status even if token verification fails
+        }
 
-        setStatus("success");
-        setMessage(response.data.message || "Your email has been successfully verified. You can now log in.");
+        // If we have an email, check verification status
+        if (emailParam) {
+          try {
+            const verificationResponse = await api.get(`/api/auth/check-verification/${emailParam}`);
+
+            if (verificationResponse.data.isVerified) {
+              setStatus("success");
+              setMessage("Your email has been successfully verified. You can now log in.");
+              return;
+            }
+          } catch (error) {
+            console.error("Error checking verification status:", error);
+          }
+        }
+
+        // If we reach here, either we don't have an email or verification check failed
+        setStatus("error");
+        setMessage("Failed to verify your email. The token may be invalid or expired.");
       } catch (error) {
         setStatus("error");
         setMessage(error.response?.data?.error || "Failed to verify your email. The token may be invalid or expired.");
