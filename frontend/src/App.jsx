@@ -74,9 +74,9 @@ function App() {
       <Route
         path="/freelancer"
         element={
-          // <ProtectedRoute allowedRoles={["freelancer"]}>
+          <ProtectedRoute allowedRoles={["freelancer"]}>
             <DashboardLayout role="freelancer" />
-          // </ProtectedRoute>
+         </ProtectedRoute>
         }
       >
         <Route index element={<FreelancerDashboard />} />
@@ -92,9 +92,9 @@ function App() {
       <Route
         path="/client"
         element={
-          // <ProtectedRoute allowedRoles={["client"]}>
+          <ProtectedRoute allowedRoles={["client"]}>
             <DashboardLayout role="client" />
-          // </ProtectedRoute>
+          </ProtectedRoute>
         }
       >
         <Route index element={<ClientDashboard />} />
@@ -111,9 +111,9 @@ function App() {
       <Route
         path="/admin"
         element={
-          // <ProtectedRoute allowedRoles={["admin"]}>
+           <ProtectedRoute allowedRoles={["admin"]}>
             <DashboardLayout role="admin" />
-          // </ProtectedRoute>
+           </ProtectedRoute>
         }
       >
         <Route index element={<AdminDashboard />} />

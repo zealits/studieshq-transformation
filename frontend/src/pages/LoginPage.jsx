@@ -32,7 +32,23 @@ const LoginPage = () => {
     const result = await dispatch(login(formData));
 
     if (!result.error) {
-      navigate("/dashboard");
+      // Get the user's role from the result
+      const userRole = result.payload.data.user.role;
+      
+      // Redirect based on role
+      switch (userRole) {
+        case 'freelancer':
+          navigate('/freelancer');
+          break;
+        case 'client':
+          navigate('/client');
+          break;
+        case 'admin':
+          navigate('/admin');
+          break;
+        default:
+          navigate('/dashboard');
+      }
     }
   };
 

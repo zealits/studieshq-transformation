@@ -139,6 +139,10 @@ const authSlice = createSlice({
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
         state.token = null;
+        state.isLoading = false;
+        state.error = null;
+        state.needsVerification = false;
+        state.registrationSuccess = false;
       });
   },
 });
