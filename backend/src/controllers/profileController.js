@@ -34,6 +34,20 @@ exports.createOrUpdateProfile = async (req, res) => {
     return res.status(400).json({ success: false, errors: errors.array() });
   }
 
+  // Log the incoming profile data
+  console.log("Received Profile Data:", {
+    fullName: req.body.fullName,
+    email: req.body.email,
+    phone: req.body.phone,
+    location: req.body.location,
+    bio: req.body.bio,
+    hourlyRate: req.body.hourlyRate,
+    skills: req.body.skills,
+    education: req.body.education,
+    experience: req.body.experience,
+    socialLinks: req.body.socialLinks,
+  });
+
   const {
     bio,
     location,

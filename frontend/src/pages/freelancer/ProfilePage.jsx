@@ -1,36 +1,58 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchMyProfile } from "../../redux/slices/profileSlice";
 
 const ProfilePage = () => {
+  const dispatch = useDispatch();
+  const { freelancerProfile, isLoading, error } = useSelector((state) => state.profile);
+  const  user  = useSelector((state) => state.auth);
+
+  console.log(user);
   // State for form data
   const [formData, setFormData] = useState({
-    fullName: "Alex Johnson",
-    email: "alex.johnson@example.com",
-    phone: "+1 (555) 123-4567",
-    location: "New York, USA",
-    bio: "Experienced web developer with 5+ years of expertise in React, Node.js, and MongoDB.",
-    hourlyRate: 50,
-    skills: ["React", "JavaScript", "Node.js", "MongoDB", "CSS", "HTML"],
-    education: [{ degree: "B.S. Computer Science", school: "NYU", year: "2018" }],
-    experience: [
-      {
-        position: "Senior Frontend Developer",
-        company: "Tech Innovations",
-        period: "2019 - Present",
-        description: "Developed and maintained multiple React applications.",
-      },
-      {
-        position: "Web Developer",
-        company: "Digital Solutions",
-        period: "2017 - 2019",
-        description: "Worked on various client projects using JavaScript and PHP.",
-      },
-    ],
+    fullName: "",
+    email: "",
+    phone: "",
+    location: "",
+    bio: "",
+    hourlyRate: 0,
+    skills: [],
+    education: [],
+    experience: [],
     socialLinks: {
-      linkedin: "https://linkedin.com/in/alexjohnson",
-      github: "https://github.com/alexjohnson",
-      portfolio: "https://alexjohnson.dev",
+      linkedin: "",
+      github: "",
+      portfolio: "",
     },
   });
+
+  // Fetch profile data when component mounts
+  useEffect(() => {
+    dispatch(fetchMyProfile());
+  }, [dispatch]);
+
+  // Update form data when profile is fetched
+  useEffect(() => {
+    if (freelancerProfile) {
+      console.log("Fetched Profile Data:", freelancerProfile);
+      setFormData({
+        fullName: freelancerProfile.user?.name || "",
+        email: freelancerProfile.user?.email || "",
+        phone: freelancerProfile.phone || "",
+        location: freelancerProfile.location || "",
+        bio: freelancerProfile.bio || "",
+        hourlyRate: freelancerProfile.hourlyRate || 0,
+        skills: freelancerProfile.skills || [],
+        education: freelancerProfile.education || [],
+        experience: freelancerProfile.experience || [],
+        socialLinks: {
+          linkedin: freelancerProfile.social?.linkedin || "",
+          github: freelancerProfile.social?.github || "",
+          portfolio: freelancerProfile.website || "",
+        },
+      });
+    }
+  }, [freelancerProfile]);
 
   // State for active tab
   const [activeTab, setActiveTab] = useState("basic");
@@ -47,6 +69,19 @@ const ProfilePage = () => {
   // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
+    // Log all form data
+    console.log("Profile Data:", {
+      fullName: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
+      location: formData.location,
+      bio: formData.bio,
+      hourlyRate: formData.hourlyRate,
+      skills: formData.skills,
+      education: formData.education,
+      experience: formData.experience,
+      socialLinks: formData.socialLinks,
+    });
     // API call to update profile would go here
     alert("Profile updated successfully!");
   };
