@@ -1,26 +1,59 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchMyProfile } from "../../redux/slices/profileSlice";
 
 const ProfilePage = () => {
+  const dispatch = useDispatch();
+  const { clientProfile, isLoading, error } = useSelector((state) => state.profile);
+
   // State for form data
   const [formData, setFormData] = useState({
-    fullName: "John Smith",
-    email: "john.smith@example.com",
-    phone: "+1 (555) 987-6543",
-    location: "San Francisco, USA",
-    companyName: "TechSolutions Inc.",
-    companyWebsite: "https://techsolutions-inc.com",
-    industry: "Technology",
-    companySize: "50-100",
-    bio: "We're a technology company focused on developing innovative solutions for small to medium-sized businesses.",
+    fullName: "",
+    email: "",
+    phone: "",
+    location: "",
+    companyName: "",
+    companyWebsite: "",
+    industry: "",
+    companySize: "",
+    bio: "",
     socialLinks: {
-      linkedin: "https://linkedin.com/in/johnsmith",
-      twitter: "https://twitter.com/techsolutions",
-      facebook: "https://facebook.com/techsolutions",
+      linkedin: "",
+      twitter: "",
+      facebook: "",
     },
   });
 
   // State for active tab
   const [activeTab, setActiveTab] = useState("basic");
+
+  // Fetch profile data when component mounts
+  useEffect(() => {
+    dispatch(fetchMyProfile());
+  }, [dispatch]);
+
+  // Update form data when profile is fetched
+  useEffect(() => {
+    if (clientProfile) {
+      console.log("Fetched Profile Data:", clientProfile);
+      setFormData({
+        fullName: clientProfile.user?.name || "",
+        email: clientProfile.user?.email || "",
+        phone: clientProfile.phone || "",
+        location: clientProfile.location || "",
+        companyName: clientProfile.company || "",
+        companyWebsite: clientProfile.companyWebsite || "",
+        industry: clientProfile.industry || "",
+        companySize: clientProfile.companySize || "",
+        bio: clientProfile.bio || "",
+        socialLinks: {
+          linkedin: clientProfile.social?.linkedin || "",
+          twitter: clientProfile.social?.twitter || "",
+          facebook: clientProfile.social?.facebook || "",
+        },
+      });
+    }
+  }, [clientProfile]);
 
   // Handle input changes
   const handleChange = (e) => {
