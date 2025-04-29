@@ -103,14 +103,14 @@ const TestimonialsSection = () => {
                   <div className="bg-white rounded-xl shadow-lg p-8 md:p-10 flex flex-col md:flex-row gap-8 items-center">
                     <div className="md:w-1/3 flex flex-col items-center text-center">
                       <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-4 border-primary/20">
-                        <img
+                        {/* <img
                           src={testimonial.image || "https://via.placeholder.com/96"}
                           alt={testimonial.name}
                           className="w-full h-full object-cover"
                           onError={(e) => {
                             e.target.src = "https://via.placeholder.com/96";
                           }}
-                        />
+                        /> */}
                       </div>
                       <h4 className="font-bold text-lg">{testimonial.name}</h4>
                       <p className="text-sm text-gray-600">{testimonial.role}</p>
