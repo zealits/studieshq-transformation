@@ -6,7 +6,7 @@ const User = require("../models/User");
 /**
  * @desc    Get current user's profile
  * @route   GET /api/profile/me
- * @access  Private
+ * @access  Privates
  */
 exports.getCurrentProfile = async (req, res) => {
   try {

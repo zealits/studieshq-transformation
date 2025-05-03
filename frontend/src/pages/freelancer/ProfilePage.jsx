@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchMyProfile } from "../../redux/slices/profileSlice";
+import { fetchMyProfile, updateProfile } from "../../redux/slices/profileSlice";
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
-  const { freelancerProfile, isLoading, error } = useSelector((state) => state.profile);
-  const  user  = useSelector((state) => state.auth);
+  const { data, isLoading, error } = useSelector((state) => state.profile);
+  const user = useSelector((state) => state.auth);
 
   console.log(user);
   // State for form data
@@ -33,26 +33,29 @@ const ProfilePage = () => {
 
   // Update form data when profile is fetched
   useEffect(() => {
-    if (freelancerProfile) {
-      console.log("Fetched Profile Data:", freelancerProfile);
+    if (data && data.success) {
+      // Get the profile from the nested data structure
+      const profile = data.data.profile || {};
+      console.log("Setting freelancer profile data:", profile);
+
       setFormData({
-        fullName: freelancerProfile.user?.name || "",
-        email: freelancerProfile.user?.email || "",
-        phone: freelancerProfile.phone || "",
-        location: freelancerProfile.location || "",
-        bio: freelancerProfile.bio || "",
-        hourlyRate: freelancerProfile.hourlyRate || 0,
-        skills: freelancerProfile.skills || [],
-        education: freelancerProfile.education || [],
-        experience: freelancerProfile.experience || [],
+        fullName: profile.user?.name || "",
+        email: profile.user?.email || "",
+        phone: profile.phone || "",
+        location: profile.location || "",
+        bio: profile.bio || "",
+        hourlyRate: profile.hourlyRate || 0,
+        skills: profile.skills || [],
+        education: profile.education || [],
+        experience: profile.experience || [],
         socialLinks: {
-          linkedin: freelancerProfile.social?.linkedin || "",
-          github: freelancerProfile.social?.github || "",
-          portfolio: freelancerProfile.website || "",
+          linkedin: profile.social?.linkedin || "",
+          github: profile.social?.github || "",
+          portfolio: profile.website || "",
         },
       });
     }
-  }, [freelancerProfile]);
+  }, [data]);
 
   // State for active tab
   const [activeTab, setActiveTab] = useState("basic");
@@ -69,21 +72,28 @@ const ProfilePage = () => {
   // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Log all form data
-    console.log("Profile Data:", {
-      fullName: formData.fullName,
-      email: formData.email,
-      phone: formData.phone,
-      location: formData.location,
+    console.log("Submitting freelancer profile update:", {
       bio: formData.bio,
+      location: formData.location,
       hourlyRate: formData.hourlyRate,
       skills: formData.skills,
       education: formData.education,
       experience: formData.experience,
-      socialLinks: formData.socialLinks,
+      social: formData.socialLinks,
     });
-    // API call to update profile would go here
-    alert("Profile updated successfully!");
+
+    // Send update request
+    dispatch(
+      updateProfile({
+        bio: formData.bio,
+        location: formData.location,
+        hourlyRate: formData.hourlyRate,
+        skills: formData.skills,
+        education: formData.education,
+        experience: formData.experience,
+        social: formData.socialLinks,
+      })
+    );
   };
 
   // Add/remove skill

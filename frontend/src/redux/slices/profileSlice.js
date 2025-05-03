@@ -1,9 +1,9 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import api from "../../api/axios.js";
 
 const initialState = {
-  freelancerProfile: null,
-  clientProfile: null,
+  data: null,
   publicProfile: null,
   portfolioItems: [],
   reviews: [],
@@ -12,53 +12,33 @@ const initialState = {
 };
 
 // Async thunks
-export const fetchMyProfile = createAsyncThunk("profile/fetchMyProfile", async (_, { rejectWithValue, getState }) => {
+export const fetchMyProfile = createAsyncThunk("profile/fetchMyProfile", async (_, { rejectWithValue }) => {
   try {
-    const { auth } = getState();
-    const role = auth.user?.role;
-
-    if (!role) {
-      return rejectWithValue("User role not found");
-    }
-
-    const endpoint = role === "freelancer" ? "/api/freelancers/me" : "/api/clients/me";
-    const response = await axios.get(endpoint);
-    return { role, data: response.data };
+    const response = await api.get("/api/profile/me");
+    console.log("response.data", response.data);
+    return response.data;
   } catch (error) {
     return rejectWithValue(error.response?.data?.message || "Failed to fetch profile");
   }
 });
 
-export const updateFreelancerProfile = createAsyncThunk(
-  "profile/updateFreelancerProfile",
-  async (profileData, { rejectWithValue }) => {
-    try {
-      const response = await axios.put("/api/freelancers/me", profileData);
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Failed to update profile");
-    }
+export const updateProfile = createAsyncThunk("profile/updateProfile", async (profileData, { rejectWithValue }) => {
+  try {
+    const response = await api.put("/api/profile", profileData);
+    return response.data;
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || "Failed to update profile");
   }
-);
+});
 
-export const updateClientProfile = createAsyncThunk(
-  "profile/updateClientProfile",
-  async (profileData, { rejectWithValue }) => {
-    try {
-      const response = await axios.put("/api/clients/me", profileData);
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Failed to update profile");
-    }
-  }
-);
+// Keep this for backward compatibility with existing components
+export const updateFreelancerProfile = updateProfile;
 
 export const fetchPublicProfile = createAsyncThunk(
   "profile/fetchPublicProfile",
-  async ({ userId, role }, { rejectWithValue }) => {
+  async (userId, { rejectWithValue }) => {
     try {
-      const endpoint = role === "freelancer" ? `/api/freelancers/${userId}` : `/api/clients/${userId}`;
-      const response = await axios.get(endpoint);
+      const response = await api.get(`/api/profile/user/${userId}`);
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || "Failed to fetch public profile");
@@ -82,7 +62,7 @@ export const addPortfolioItem = createAsyncThunk(
         }
       });
 
-      const response = await axios.post("/api/freelancers/portfolio", formData, {
+      const response = await api.post("/api/profile/portfolio", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -97,18 +77,16 @@ export const addPortfolioItem = createAsyncThunk(
 
 export const fetchPortfolio = createAsyncThunk("profile/fetchPortfolio", async (userId, { rejectWithValue }) => {
   try {
-    const response = await axios.get(`/api/freelancers/${userId}/portfolio`);
+    const response = await api.get(`/api/profile/${userId}/portfolio`);
     return response.data;
   } catch (error) {
     return rejectWithValue(error.response?.data?.message || "Failed to fetch portfolio");
   }
 });
 
-export const fetchReviews = createAsyncThunk("profile/fetchReviews", async ({ userId, role }, { rejectWithValue }) => {
+export const fetchReviews = createAsyncThunk("profile/fetchReviews", async (userId, { rejectWithValue }) => {
   try {
-    const endpoint = role === "freelancer" ? `/api/freelancers/${userId}/reviews` : `/api/clients/${userId}/reviews`;
-
-    const response = await axios.get(endpoint);
+    const response = await api.get(`/api/profile/${userId}/reviews`);
     return response.data;
   } catch (error) {
     return rejectWithValue(error.response?.data?.message || "Failed to fetch reviews");
@@ -117,12 +95,9 @@ export const fetchReviews = createAsyncThunk("profile/fetchReviews", async ({ us
 
 export const submitReview = createAsyncThunk(
   "profile/submitReview",
-  async ({ targetId, targetRole, reviewData }, { rejectWithValue }) => {
+  async ({ targetId, reviewData }, { rejectWithValue }) => {
     try {
-      const endpoint =
-        targetRole === "freelancer" ? `/api/freelancers/${targetId}/reviews` : `/api/clients/${targetId}/reviews`;
-
-      const response = await axios.post(endpoint, reviewData);
+      const response = await api.post(`/api/profile/${targetId}/reviews`, reviewData);
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || "Failed to submit review");
@@ -150,39 +125,22 @@ const profileSlice = createSlice({
       })
       .addCase(fetchMyProfile.fulfilled, (state, action) => {
         state.isLoading = false;
-        if (action.payload.role === "freelancer") {
-          state.freelancerProfile = action.payload.data;
-        } else if (action.payload.role === "client") {
-          state.clientProfile = action.payload.data;
-        }
+        state.data = action.payload;
       })
       .addCase(fetchMyProfile.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
       })
-      // Update Freelancer Profile
-      .addCase(updateFreelancerProfile.pending, (state) => {
+      // Update Profile
+      .addCase(updateProfile.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(updateFreelancerProfile.fulfilled, (state, action) => {
+      .addCase(updateProfile.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.freelancerProfile = action.payload;
+        state.data = action.payload;
       })
-      .addCase(updateFreelancerProfile.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload;
-      })
-      // Update Client Profile
-      .addCase(updateClientProfile.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(updateClientProfile.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.clientProfile = action.payload;
-      })
-      .addCase(updateClientProfile.rejected, (state, action) => {
+      .addCase(updateProfile.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
       })

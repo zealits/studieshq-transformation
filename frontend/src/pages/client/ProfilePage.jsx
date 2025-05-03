@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchMyProfile } from "../../redux/slices/profileSlice";
+import { fetchMyProfile, updateProfile } from "../../redux/slices/profileSlice";
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
-  const { clientProfile, isLoading, error } = useSelector((state) => state.profile);
+  const { data, isLoading, error } = useSelector((state) => state.profile);
 
   // State for form data
   const [formData, setFormData] = useState({
@@ -34,26 +34,29 @@ const ProfilePage = () => {
 
   // Update form data when profile is fetched
   useEffect(() => {
-    if (clientProfile) {
-      console.log("Fetched Profile Data:", clientProfile);
+    if (data && data.success) {
+      // Get the profile from the nested data structure
+      const profile = data.data.profile || {};
+      console.log("Setting client profile data:", profile);
+
       setFormData({
-        fullName: clientProfile.user?.name || "",
-        email: clientProfile.user?.email || "",
-        phone: clientProfile.phone || "",
-        location: clientProfile.location || "",
-        companyName: clientProfile.company || "",
-        companyWebsite: clientProfile.companyWebsite || "",
-        industry: clientProfile.industry || "",
-        companySize: clientProfile.companySize || "",
-        bio: clientProfile.bio || "",
+        fullName: profile.user?.name || "",
+        email: profile.user?.email || "",
+        phone: profile.phone || "",
+        location: profile.location || "",
+        companyName: profile.company || "",
+        companyWebsite: profile.companyWebsite || "",
+        industry: profile.industry || "",
+        companySize: profile.companySize || "",
+        bio: profile.bio || "",
         socialLinks: {
-          linkedin: clientProfile.social?.linkedin || "",
-          twitter: clientProfile.social?.twitter || "",
-          facebook: clientProfile.social?.facebook || "",
+          linkedin: profile.social?.linkedin || "",
+          twitter: profile.social?.twitter || "",
+          facebook: profile.social?.facebook || "",
         },
       });
     }
-  }, [clientProfile]);
+  }, [data]);
 
   // Handle input changes
   const handleChange = (e) => {
@@ -79,8 +82,27 @@ const ProfilePage = () => {
   // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
-    // API call to update profile would go here
-    alert("Profile updated successfully!");
+    console.log("Submitting client profile update:", {
+      bio: formData.bio,
+      location: formData.location,
+      company: formData.companyName,
+      companyWebsite: formData.companyWebsite,
+      industry: formData.industry,
+      companySize: formData.companySize,
+      social: formData.socialLinks,
+    });
+
+    dispatch(
+      updateProfile({
+        bio: formData.bio,
+        location: formData.location,
+        company: formData.companyName,
+        companyWebsite: formData.companyWebsite,
+        industry: formData.industry,
+        companySize: formData.companySize,
+        social: formData.socialLinks,
+      })
+    );
   };
 
   return (
