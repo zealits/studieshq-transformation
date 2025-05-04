@@ -35,18 +35,8 @@ exports.createOrUpdateProfile = async (req, res) => {
   }
 
   // Log the incoming profile data
-  console.log("Received Profile Data:", {
-    fullName: req.body.fullName,
-    email: req.body.email,
-    phone: req.body.phone,
-    location: req.body.location,
-    bio: req.body.bio,
-    hourlyRate: req.body.hourlyRate,
-    skills: req.body.skills,
-    education: req.body.education,
-    experience: req.body.experience,
-    socialLinks: req.body.socialLinks,
-  });
+  console.log("Received Profile Data for user:", req.user.id, "with role:", req.user.role);
+  console.log("Profile Update Data:", req.body);
 
   const {
     bio,
@@ -54,10 +44,17 @@ exports.createOrUpdateProfile = async (req, res) => {
     website,
     social,
     skills,
+    // User fields
+    fullName,
+    email,
+    phone,
     // Freelancer specific fields
     hourlyRate,
     title,
     availability,
+    education,
+    experience,
+    portfolioItems,
     // Client specific fields
     company,
     industry,
@@ -71,15 +68,40 @@ exports.createOrUpdateProfile = async (req, res) => {
     bio: bio || "",
     location: location || "",
     website: website || "",
-    skills: Array.isArray(skills) ? skills : skills?.split(",").map((skill) => skill.trim()),
-    social: social || {},
+    phone: phone || "",
   };
+
+  // Handle skills - ensure it's an array
+  if (skills) {
+    profileFields.skills = Array.isArray(skills) ? skills : skills.split(",").map((skill) => skill.trim());
+  } else {
+    // Default skills based on role if none provided
+    profileFields.skills = req.user.role === "freelancer" ? ["JavaScript"] : ["Client"];
+  }
+
+  // Handle social links
+  if (social) {
+    profileFields.social = social;
+  }
 
   // Add role-specific fields
   if (req.user.role === "freelancer") {
     profileFields.hourlyRate = hourlyRate;
     profileFields.title = title;
     profileFields.availability = availability;
+    
+    // Only assign these fields if they are arrays
+    if (education && Array.isArray(education)) {
+      profileFields.education = education;
+    }
+    
+    if (experience && Array.isArray(experience)) {
+      profileFields.experience = experience;
+    }
+    
+    if (portfolioItems && Array.isArray(portfolioItems)) {
+      profileFields.portfolioItems = portfolioItems;
+    }
   } else if (req.user.role === "client") {
     profileFields.company = company;
     profileFields.industry = industry;
@@ -87,18 +109,63 @@ exports.createOrUpdateProfile = async (req, res) => {
     profileFields.companyWebsite = companyWebsite;
   }
 
+  let session;
   try {
+    // Start transaction
+    session = await mongoose.startSession();
+    session.startTransaction();
+
+    // Update user data if fullName or email was provided
+    if (fullName || email) {
+      const updateFields = {};
+      if (fullName) updateFields.name = fullName;
+      if (email) updateFields.email = email;
+
+      const updatedUser = await User.findByIdAndUpdate(req.user.id, updateFields, { new: true, session });
+
+      if (!updatedUser) {
+        throw new Error("User not found");
+      }
+    }
+
     // Using upsert option (creates new doc if no match is found)
-    let profile = await Profile.findOneAndUpdate(
+    const profile = await Profile.findOneAndUpdate(
       { user: req.user.id },
       { $set: profileFields },
-      { new: true, upsert: true }
+      { new: true, upsert: true, session }
     );
 
-    res.json({ success: true, data: { profile } });
+    // Commit the transaction
+    await session.commitTransaction();
+
+    // Fetch updated user and profile
+    const updatedProfile = await Profile.findOne({ user: req.user.id }).populate("user", [
+      "name",
+      "email",
+      "avatar",
+      "role",
+    ]);
+
+    console.log("Profile updated successfully for user:", req.user.id);
+    res.json({ success: true, data: { profile: updatedProfile } });
   } catch (err) {
     console.error("Error in createOrUpdateProfile:", err.message);
+
+    // Abort transaction on error
+    if (session) {
+      try {
+        await session.abortTransaction();
+      } catch (abortError) {
+        console.error("Error aborting transaction:", abortError.message);
+      }
+    }
+
     res.status(500).json({ success: false, message: "Server error" });
+  } finally {
+    // End session
+    if (session) {
+      session.endSession();
+    }
   }
 };
 

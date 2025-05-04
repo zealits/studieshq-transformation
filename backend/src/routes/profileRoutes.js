@@ -22,6 +22,15 @@ router.post(
   profileController.createOrUpdateProfile
 );
 
+// @route   PUT /api/profile
+// @desc    Update user profile
+// @access  Private
+router.put(
+  "/",
+  [auth, [check("skills", "Skills are required").not().isEmpty()]],
+  profileController.createOrUpdateProfile
+);
+
 // @route   GET /api/profile
 // @desc    Get all profiles
 // @access  Public

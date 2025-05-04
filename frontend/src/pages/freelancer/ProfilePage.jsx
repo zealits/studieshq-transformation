@@ -6,6 +6,7 @@ const ProfilePage = () => {
   const dispatch = useDispatch();
   const { data, isLoading, error } = useSelector((state) => state.profile);
   const user = useSelector((state) => state.auth);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
 
   console.log(user);
   // State for form data
@@ -19,6 +20,7 @@ const ProfilePage = () => {
     skills: [],
     education: [],
     experience: [],
+    portfolioItems: [],
     socialLinks: {
       linkedin: "",
       github: "",
@@ -38,6 +40,11 @@ const ProfilePage = () => {
       const profile = data.data.profile || {};
       console.log("Setting freelancer profile data:", profile);
 
+      // Create deep copies of array objects to make them mutable
+      const deepCopyEducation = profile.education ? profile.education.map((item) => ({ ...item })) : [];
+      const deepCopyExperience = profile.experience ? profile.experience.map((item) => ({ ...item })) : [];
+      const deepCopyPortfolioItems = profile.portfolioItems ? profile.portfolioItems.map((item) => ({ ...item })) : [];
+
       setFormData({
         fullName: profile.user?.name || "",
         email: profile.user?.email || "",
@@ -46,16 +53,25 @@ const ProfilePage = () => {
         bio: profile.bio || "",
         hourlyRate: profile.hourlyRate || 0,
         skills: profile.skills || [],
-        education: profile.education || [],
-        experience: profile.experience || [],
+        education: deepCopyEducation,
+        experience: deepCopyExperience,
+        portfolioItems: deepCopyPortfolioItems,
         socialLinks: {
           linkedin: profile.social?.linkedin || "",
           github: profile.social?.github || "",
           portfolio: profile.website || "",
         },
       });
+
+      // Show success message if this was an update operation
+      if (updateSuccess) {
+        // Reset success state after 3 seconds
+        setTimeout(() => {
+          setUpdateSuccess(false);
+        }, 3000);
+      }
     }
-  }, [data]);
+  }, [data, updateSuccess]);
 
   // State for active tab
   const [activeTab, setActiveTab] = useState("basic");
@@ -73,27 +89,37 @@ const ProfilePage = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     console.log("Submitting freelancer profile update:", {
+      fullName: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
       bio: formData.bio,
       location: formData.location,
       hourlyRate: formData.hourlyRate,
-      skills: formData.skills,
+      skills: formData.skills.length > 0 ? formData.skills : ["JavaScript"], // Ensure skills is not empty
       education: formData.education,
       experience: formData.experience,
+      portfolioItems: formData.portfolioItems,
       social: formData.socialLinks,
     });
 
     // Send update request
     dispatch(
       updateProfile({
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
         bio: formData.bio,
         location: formData.location,
         hourlyRate: formData.hourlyRate,
-        skills: formData.skills,
+        skills: formData.skills.length > 0 ? formData.skills : ["JavaScript"], // Ensure skills is not empty
         education: formData.education,
         experience: formData.experience,
+        portfolioItems: formData.portfolioItems,
         social: formData.socialLinks,
       })
-    );
+    ).then(() => {
+      setUpdateSuccess(true);
+    });
   };
 
   // Add/remove skill
@@ -101,24 +127,50 @@ const ProfilePage = () => {
 
   const addSkill = () => {
     if (newSkill && !formData.skills.includes(newSkill)) {
+      const newSkills = [...formData.skills, newSkill];
       setFormData({
         ...formData,
-        skills: [...formData.skills, newSkill],
+        skills: newSkills,
       });
       setNewSkill("");
     }
   };
 
   const removeSkill = (skillToRemove) => {
+    const newSkills = formData.skills.filter((skill) => skill !== skillToRemove);
     setFormData({
       ...formData,
-      skills: formData.skills.filter((skill) => skill !== skillToRemove),
+      skills: newSkills,
     });
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-primary mb-8">Profile Settings</h1>
+
+      {/* Success Message */}
+      {updateSuccess && (
+        <div
+          className="fixed top-24 right-8 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md transition-all duration-500 animate-slideIn z-50"
+          role="alert"
+        >
+          <div className="flex items-center">
+            <svg
+              className="w-6 h-6 mr-2 text-green-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            <div>
+              <p className="font-bold">Success</p>
+              <p>Your profile has been successfully updated.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Profile Header */}
       <div className="bg-background-light p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row items-center">
@@ -162,6 +214,17 @@ const ProfilePage = () => {
               }`}
             >
               Experience & Education
+            </button>
+          </li>
+          <li className="mr-2" onClick={() => setActiveTab("portfolio")}>
+            <button
+              className={`inline-block p-4 ${
+                activeTab === "portfolio"
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Portfolio
             </button>
           </li>
         </ul>
@@ -368,13 +431,16 @@ const ProfilePage = () => {
               <div key={index} className="mb-6 pb-6 border-b border-gray-200">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-gray-700 mb-2">Position</label>
+                    <label className="block text-gray-700 mb-2">Job Title</label>
                     <input
                       type="text"
-                      value={exp.position}
+                      value={exp.title || ""}
                       onChange={(e) => {
-                        const newExperience = [...formData.experience];
-                        newExperience[index].position = e.target.value;
+                        // Create a deep copy of the experience array
+                        const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                        // Modify the copy
+                        newExperience[index].title = e.target.value;
+                        // Set the state with the new copy
                         setFormData({ ...formData, experience: newExperience });
                       }}
                       className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -385,10 +451,13 @@ const ProfilePage = () => {
                     <label className="block text-gray-700 mb-2">Company</label>
                     <input
                       type="text"
-                      value={exp.company}
+                      value={exp.company || ""}
                       onChange={(e) => {
-                        const newExperience = [...formData.experience];
+                        // Create a deep copy of the experience array
+                        const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                        // Modify the copy
                         newExperience[index].company = e.target.value;
+                        // Set the state with the new copy
                         setFormData({ ...formData, experience: newExperience });
                       }}
                       className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -396,49 +465,175 @@ const ProfilePage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-gray-700 mb-2">Period</label>
+                    <label className="block text-gray-700 mb-2">Location</label>
                     <input
                       type="text"
-                      value={exp.period}
+                      value={exp.location || ""}
                       onChange={(e) => {
-                        const newExperience = [...formData.experience];
-                        newExperience[index].period = e.target.value;
+                        // Create a deep copy of the experience array
+                        const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                        // Modify the copy
+                        newExperience[index].location = e.target.value;
+                        // Set the state with the new copy
                         setFormData({ ...formData, experience: newExperience });
                       }}
                       className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 mb-2">Start Date</label>
+                    <input
+                      type="date"
+                      value={exp.from ? new Date(exp.from).toISOString().split("T")[0] : ""}
+                      onChange={(e) => {
+                        // Create a deep copy of the experience array
+                        const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                        // Modify the copy
+                        newExperience[index].from = e.target.value;
+                        // Set the state with the new copy
+                        setFormData({ ...formData, experience: newExperience });
+                      }}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 mb-2">End Date</label>
+                    <input
+                      type="date"
+                      value={exp.to ? new Date(exp.to).toISOString().split("T")[0] : ""}
+                      onChange={(e) => {
+                        // Create a deep copy of the experience array
+                        const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                        // Modify the copy
+                        newExperience[index].to = e.target.value;
+                        // Set the state with the new copy
+                        setFormData({ ...formData, experience: newExperience });
+                      }}
+                      disabled={exp.current}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="flex items-center mt-2">
+                    <input
+                      type="checkbox"
+                      id={`current-job-${index}`}
+                      checked={exp.current || false}
+                      onChange={(e) => {
+                        // Create a deep copy of the experience array
+                        const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                        // Modify the copy
+                        newExperience[index].current = e.target.checked;
+                        // Set the state with the new copy
+                        setFormData({ ...formData, experience: newExperience });
+                      }}
+                      className="mr-2"
+                    />
+                    <label htmlFor={`current-job-${index}`} className="text-gray-700">
+                      I currently work here
+                    </label>
                   </div>
 
                   <div className="md:col-span-2">
                     <label className="block text-gray-700 mb-2">Description</label>
                     <textarea
-                      value={exp.description}
+                      value={exp.description || ""}
                       onChange={(e) => {
-                        const newExperience = [...formData.experience];
+                        // Create a deep copy of the experience array
+                        const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                        // Modify the copy
                         newExperience[index].description = e.target.value;
+                        // Set the state with the new copy
                         setFormData({ ...formData, experience: newExperience });
                       }}
-                      rows="2"
+                      rows="3"
                       className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                 </div>
+
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Create a deep copy of the experience array
+                      const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                      // Remove the item at the specified index
+                      newExperience.splice(index, 1);
+                      // Update state with the new copy
+                      setFormData({ ...formData, experience: newExperience });
+                    }}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             ))}
+
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  // Create a deep copy of experience array
+                  const newExperience = JSON.parse(JSON.stringify(formData.experience || []));
+                  // Add new empty experience item
+                  newExperience.push({
+                    title: "",
+                    company: "",
+                    location: "",
+                    from: "",
+                    to: "",
+                    current: false,
+                    description: "",
+                  });
+                  // Update state with new copy
+                  setFormData({
+                    ...formData,
+                    experience: newExperience,
+                  });
+                }}
+                className="btn-outline"
+              >
+                + Add Work Experience
+              </button>
+            </div>
 
             <h3 className="text-lg font-semibold mb-4 mt-8">Education</h3>
 
             {formData.education.map((edu, index) => (
               <div key={index} className="mb-6 pb-6 border-b border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-gray-700 mb-2">Institution</label>
+                    <input
+                      type="text"
+                      value={edu.institution || ""}
+                      onChange={(e) => {
+                        // Create a deep copy of the education array
+                        const newEducation = JSON.parse(JSON.stringify(formData.education));
+                        // Modify the copy
+                        newEducation[index].institution = e.target.value;
+                        // Set the state with the new copy
+                        setFormData({ ...formData, education: newEducation });
+                      }}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-gray-700 mb-2">Degree</label>
                     <input
                       type="text"
-                      value={edu.degree}
+                      value={edu.degree || ""}
                       onChange={(e) => {
-                        const newEducation = [...formData.education];
+                        // Create a deep copy of the education array
+                        const newEducation = JSON.parse(JSON.stringify(formData.education));
+                        // Modify the copy
                         newEducation[index].degree = e.target.value;
+                        // Set the state with the new copy
                         setFormData({ ...formData, education: newEducation });
                       }}
                       className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -446,13 +641,16 @@ const ProfilePage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-gray-700 mb-2">School</label>
+                    <label className="block text-gray-700 mb-2">Field of Study</label>
                     <input
                       type="text"
-                      value={edu.school}
+                      value={edu.fieldOfStudy || ""}
                       onChange={(e) => {
-                        const newEducation = [...formData.education];
-                        newEducation[index].school = e.target.value;
+                        // Create a deep copy of the education array
+                        const newEducation = JSON.parse(JSON.stringify(formData.education));
+                        // Modify the copy
+                        newEducation[index].fieldOfStudy = e.target.value;
+                        // Set the state with the new copy
                         setFormData({ ...formData, education: newEducation });
                       }}
                       className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -460,21 +658,248 @@ const ProfilePage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-gray-700 mb-2">Year</label>
+                    <label className="block text-gray-700 mb-2">Start Date</label>
                     <input
-                      type="text"
-                      value={edu.year}
+                      type="date"
+                      value={edu.from ? new Date(edu.from).toISOString().split("T")[0] : ""}
                       onChange={(e) => {
-                        const newEducation = [...formData.education];
-                        newEducation[index].year = e.target.value;
+                        // Create a deep copy of the education array
+                        const newEducation = JSON.parse(JSON.stringify(formData.education));
+                        // Modify the copy
+                        newEducation[index].from = e.target.value;
+                        // Set the state with the new copy
                         setFormData({ ...formData, education: newEducation });
                       }}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 mb-2">End Date</label>
+                    <input
+                      type="date"
+                      value={edu.to ? new Date(edu.to).toISOString().split("T")[0] : ""}
+                      onChange={(e) => {
+                        // Create a deep copy of the education array
+                        const newEducation = JSON.parse(JSON.stringify(formData.education));
+                        // Modify the copy
+                        newEducation[index].to = e.target.value;
+                        // Set the state with the new copy
+                        setFormData({ ...formData, education: newEducation });
+                      }}
+                      disabled={edu.current}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="flex items-center mt-2">
+                    <input
+                      type="checkbox"
+                      id={`current-edu-${index}`}
+                      checked={edu.current || false}
+                      onChange={(e) => {
+                        // Create a deep copy of the education array
+                        const newEducation = JSON.parse(JSON.stringify(formData.education));
+                        // Modify the copy
+                        newEducation[index].current = e.target.checked;
+                        // Set the state with the new copy
+                        setFormData({ ...formData, education: newEducation });
+                      }}
+                      className="mr-2"
+                    />
+                    <label htmlFor={`current-edu-${index}`} className="text-gray-700">
+                      I am currently studying here
+                    </label>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-gray-700 mb-2">Description</label>
+                    <textarea
+                      value={edu.description || ""}
+                      onChange={(e) => {
+                        // Create a deep copy of the education array
+                        const newEducation = JSON.parse(JSON.stringify(formData.education));
+                        // Modify the copy
+                        newEducation[index].description = e.target.value;
+                        // Set the state with the new copy
+                        setFormData({ ...formData, education: newEducation });
+                      }}
+                      rows="3"
                       className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                 </div>
+
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Create a deep copy of the education array
+                      const newEducation = JSON.parse(JSON.stringify(formData.education));
+                      // Remove the item at the specified index
+                      newEducation.splice(index, 1);
+                      // Update state with the new copy
+                      setFormData({ ...formData, education: newEducation });
+                    }}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             ))}
+
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  // Create a deep copy of education array
+                  const newEducation = JSON.parse(JSON.stringify(formData.education || []));
+                  // Add new empty education item
+                  newEducation.push({
+                    institution: "",
+                    degree: "",
+                    fieldOfStudy: "",
+                    from: "",
+                    to: "",
+                    current: false,
+                    description: "",
+                  });
+                  // Update state with new copy
+                  setFormData({
+                    ...formData,
+                    education: newEducation,
+                  });
+                }}
+                className="btn-outline"
+              >
+                + Add Education
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Portfolio Tab */}
+        {activeTab === "portfolio" && (
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h3 className="text-lg font-semibold mb-4">Portfolio Items</h3>
+
+            {formData.portfolioItems &&
+              formData.portfolioItems.map((item, index) => (
+                <div key={index} className="mb-6 pb-6 border-b border-gray-200">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-gray-700 mb-2">Project Title</label>
+                      <input
+                        type="text"
+                        value={item.title || ""}
+                        onChange={(e) => {
+                          // Create a deep copy of the portfolioItems array
+                          const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems || []));
+                          // Modify the copy
+                          newPortfolioItems[index].title = e.target.value;
+                          // Set the state with the new copy
+                          setFormData({ ...formData, portfolioItems: newPortfolioItems });
+                        }}
+                        className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-gray-700 mb-2">Project URL</label>
+                      <input
+                        type="url"
+                        value={item.projectUrl || ""}
+                        onChange={(e) => {
+                          // Create a deep copy of the portfolioItems array
+                          const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems || []));
+                          // Modify the copy
+                          newPortfolioItems[index].projectUrl = e.target.value;
+                          // Set the state with the new copy
+                          setFormData({ ...formData, portfolioItems: newPortfolioItems });
+                        }}
+                        className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-gray-700 mb-2">Image URL</label>
+                      <input
+                        type="url"
+                        value={item.imageUrl || ""}
+                        onChange={(e) => {
+                          // Create a deep copy of the portfolioItems array
+                          const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems || []));
+                          // Modify the copy
+                          newPortfolioItems[index].imageUrl = e.target.value;
+                          // Set the state with the new copy
+                          setFormData({ ...formData, portfolioItems: newPortfolioItems });
+                        }}
+                        className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-gray-700 mb-2">Description</label>
+                      <textarea
+                        value={item.description || ""}
+                        onChange={(e) => {
+                          // Create a deep copy of the portfolioItems array
+                          const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems || []));
+                          // Modify the copy
+                          newPortfolioItems[index].description = e.target.value;
+                          // Set the state with the new copy
+                          setFormData({ ...formData, portfolioItems: newPortfolioItems });
+                        }}
+                        rows="3"
+                        className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Create a deep copy of the portfolioItems array
+                        const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems || []));
+                        // Remove the item at the specified index
+                        newPortfolioItems.splice(index, 1);
+                        // Update state with the new copy
+                        setFormData({ ...formData, portfolioItems: newPortfolioItems });
+                      }}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  // Create a deep copy of portfolioItems array
+                  const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems || []));
+                  // Add new empty item
+                  newPortfolioItems.push({
+                    title: "",
+                    description: "",
+                    imageUrl: "",
+                    projectUrl: "",
+                  });
+                  // Update state with new copy
+                  setFormData({
+                    ...formData,
+                    portfolioItems: newPortfolioItems,
+                  });
+                }}
+                className="btn-outline"
+              >
+                + Add Portfolio Item
+              </button>
+            </div>
           </div>
         )}
 

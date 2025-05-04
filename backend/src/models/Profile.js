@@ -70,6 +70,9 @@ const ProfileSchema = new Schema({
   bio: {
     type: String,
   },
+  phone: {
+    type: String,
+  },
   location: {
     type: String,
   },

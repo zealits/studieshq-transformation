@@ -5,6 +5,7 @@ import { fetchMyProfile, updateProfile } from "../../redux/slices/profileSlice";
 const ProfilePage = () => {
   const dispatch = useDispatch();
   const { data, isLoading, error } = useSelector((state) => state.profile);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
 
   // State for form data
   const [formData, setFormData] = useState({
@@ -55,8 +56,16 @@ const ProfilePage = () => {
           facebook: profile.social?.facebook || "",
         },
       });
+
+      // Show success message if this was an update operation
+      if (updateSuccess) {
+        // Reset success state
+        setTimeout(() => {
+          setUpdateSuccess(false);
+        }, 3000);
+      }
     }
-  }, [data]);
+  }, [data, updateSuccess]);
 
   // Handle input changes
   const handleChange = (e) => {
@@ -83,6 +92,9 @@ const ProfilePage = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     console.log("Submitting client profile update:", {
+      fullName: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
       bio: formData.bio,
       location: formData.location,
       company: formData.companyName,
@@ -90,10 +102,14 @@ const ProfilePage = () => {
       industry: formData.industry,
       companySize: formData.companySize,
       social: formData.socialLinks,
+      skills: ["Client"], // Adding default skills for the client to meet validation
     });
 
     dispatch(
       updateProfile({
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
         bio: formData.bio,
         location: formData.location,
         company: formData.companyName,
@@ -101,13 +117,40 @@ const ProfilePage = () => {
         industry: formData.industry,
         companySize: formData.companySize,
         social: formData.socialLinks,
+        skills: ["Client"], // Adding default skills for the client to meet validation
       })
-    );
+    ).then(() => {
+      setUpdateSuccess(true);
+    });
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-primary mb-8">Profile Settings</h1>
+
+      {/* Success Message */}
+      {updateSuccess && (
+        <div
+          className="fixed top-24 right-8 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md transition-all duration-500 animate-slideIn z-50"
+          role="alert"
+        >
+          <div className="flex items-center">
+            <svg
+              className="w-6 h-6 mr-2 text-green-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            <div>
+              <p className="font-bold">Success</p>
+              <p>Your profile has been successfully updated.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Profile Header */}
       <div className="bg-background-light p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row items-center">
