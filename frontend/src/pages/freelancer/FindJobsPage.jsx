@@ -1,4 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchJobs, filterJobs } from "../../redux/slices/jobsSlice";
+import Spinner from "../../components/common/Spinner";
+import { formatDistanceToNow } from "date-fns";
 
 const FindJobsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -9,79 +13,29 @@ const FindJobsPage = () => {
     experience: "",
   });
 
-  const jobs = [
-    {
-      id: 1,
-      title: "Full Stack Developer for SaaS Platform",
-      description:
-        "Looking for a full stack developer to help build a modern SaaS platform with React, Node.js, and MongoDB.",
-      budget: "$3,000 - $5,000",
-      type: "Fixed Price",
-      category: "Web Development",
-      skills: ["React", "Node.js", "MongoDB", "Express"],
-      posted: "2 days ago",
-      proposals: 12,
-      client: {
-        name: "Tech Innovations Inc.",
-        rating: 4.8,
-        location: "United States",
-        hires: 25,
-      },
-    },
-    {
-      id: 2,
-      title: "UI/UX Designer for Mobile App",
-      description: "Need a talented UI/UX designer to create modern interfaces for a health and fitness mobile app.",
-      budget: "$40 - $60 / hr",
-      type: "Hourly",
-      category: "UI/UX Design",
-      skills: ["UI Design", "UX Design", "Figma", "Mobile Apps"],
-      posted: "5 days ago",
-      proposals: 18,
-      client: {
-        name: "HealthFit Labs",
-        rating: 4.5,
-        location: "Canada",
-        hires: 13,
-      },
-    },
-    {
-      id: 3,
-      title: "WordPress Website Development",
-      description:
-        "Looking for a WordPress developer to build a corporate website with custom features and e-commerce functionality.",
-      budget: "$1,500 - $3,000",
-      type: "Fixed Price",
-      category: "Web Development",
-      skills: ["WordPress", "PHP", "WooCommerce", "CSS"],
-      posted: "1 week ago",
-      proposals: 24,
-      client: {
-        name: "Global Business Solutions",
-        rating: 4.2,
-        location: "Australia",
-        hires: 8,
-      },
-    },
-    {
-      id: 4,
-      title: "Content Writer for Tech Blog",
-      description:
-        "Seeking an experienced content writer to create engaging blog posts about the latest technology trends and software development.",
-      budget: "$25 - $35 / hr",
-      type: "Hourly",
-      category: "Content Writing",
-      skills: ["Content Writing", "Tech Knowledge", "SEO", "Editing"],
-      posted: "3 days ago",
-      proposals: 30,
-      client: {
-        name: "Tech Insight Media",
-        rating: 4.9,
-        location: "United Kingdom",
-        hires: 42,
-      },
-    },
-  ];
+  const dispatch = useDispatch();
+  const { filteredJobs, isLoading } = useSelector((state) => state.jobs);
+
+  useEffect(() => {
+    dispatch(fetchJobs());
+  }, [dispatch]);
+
+  // Apply filters when searchTerm or filters change
+  useEffect(() => {
+    dispatch(filterJobs({ query: searchTerm, filters }));
+  }, [searchTerm, filters, dispatch]);
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters({
+      ...filters,
+      [name]: value,
+    });
+  };
+
+  const formatPostedDate = (date) => {
+    return formatDistanceToNow(new Date(date), { addSuffix: true });
+  };
 
   const categories = [
     "All Categories",
@@ -93,14 +47,6 @@ const FindJobsPage = () => {
     "Digital Marketing",
     "Data Analysis",
   ];
-
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters({
-      ...filters,
-      [name]: value,
-    });
-  };
 
   return (
     <div>
@@ -149,7 +95,7 @@ const FindJobsPage = () => {
               onChange={handleFilterChange}
             >
               {categories.map((category, index) => (
-                <option key={index} value={category}>
+                <option key={index} value={category === "All Categories" ? "" : category}>
                   {category}
                 </option>
               ))}
@@ -201,63 +147,150 @@ const FindJobsPage = () => {
       </div>
 
       {/* Jobs List */}
-      <div className="space-y-6">
-        {jobs.map((job) => (
-          <div key={job.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-xl font-semibold hover:text-primary">{job.title}</h2>
-                <div className="flex items-center text-sm text-gray-500 mt-1">
-                  <span>{job.budget}</span>
-                  <span className="mx-2">•</span>
-                  <span>{job.type}</span>
-                  <span className="mx-2">•</span>
-                  <span>Posted {job.posted}</span>
-                  <span className="mx-2">•</span>
-                  <span>{job.proposals} proposals</span>
-                </div>
-              </div>
-              <button className="btn-primary">Apply Now</button>
-            </div>
-
-            <p className="mt-4 text-gray-600">{job.description}</p>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {job.skills.map((skill, index) => (
-                <span key={index} className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                  {skill}
-                </span>
-              ))}
-            </div>
-
-            <div className="mt-4 pt-4 border-t flex items-center">
-              <div className="w-8 h-8 bg-primary-light rounded-full flex items-center justify-center text-white">
-                {job.client.name.charAt(0)}
-              </div>
-              <div className="ml-3">
-                <div className="font-medium">{job.client.name}</div>
-                <div className="flex items-center text-sm">
-                  <span className="text-gray-500">{job.client.location}</span>
-                  <span className="mx-2">•</span>
-                  <div className="flex items-center">
-                    <svg
-                      className="w-4 h-4 text-yellow-400"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <span className="ml-1">{job.client.rating}/5</span>
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <Spinner />
+        </div>
+      ) : filteredJobs.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-md p-6 text-center">
+          <svg
+            className="w-24 h-24 mx-auto text-gray-300 mb-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+            />
+          </svg>
+          <p className="text-xl font-medium text-gray-500 mb-2">No jobs found</p>
+          <p className="text-gray-500 mb-6">
+            {searchTerm || Object.values(filters).some((val) => val)
+              ? "Try adjusting your search filters to find more results"
+              : "There are currently no active jobs available. Check back later!"}
+          </p>
+          {(searchTerm || Object.values(filters).some((val) => val)) && (
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setFilters({
+                  category: "",
+                  budget: "",
+                  jobType: "",
+                  experience: "",
+                });
+              }}
+              className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              Clear All Filters
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {filteredJobs.map((job) => (
+            <div key={job._id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-xl font-semibold hover:text-primary">{job.title}</h2>
+                  <div className="flex items-center text-sm text-gray-500 mt-1">
+                    <span>
+                      {job.budget.type === "fixed"
+                        ? `$${job.budget.min} - $${job.budget.max}`
+                        : `$${job.budget.min} - $${job.budget.max}/hr`}
+                    </span>
+                    <span className="mx-2">•</span>
+                    <span>{job.budget.type === "fixed" ? "Fixed Price" : "Hourly"}</span>
+                    <span className="mx-2">•</span>
+                    <span>Posted {formatPostedDate(job.createdAt)}</span>
+                    <span className="mx-2">•</span>
+                    <span>{job.proposals ? job.proposals.length : 0} proposals</span>
                   </div>
-                  <span className="mx-2">•</span>
-                  <span>{job.client.hires} hires</span>
                 </div>
+                <button className="btn-primary">Apply Now</button>
               </div>
+
+              <p className="mt-4 text-gray-600">{job.description}</p>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {job.skills.map((skill, index) => (
+                  <span key={index} className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                    {skill}
+                  </span>
+                ))}
+              </div>
+
+              {job.client && (
+                <div className="mt-4 pt-4 border-t flex items-center">
+                  <div className="w-8 h-8 bg-primary-light rounded-full flex items-center justify-center text-white">
+                    {job.client.name ? job.client.name.charAt(0) : "C"}
+                  </div>
+                  <div className="ml-3">
+                    {job.companyDetails && job.companyDetails.name ? (
+                      <div>
+                        <div className="font-medium">{job.companyDetails.name}</div>
+                        <div className="flex items-center text-sm">
+                          <span className="text-gray-500">{job.companyDetails.location || job.location}</span>
+                          {job.companyDetails.website && (
+                            <>
+                              <span className="mx-2">•</span>
+                              <a
+                                href={
+                                  job.companyDetails.website.startsWith("http")
+                                    ? job.companyDetails.website
+                                    : `https://${job.companyDetails.website}`
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline"
+                              >
+                                Website
+                              </a>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="font-medium">{job.client.name || "Client"}</div>
+                    )}
+                    <div className="flex items-center text-sm">
+                      {!job.companyDetails?.name && (
+                        <span className="text-gray-500">{job.client.profile?.location || "Unknown Location"}</span>
+                      )}
+                      {job.client.profile?.rating && (
+                        <>
+                          <span className="mx-2">•</span>
+                          <div className="flex items-center">
+                            <svg
+                              className="w-4 h-4 text-yellow-400"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            <span className="ml-1">{job.client.profile.rating.toFixed(1)}</span>
+                          </div>
+                        </>
+                      )}
+                      {job.client.profile?.totalHires > 0 && (
+                        <>
+                          <span className="mx-2">•</span>
+                          <span className="text-gray-500">{job.client.profile.totalHires} hires</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

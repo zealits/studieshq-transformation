@@ -89,16 +89,16 @@ exports.createOrUpdateProfile = async (req, res) => {
     profileFields.hourlyRate = hourlyRate;
     profileFields.title = title;
     profileFields.availability = availability;
-    
+
     // Only assign these fields if they are arrays
     if (education && Array.isArray(education)) {
       profileFields.education = education;
     }
-    
+
     if (experience && Array.isArray(experience)) {
       profileFields.experience = experience;
     }
-    
+
     if (portfolioItems && Array.isArray(portfolioItems)) {
       profileFields.portfolioItems = portfolioItems;
     }

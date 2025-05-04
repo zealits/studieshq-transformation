@@ -1,54 +1,133 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { createJob, saveJobAsDraft, updateJob } from "../../redux/slices/jobsSlice";
+import { toast } from "react-hot-toast";
 
-const PostJobForm = ({ onClose }) => {
+const PostJobForm = ({ onClose, jobToEdit }) => {
+  const dispatch = useDispatch();
+  const { isLoading, error } = useSelector((state) => state.jobs);
+  const { profile } = useSelector((state) => state.profile);
+
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    budget: '',
-    type: 'Fixed Price', // Default to Fixed Price
-    duration: '',
-    location: '',
+    title: "",
+    description: "",
+    category: "",
     skills: [],
-    status: 'Draft'
+    budget: {
+      min: "",
+      max: "",
+      type: "fixed",
+    },
+    experience: "intermediate",
+    duration: "less_than_1_month",
+    location: "remote",
+    deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), // 30 days from now
   });
+
+  // Initialize form data if editing an existing job
+  useEffect(() => {
+    if (jobToEdit) {
+      // Convert skills array to comma-separated string for the form input
+      const formattedSkills = jobToEdit.skills || [];
+
+      // Handle budgetType vs type field difference
+      const budget = {
+        min: jobToEdit.budget.min,
+        max: jobToEdit.budget.max,
+        type: jobToEdit.budget.budgetType || jobToEdit.budget.type || "fixed",
+      };
+
+      setFormData({
+        title: jobToEdit.title || "",
+        description: jobToEdit.description || "",
+        category: jobToEdit.category || "",
+        skills: formattedSkills,
+        budget,
+        experience: jobToEdit.experience || "intermediate",
+        duration: jobToEdit.duration || "less_than_1_month",
+        location: jobToEdit.location || "remote",
+        deadline: jobToEdit.deadline ? new Date(jobToEdit.deadline).toISOString().slice(0, 10) : "",
+        status: jobToEdit.status || "open",
+      });
+    }
+  }, [jobToEdit]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+
+    if (name === "budget.min" || name === "budget.max") {
+      const [parent, child] = name.split(".");
+      setFormData((prev) => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent],
+          [child]: value,
+        },
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   const handleSkillsChange = (e) => {
-    const skills = e.target.value.split(',').map(skill => skill.trim());
-    setFormData(prev => ({
+    const skills = e.target.value.split(",").map((skill) => skill.trim());
+    setFormData((prev) => ({
       ...prev,
-      skills
+      skills,
     }));
   };
 
-  const handleSaveDraft = () => {
-    const draftData = { ...formData, status: 'Draft' };
-    console.log('Saving as Draft:', draftData);
-    alert('Job saved as draft! Check the console for the data.');
+  const handleSaveDraft = async () => {
+    try {
+      const draftData = { ...formData };
+      // Convert budget values to numbers
+      draftData.budget.min = Number(draftData.budget.min);
+      draftData.budget.max = Number(draftData.budget.max);
+
+      if (jobToEdit) {
+        await dispatch(updateJob({ jobId: jobToEdit._id, jobData: { ...draftData, status: "draft" } })).unwrap();
+        toast.success("Job updated and saved as draft successfully!");
+      } else {
+        await dispatch(saveJobAsDraft(draftData)).unwrap();
+        toast.success("Job saved as draft successfully!");
+      }
+
+      onClose();
+    } catch (err) {
+      toast.error(err || "Failed to save job as draft");
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const postData = { ...formData, status: 'Active' };
-    console.log('Posting Job:', postData);
-    alert('Job posted successfully! Check the console for the data.');
+    try {
+      const jobData = { ...formData };
+      // Convert budget values to numbers
+      jobData.budget.min = Number(jobData.budget.min);
+      jobData.budget.max = Number(jobData.budget.max);
+
+      if (jobToEdit) {
+        await dispatch(updateJob({ jobId: jobToEdit._id, jobData })).unwrap();
+        toast.success("Job updated successfully!");
+      } else {
+        await dispatch(createJob(jobData)).unwrap();
+        toast.success("Job posted successfully!");
+      }
+
+      onClose();
+    } catch (err) {
+      toast.error(err || "Failed to submit job");
+    }
   };
 
   return (
     <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Post a New Job</h2>
-        <button
-          onClick={onClose}
-          className="text-gray-500 hover:text-gray-700"
-        >
+        <h2 className="text-2xl font-bold">{jobToEdit ? "Edit Job" : "Post a New Job"}</h2>
+        <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -85,67 +164,143 @@ const PostJobForm = ({ onClose }) => {
           />
         </div>
 
+        <div>
+          <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+            Category
+          </label>
+          <select
+            id="category"
+            name="category"
+            value={formData.category}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            required
+          >
+            <option value="">Select a category</option>
+            <option value="Web Development">Web Development</option>
+            <option value="Mobile Development">Mobile Development</option>
+            <option value="UI/UX Design">UI/UX Design</option>
+            <option value="Graphic Design">Graphic Design</option>
+            <option value="Content Writing">Content Writing</option>
+            <option value="Digital Marketing">Digital Marketing</option>
+            <option value="Data Analysis">Data Analysis</option>
+          </select>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-1">
-              Budget
+            <label htmlFor="budget.min" className="block text-sm font-medium text-gray-700 mb-1">
+              Minimum Budget
             </label>
             <input
-              type="text"
-              id="budget"
-              name="budget"
-              value={formData.budget}
+              type="number"
+              id="budget.min"
+              name="budget.min"
+              value={formData.budget.min}
               onChange={handleChange}
-              placeholder="e.g., $2,000 - $3,000 or $50 - $60 / hr"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
-              Job Type
+            <label htmlFor="budget.max" className="block text-sm font-medium text-gray-700 mb-1">
+              Maximum Budget
+            </label>
+            <input
+              type="number"
+              id="budget.max"
+              name="budget.max"
+              value={formData.budget.max}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="budget.type" className="block text-sm font-medium text-gray-700 mb-1">
+              Budget Type
             </label>
             <select
-              id="type"
-              name="type"
-              value={formData.type}
+              id="budget.type"
+              name="budget.type"
+              value={formData.budget.type}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="Fixed Price">Fixed Price</option>
-              <option value="Hourly">Hourly</option>
+              <option value="fixed">Fixed Price</option>
+              <option value="hourly">Hourly</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="experience" className="block text-sm font-medium text-gray-700 mb-1">
+              Experience Level
+            </label>
+            <select
+              id="experience"
+              name="experience"
+              value={formData.experience}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="entry">Entry Level</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="expert">Expert</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
+              Duration
+            </label>
+            <select
+              id="duration"
+              name="duration"
+              value={formData.duration}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="less_than_1_month">Less than 1 month</option>
+              <option value="1_to_3_months">1 to 3 months</option>
+              <option value="3_to_6_months">3 to 6 months</option>
+              <option value="more_than_6_months">More than 6 months</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+              Location
+            </label>
+            <select
+              id="location"
+              name="location"
+              value={formData.location}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="remote">Remote</option>
+              <option value="onsite">Onsite</option>
+              <option value="hybrid">Hybrid</option>
             </select>
           </div>
         </div>
 
         <div>
-          <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
-            Duration
+          <label htmlFor="deadline" className="block text-sm font-medium text-gray-700 mb-1">
+            Application Deadline
           </label>
           <input
-            type="text"
-            id="duration"
-            name="duration"
-            value={formData.duration}
+            type="date"
+            id="deadline"
+            name="deadline"
+            value={formData.deadline}
             onChange={handleChange}
-            placeholder="e.g., 3-4 weeks or 2-3 months"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-            required
-          />
-        </div>
-
-        <div>
-          <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-            Location
-          </label>
-          <input
-            type="text"
-            id="location"
-            name="location"
-            value={formData.location}
-            onChange={handleChange}
-            placeholder="e.g., Remote, New York, USA"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
             required
           />
@@ -159,7 +314,7 @@ const PostJobForm = ({ onClose }) => {
             type="text"
             id="skills"
             name="skills"
-            value={formData.skills.join(', ')}
+            value={formData.skills.join(", ")}
             onChange={handleSkillsChange}
             placeholder="e.g., React, Node.js, MongoDB"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -167,11 +322,18 @@ const PostJobForm = ({ onClose }) => {
           />
         </div>
 
-        <div className="flex justify-end space-x-4">
+        <div className="flex justify-end space-x-3 mt-6">
           <button
             type="button"
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
             onClick={handleSaveDraft}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary"
           >
             Save as Draft
           </button>
@@ -179,7 +341,7 @@ const PostJobForm = ({ onClose }) => {
             type="submit"
             className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
           >
-            Post Job
+            {jobToEdit ? "Update Job" : "Post Job"}
           </button>
         </div>
       </form>
@@ -187,4 +349,4 @@ const PostJobForm = ({ onClose }) => {
   );
 };
 
-export default PostJobForm; 
+export default PostJobForm;

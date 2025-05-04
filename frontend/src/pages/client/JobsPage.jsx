@@ -1,96 +1,237 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchClientJobs, publishDraftJob } from "../../redux/slices/jobsSlice";
 import PostJobForm from "./PostJobForm";
+import Spinner from "../../components/common/Spinner";
+import { formatDistanceToNow } from "date-fns";
+import { toast } from "react-hot-toast";
 
 const JobsPage = () => {
   const [activeTab, setActiveTab] = useState("active");
   const [showPostJobForm, setShowPostJobForm] = useState(false);
+  const [editingJob, setEditingJob] = useState(null);
 
-  // Mock data for jobs
-  const jobs = {
-    active: [
-      {
-        id: 1,
-        title: "UX/UI Designer for E-commerce Website",
-        description:
-          "Looking for an experienced UX/UI designer to improve our e-commerce website's customer journey and design modern, intuitive interfaces.",
-        budget: "$2,000 - $3,000",
-        type: "Fixed Price",
-        duration: "3-4 weeks",
-        skills: ["UI Design", "UX Design", "Figma", "Adobe XD", "E-commerce"],
-        proposals: 14,
-        posted: "3 days ago",
-        status: "Active",
-      },
-      {
-        id: 2,
-        title: "Full Stack Developer for Web Application",
-        description:
-          "We need a skilled full stack developer to build a custom web application for our business. The project involves user authentication, data visualization, and API integration.",
-        budget: "$50 - $60 / hr",
-        type: "Hourly",
-        duration: "2-3 months",
-        skills: ["React", "Node.js", "MongoDB", "Express", "Redux"],
-        proposals: 8,
-        posted: "1 week ago",
-        status: "Active",
-      },
-    ],
-    closed: [
-      {
-        id: 3,
-        title: "Social Media Marketing Specialist",
-        description:
-          "Created effective social media marketing strategies for our product launch across multiple platforms.",
-        budget: "$1,500",
-        type: "Fixed Price",
-        duration: "Completed",
-        skills: ["Social Media Marketing", "Content Creation", "Analytics"],
-        hired: "Jessica Thompson",
-        posted: "2 months ago",
-        status: "Completed",
-      },
-      {
-        id: 4,
-        title: "WordPress Website Development",
-        description: "Needed a custom WordPress website with e-commerce functionality and responsive design.",
-        budget: "$2,500",
-        type: "Fixed Price",
-        duration: "Completed",
-        skills: ["WordPress", "PHP", "WooCommerce", "Responsive Design"],
-        hired: "Michael Chen",
-        posted: "3 months ago",
-        status: "Completed",
-      },
-    ],
-    draft: [
-      {
-        id: 5,
-        title: "Content Writer for Blog Articles",
-        description:
-          "Looking for a content writer to create engaging blog articles about technology and business trends.",
-        budget: "$30 - $40 / hr",
-        type: "Hourly",
-        duration: "Ongoing",
-        skills: ["Content Writing", "SEO", "Research", "Editing"],
-        status: "Draft",
-      },
-    ],
+  const dispatch = useDispatch();
+  const { clientJobs, isLoading } = useSelector((state) => state.jobs);
+
+  useEffect(() => {
+    dispatch(fetchClientJobs());
+  }, [dispatch]);
+
+  const formatPostedDate = (date) => {
+    return formatDistanceToNow(new Date(date), { addSuffix: true });
   };
+
+  const handlePublishJob = async (jobId) => {
+    try {
+      await dispatch(publishDraftJob(jobId)).unwrap();
+      toast.success("Job published successfully!");
+    } catch (err) {
+      toast.error(err || "Failed to publish job");
+    }
+  };
+
+  const handleEditJob = (job) => {
+    setEditingJob(job);
+    setShowPostJobForm(true);
+  };
+
+  const renderJobsForTab = (jobs) => {
+    if (!jobs || jobs.length === 0) {
+      const messages = {
+        active: {
+          title: "No active jobs found",
+          description: "Start posting your first job to find talented freelancers",
+        },
+        closed: {
+          title: "No closed jobs yet",
+          description: "You don't have any completed or cancelled jobs",
+        },
+        draft: {
+          title: "No draft jobs",
+          description: "Save jobs as drafts to complete them later",
+        },
+      };
+
+      const currentTab = messages[activeTab] || messages.active;
+
+      return (
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <svg
+            className="w-24 h-24 mx-auto text-gray-300 mb-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+            />
+          </svg>
+          <p className="text-xl font-medium text-gray-600 mb-2">{currentTab.title}</p>
+          <p className="text-gray-500 mb-6">{currentTab.description}</p>
+          <button
+            className="px-5 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+            onClick={() => setShowPostJobForm(true)}
+          >
+            Post a New Job
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {jobs.map((job) => (
+          <div key={job._id} className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">{job.title}</h2>
+              <span
+                className={`px-3 py-1 text-sm font-medium rounded-full ${
+                  job.status === "open"
+                    ? "bg-green-100 text-green-800"
+                    : job.status === "in_progress"
+                    ? "bg-blue-100 text-blue-800"
+                    : job.status === "draft"
+                    ? "bg-gray-100 text-gray-800"
+                    : job.status === "completed"
+                    ? "bg-purple-100 text-purple-800"
+                    : "bg-yellow-100 text-yellow-800"
+                }`}
+              >
+                {job.status === "open"
+                  ? "Active"
+                  : job.status === "in_progress"
+                  ? "In Progress"
+                  : job.status === "draft"
+                  ? "Draft"
+                  : job.status === "completed"
+                  ? "Completed"
+                  : "Cancelled"}
+              </span>
+            </div>
+
+            <p className="text-gray-600 mb-4">{job.description}</p>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div>
+                <span className="block text-sm text-gray-500">Budget</span>
+                <span className="font-medium">
+                  {(job.budget.budgetType || job.budget.type) === "fixed"
+                    ? `$${job.budget.min} - $${job.budget.max}`
+                    : `$${job.budget.min} - $${job.budget.max}/hr`}
+                </span>
+              </div>
+              <div>
+                <span className="block text-sm text-gray-500">Type</span>
+                <span className="font-medium">
+                  {(job.budget.budgetType || job.budget.type) === "fixed" ? "Fixed Price" : "Hourly"}
+                </span>
+              </div>
+              <div>
+                <span className="block text-sm text-gray-500">Duration</span>
+                <span className="font-medium">
+                  {job.duration === "less_than_1_month"
+                    ? "Less than 1 month"
+                    : job.duration === "1_to_3_months"
+                    ? "1 to 3 months"
+                    : job.duration === "3_to_6_months"
+                    ? "3 to 6 months"
+                    : "More than 6 months"}
+                </span>
+              </div>
+              <div>
+                <span className="block text-sm text-gray-500">Proposals</span>
+                <span className="font-medium">{job.proposals ? job.proposals.length : 0}</span>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <span className="block text-sm text-gray-500 mb-1">Skills</span>
+              <div className="flex flex-wrap gap-2">
+                {job.skills.map((skill, index) => (
+                  <span key={index} className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center text-sm text-gray-500">
+              <span>Posted {formatPostedDate(job.createdAt)}</span>
+            </div>
+
+            <div className="mt-4 flex space-x-2">
+              {job.status !== "draft" && (
+                <button className="btn-outline text-sm py-1">
+                  View Proposals ({job.proposals ? job.proposals.length : 0})
+                </button>
+              )}
+              <button className="btn-outline text-sm py-1" onClick={() => handleEditJob(job)}>
+                Edit Job
+              </button>
+              {job.status === "draft" ? (
+                <button className="btn-primary text-sm py-1" onClick={() => handlePublishJob(job._id)}>
+                  Publish Job
+                </button>
+              ) : job.status === "open" ? (
+                <button className="text-red-600 hover:text-red-800 text-sm py-1 px-3">Close Job</button>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  if (isLoading && !showPostJobForm) {
+    return (
+      <div className="h-screen flex flex-col">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Jobs</h1>
+          <button
+            className="btn-primary"
+            onClick={() => {
+              setEditingJob(null);
+              setShowPostJobForm(true);
+            }}
+          >
+            Post a New Job
+          </button>
+        </div>
+        <div className="flex-grow flex justify-center items-center">
+          <Spinner size="large" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Jobs</h1>
-        <button 
+        <button
           className="btn-primary"
-          onClick={() => setShowPostJobForm(true)}
+          onClick={() => {
+            setEditingJob(null);
+            setShowPostJobForm(true);
+          }}
         >
           Post a New Job
         </button>
       </div>
 
       {showPostJobForm ? (
-        <PostJobForm onClose={() => setShowPostJobForm(false)} />
+        <PostJobForm
+          onClose={() => {
+            setShowPostJobForm(false);
+            setEditingJob(null);
+          }}
+          jobToEdit={editingJob}
+        />
       ) : (
         <>
           {/* Tabs */}
@@ -122,173 +263,13 @@ const JobsPage = () => {
           </div>
 
           {/* Active Jobs */}
-          {activeTab === "active" && (
-            <div className="space-y-6">
-              {jobs.active.map((job) => (
-                <div key={job.id} className="bg-white rounded-lg shadow-md p-6">
-                  <div className="flex justify-between mb-4">
-                    <h2 className="text-xl font-semibold text-gray-800">{job.title}</h2>
-                    <span
-                      className={`px-3 py-1 text-sm font-medium rounded-full ${
-                        job.status === "Active" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {job.status}
-                    </span>
-                  </div>
-
-                  <p className="text-gray-600 mb-4">{job.description}</p>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <div>
-                      <span className="block text-sm text-gray-500">Budget</span>
-                      <span className="font-medium">{job.budget}</span>
-                    </div>
-                    <div>
-                      <span className="block text-sm text-gray-500">Type</span>
-                      <span className="font-medium">{job.type}</span>
-                    </div>
-                    <div>
-                      <span className="block text-sm text-gray-500">Duration</span>
-                      <span className="font-medium">{job.duration}</span>
-                    </div>
-                    <div>
-                      <span className="block text-sm text-gray-500">Proposals</span>
-                      <span className="font-medium">{job.proposals}</span>
-                    </div>
-                  </div>
-
-                  <div className="mb-4">
-                    <span className="block text-sm text-gray-500 mb-1">Skills</span>
-                    <div className="flex flex-wrap gap-2">
-                      {job.skills.map((skill, index) => (
-                        <span key={index} className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center text-sm text-gray-500">
-                    <span>Posted {job.posted}</span>
-                  </div>
-
-                  <div className="mt-4 flex space-x-2">
-                    <button className="btn-outline text-sm py-1">View Proposals ({job.proposals})</button>
-                    <button className="btn-outline text-sm py-1">Edit Job</button>
-                    <button className="text-red-600 hover:text-red-800 text-sm py-1 px-3">Close Job</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {activeTab === "active" && renderJobsForTab(clientJobs.active)}
 
           {/* Closed Jobs */}
-          {activeTab === "closed" && (
-            <div className="space-y-6">
-              {jobs.closed.map((job) => (
-                <div key={job.id} className="bg-white rounded-lg shadow-md p-6">
-                  <div className="flex justify-between mb-4">
-                    <h2 className="text-xl font-semibold text-gray-800">{job.title}</h2>
-                    <span className="px-3 py-1 text-sm font-medium rounded-full bg-gray-100 text-gray-800">
-                      {job.status}
-                    </span>
-                  </div>
-
-                  <p className="text-gray-600 mb-4">{job.description}</p>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <div>
-                      <span className="block text-sm text-gray-500">Budget</span>
-                      <span className="font-medium">{job.budget}</span>
-                    </div>
-                    <div>
-                      <span className="block text-sm text-gray-500">Type</span>
-                      <span className="font-medium">{job.type}</span>
-                    </div>
-                    <div>
-                      <span className="block text-sm text-gray-500">Duration</span>
-                      <span className="font-medium">{job.duration}</span>
-                    </div>
-                    <div>
-                      <span className="block text-sm text-gray-500">Hired</span>
-                      <span className="font-medium">{job.hired}</span>
-                    </div>
-                  </div>
-
-                  <div className="mb-4">
-                    <span className="block text-sm text-gray-500 mb-1">Skills</span>
-                    <div className="flex flex-wrap gap-2">
-                      {job.skills.map((skill, index) => (
-                        <span key={index} className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center text-sm text-gray-500">
-                    <span>Posted {job.posted}</span>
-                  </div>
-
-                  <div className="mt-4 flex space-x-2">
-                    <button className="btn-outline text-sm py-1">View Job</button>
-                    <button className="btn-primary text-sm py-1">Reuse Job</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {activeTab === "closed" && renderJobsForTab(clientJobs.closed)}
 
           {/* Draft Jobs */}
-          {activeTab === "draft" && (
-            <div className="space-y-6">
-              {jobs.draft.map((job) => (
-                <div key={job.id} className="bg-white rounded-lg shadow-md p-6">
-                  <div className="flex justify-between mb-4">
-                    <h2 className="text-xl font-semibold text-gray-800">{job.title}</h2>
-                    <span className="px-3 py-1 text-sm font-medium rounded-full bg-gray-100 text-gray-800">
-                      {job.status}
-                    </span>
-                  </div>
-
-                  <p className="text-gray-600 mb-4">{job.description}</p>
-
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <span className="block text-sm text-gray-500">Budget</span>
-                      <span className="font-medium">{job.budget}</span>
-                    </div>
-                    <div>
-                      <span className="block text-sm text-gray-500">Type</span>
-                      <span className="font-medium">{job.type}</span>
-                    </div>
-                    <div>
-                      <span className="block text-sm text-gray-500">Duration</span>
-                      <span className="font-medium">{job.duration}</span>
-                    </div>
-                  </div>
-
-                  <div className="mb-4">
-                    <span className="block text-sm text-gray-500 mb-1">Skills</span>
-                    <div className="flex flex-wrap gap-2">
-                      {job.skills.map((skill, index) => (
-                        <span key={index} className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex space-x-2">
-                    <button className="btn-primary text-sm py-1">Complete & Post</button>
-                    <button className="btn-outline text-sm py-1">Edit Draft</button>
-                    <button className="text-red-600 hover:text-red-800 text-sm py-1 px-3">Delete Draft</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {activeTab === "draft" && renderJobsForTab(clientJobs.draft)}
         </>
       )}
     </div>

@@ -16,7 +16,33 @@ exports.createJob = async (req, res) => {
   }
 
   try {
-    const { title, description, category, skills, budget, experience, duration, location, deadline } = req.body;
+    const { title, description, category, skills, budget, experience, duration, location, deadline, status } = req.body;
+
+    // Get client profile for company details
+    const clientProfile = await Profile.findOne({ user: req.user.id }).populate("user", "name email");
+
+    if (!clientProfile) {
+      return res.status(400).json({
+        success: false,
+        message: "You must complete your profile before posting a job",
+      });
+    }
+
+    // Extract company details from client profile
+    const companyDetails = {
+      name: clientProfile.company ? clientProfile.company.name : null,
+      website: clientProfile.company ? clientProfile.company.website : null,
+      logo: clientProfile.company ? clientProfile.company.logo : null,
+      description: clientProfile.company ? clientProfile.company.description : null,
+      location: clientProfile.location || null,
+    };
+
+    // Handle the budget field to ensure we use budgetType
+    const normalizedBudget = {
+      min: budget.min,
+      max: budget.max,
+      type: budget.budgetType || budget.type || "fixed", // Support both budgetType and type
+    };
 
     // Create new job
     const job = new Job({
@@ -25,12 +51,13 @@ exports.createJob = async (req, res) => {
       client: req.user.id,
       category,
       skills,
-      budget,
+      budget: normalizedBudget,
       experience,
       duration,
       location,
       deadline,
-      status: "open",
+      status: status === "draft" ? "draft" : "open", // Default to open if not explicitly set to draft
+      companyDetails,
     });
 
     await job.save();
@@ -52,7 +79,7 @@ exports.createJob = async (req, res) => {
  */
 exports.getJobs = async (req, res) => {
   try {
-    const { category, skills, min_budget, max_budget, experience, duration, location, status } = req.query;
+    const { category, skills, min_budget, max_budget, experience, duration, location, status, mine } = req.query;
 
     let query = {};
 
@@ -62,37 +89,53 @@ exports.getJobs = async (req, res) => {
       const skillsArray = skills.split(",").map((skill) => skill.trim());
       query.skills = { $in: skillsArray };
     }
+
+    // Budget filtering
     if (min_budget || max_budget) {
-      query.budget = {};
-      if (min_budget) query.budget.$gte = parseInt(min_budget);
-      if (max_budget) query.budget.$lte = parseInt(max_budget);
+      query["budget.min"] = {};
+      query["budget.max"] = {};
+
+      if (min_budget) query["budget.min"].$gte = parseInt(min_budget);
+      if (max_budget) query["budget.max"].$lte = parseInt(max_budget);
     }
+
     if (experience) query.experience = experience;
     if (duration) query.duration = duration;
     if (location) query.location = location;
 
-    // Only show open jobs by default unless specified otherwise or is admin
-    if (status && req.user && req.user.role === "admin") {
-      query.status = status;
+    // If client is requesting their own jobs, show all of their jobs
+    if (mine === "true" && req.user && req.user.role === "client") {
+      query.client = req.user.id;
+
+      // If status is provided, filter by status
+      if (status) {
+        query.status = status;
+      }
     } else {
+      // For freelancers or public access, only show open jobs
       query.status = "open";
     }
 
-    // If client is requesting their own jobs, show all of their jobs
-    if (req.query.mine === "true" && req.user && req.user.role === "client") {
-      query.client = req.user.id;
-      delete query.status; // Show all statuses for client's own jobs
+    // Admin can see all jobs or filter by status
+    if (req.user && req.user.role === "admin") {
+      if (status) {
+        query.status = status;
+      } else {
+        delete query.status; // Admin can see all statuses if not specified
+      }
     }
 
     const jobs = await Job.find(query)
-      .populate("client", "name avatar")
+      .populate("client", "name avatar email")
+      .populate("client.profile")
       .select("-__v")
       .sort({ featured: -1, createdAt: -1 });
 
+    // Always return an array of jobs, even if empty
     res.json({
       success: true,
       count: jobs.length,
-      data: { jobs },
+      data: { jobs: jobs || [] },
     });
   } catch (err) {
     console.error("Error in getJobs:", err.message);
@@ -119,7 +162,11 @@ exports.getJob = async (req, res) => {
       });
 
     if (!job) {
-      return res.status(404).json({ success: false, message: "Job not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Job not found",
+        data: { job: null },
+      });
     }
 
     // Increment view count
@@ -145,7 +192,11 @@ exports.getJob = async (req, res) => {
     console.error("Error in getJob:", err.message);
 
     if (err.kind === "ObjectId") {
-      return res.status(404).json({ success: false, message: "Job not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Job not found",
+        data: { job: null },
+      });
     }
 
     res.status(500).json({ success: false, message: "Server error" });
@@ -183,6 +234,22 @@ exports.updateJob = async (req, res) => {
       });
     }
 
+    // If the job doesn't have company details, get them from the client profile
+    if (!job.companyDetails || Object.keys(job.companyDetails).every((key) => !job.companyDetails[key])) {
+      // Get client profile for company details
+      const clientProfile = await Profile.findOne({ user: req.user.id });
+
+      if (clientProfile && clientProfile.company) {
+        job.companyDetails = {
+          name: clientProfile.company.name || null,
+          website: clientProfile.company.website || null,
+          logo: clientProfile.company.logo || null,
+          description: clientProfile.company.description || null,
+          location: clientProfile.location || null,
+        };
+      }
+    }
+
     // Update fields that are provided
     const updatableFields = [
       "title",
@@ -200,7 +267,17 @@ exports.updateJob = async (req, res) => {
 
     updatableFields.forEach((field) => {
       if (req.body[field] !== undefined) {
-        job[field] = req.body[field];
+        // Special handling for budget field to handle the type/budgetType transition
+        if (field === "budget" && req.body.budget) {
+          const { min, max, type, budgetType } = req.body.budget;
+          job.budget = {
+            min: min !== undefined ? min : job.budget.min,
+            max: max !== undefined ? max : job.budget.max,
+            type: budgetType || type || job.budget.type, // Support both old and new field names
+          };
+        } else {
+          job[field] = req.body[field];
+        }
       }
     });
 
@@ -429,6 +506,62 @@ exports.updateProposalStatus = async (req, res) => {
 
     if (err.kind === "ObjectId") {
       return res.status(404).json({ success: false, message: "Job or proposal not found" });
+    }
+
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * @desc    Publish a draft job
+ * @route   PUT /api/jobs/:id/publish
+ * @access  Private (Client only, must be job owner)
+ */
+exports.publishJob = async (req, res) => {
+  try {
+    let job = await Job.findById(req.params.id);
+
+    if (!job) {
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
+
+    // Verify ownership
+    if (job.client.toString() !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Not authorized to publish this job" });
+    }
+
+    // Verify the job is in draft status
+    if (job.status !== "draft") {
+      return res.status(400).json({
+        success: false,
+        message: "Only draft jobs can be published",
+      });
+    }
+
+    // Ensure required fields are present
+    const requiredFields = ["title", "description", "category", "budget", "deadline"];
+    const missingFields = requiredFields.filter((field) => !job[field]);
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missingFields.join(", ")}`,
+      });
+    }
+
+    // Update job status to open
+    job.status = "open";
+    await job.save();
+
+    res.json({
+      success: true,
+      data: { job },
+    });
+  } catch (err) {
+    console.error("Error in publishJob:", err.message);
+
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ success: false, message: "Job not found" });
     }
 
     res.status(500).json({ success: false, message: "Server error" });

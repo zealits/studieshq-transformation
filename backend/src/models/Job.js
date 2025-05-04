@@ -77,7 +77,7 @@ const JobSchema = new Schema({
       type: Number,
       required: true,
     },
-    type: {
+    budgetType: {
       type: String,
       enum: ["fixed", "hourly"],
       default: "fixed",
@@ -112,6 +112,13 @@ const JobSchema = new Schema({
     type: String,
     enum: ["draft", "open", "in_progress", "completed", "cancelled"],
     default: "draft",
+  },
+  companyDetails: {
+    name: { type: String },
+    website: { type: String },
+    logo: { type: String },
+    description: { type: String },
+    location: { type: String },
   },
   proposals: [ProposalSchema],
   viewCount: {
