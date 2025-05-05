@@ -5,6 +5,41 @@ const User = require("../models/User");
 const Profile = require("../models/Profile");
 
 /**
+ * Helper function to check if the user is the owner of a job or an admin
+ * @param {Object} req - Express request object
+ * @param {Object} job - Job document
+ * @returns {boolean} - True if the user is the owner or an admin
+ */
+const isJobOwnerOrAdmin = (req, job) => {
+  if (!req.user) return false;
+
+  // If the user is an admin, they have access
+  if (req.user.role === "admin") return true;
+
+  // For clients, compare the job's client ID with the user's ID
+  if (job.client) {
+    // Handle both populated and unpopulated client field
+    let jobClientId;
+
+    if (typeof job.client === "object" && job.client._id) {
+      // If client is populated, use _id
+      jobClientId = job.client._id.toString();
+    } else {
+      // If client is just an ObjectId reference
+      jobClientId = job.client.toString();
+    }
+
+    const userId = req.user.id.toString();
+
+    console.log(`Comparing job client ID: ${jobClientId} with user ID: ${userId}`);
+
+    return jobClientId === userId;
+  }
+
+  return false;
+};
+
+/**
  * @desc    Create a new job posting
  * @route   POST /api/jobs
  * @access  Private (Client only)
@@ -78,8 +113,10 @@ exports.createJob = async (req, res) => {
  * @access  Public
  */
 exports.getJobs = async (req, res) => {
+  console.log("req.query", req.query);
   try {
-    const { category, skills, min_budget, max_budget, experience, duration, location, status, mine } = req.query;
+    const { category, skills, min_budget, max_budget, experience, duration, location, status, mine, clientId } =
+      req.query;
 
     let query = {};
 
@@ -103,33 +140,77 @@ exports.getJobs = async (req, res) => {
     if (duration) query.duration = duration;
     if (location) query.location = location;
 
-    // If client is requesting their own jobs, show all of their jobs
-    if (mine === "true" && req.user && req.user.role === "client") {
-      query.client = req.user.id;
+    // Check if request is authenticated - req.user will be populated by auth middleware
+    // If auth fails, the middleware sets req.user to undefined but allows the request to continue
+    if (req.user) {
+      // Log the authenticated user
+      console.log(`Authenticated user: ${req.user.id}, role: ${req.user.role}`);
 
-      // If status is provided, filter by status
-      if (status) {
-        query.status = status;
+      if (req.user.role === "client") {
+        console.log("Client user detected");
+        if (mine === "true") {
+          console.log("mine is true");
+          // IMPORTANT: Filter to only show the client's own jobs by exact ID match
+          // If clientId is passed, use it for additional validation
+          const filterClientId = clientId || req.user.id;
+
+          // Verify the requesting user owns these jobs
+          if (clientId && clientId !== req.user.id) {
+            console.log(`Warning: Client ${req.user.id} attempted to access jobs for client ${clientId}`);
+            return res.status(403).json({
+              success: false,
+              message: "Not authorized to view jobs from another client",
+            });
+          }
+
+          console.log(`Filtering jobs for client ID: ${filterClientId}`);
+          query.client = new mongoose.Types.ObjectId(filterClientId);
+
+          // If status is provided, filter by status
+          if (status) {
+            query.status = status;
+          }
+          // By default show all job statuses for the client's own jobs
+        } else {
+          // For public access by a client, only show open jobs from other clients
+          query.status = "open";
+          // Don't show their own jobs in public listings to avoid confusion
+          query.client = { $ne: new mongoose.Types.ObjectId(req.user.id) };
+        }
+      } else if (req.user.role === "freelancer") {
+        // Freelancers should only see open jobs
+        query.status = "open";
+      } else if (req.user.role === "admin") {
+        // Admin can see all jobs or filter by status
+        if (status) {
+          query.status = status;
+        }
       }
     } else {
-      // For freelancers or public access, only show open jobs
+      // For unauthenticated requests with mine=true parameter, return an error
+      if (mine === "true") {
+        console.log("Unauthorized request tried to access client-specific jobs");
+        return res.status(401).json({
+          success: false,
+          message: "Authentication required to view your jobs",
+        });
+      }
+
+      // Unauthenticated users only see open jobs
       query.status = "open";
     }
 
-    // Admin can see all jobs or filter by status
-    if (req.user && req.user.role === "admin") {
-      if (status) {
-        query.status = status;
-      } else {
-        delete query.status; // Admin can see all statuses if not specified
-      }
-    }
+    // Log the final query for debugging
+    console.log("Final query:", JSON.stringify(query));
 
     const jobs = await Job.find(query)
       .populate("client", "name avatar email")
       .populate("client.profile")
       .select("-__v")
       .sort({ featured: -1, createdAt: -1 });
+
+    // Log the number of jobs found
+    console.log(`Found ${jobs.length} jobs matching the query`);
 
     // Always return an array of jobs, even if empty
     res.json({
@@ -167,6 +248,56 @@ exports.getJob = async (req, res) => {
         message: "Job not found",
         data: { job: null },
       });
+    }
+
+    // Check if user is authenticated
+    if (req.user) {
+      // Log for debugging
+      console.log(`Job client ID: ${job.client._id}, User ID: ${req.user.id}`);
+
+      // If user is a client, they should only access their own jobs
+      if (req.user.role === "client") {
+        // Convert IDs to strings for proper comparison
+        const jobClientId = job.client._id.toString();
+        const userId = req.user.id.toString();
+
+        if (jobClientId !== userId) {
+          // If it's not the client's job and it's not an open job, deny access
+          if (job.status !== "open") {
+            console.log("Access denied: Client attempting to view another client's non-open job");
+            return res.status(403).json({
+              success: false,
+              message: "Not authorized to view this job",
+            });
+          }
+
+          // If it's an open job from another client, they can see basic details but not proposals
+          console.log("Returning limited job info for another client's open job");
+          const basicJobInfo = {
+            _id: job._id,
+            title: job.title,
+            description: job.description,
+            category: job.category,
+            skills: job.skills,
+            budget: job.budget,
+            experience: job.experience,
+            duration: job.duration,
+            location: job.location,
+            deadline: job.deadline,
+            status: job.status,
+            companyDetails: job.companyDetails,
+            client: job.client,
+            createdAt: job.createdAt,
+            updatedAt: job.updatedAt,
+            proposals: [], // Empty proposals array
+          };
+
+          return res.json({
+            success: true,
+            data: { job: basicJobInfo },
+          });
+        }
+      }
     }
 
     // Increment view count
@@ -221,8 +352,8 @@ exports.updateJob = async (req, res) => {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
 
-    // Verify ownership
-    if (job.client.toString() !== req.user.id && req.user.role !== "admin") {
+    // Verify ownership using the helper function
+    if (!isJobOwnerOrAdmin(req, job)) {
       return res.status(403).json({ success: false, message: "Not authorized to update this job" });
     }
 
@@ -311,8 +442,8 @@ exports.deleteJob = async (req, res) => {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
 
-    // Verify ownership
-    if (job.client.toString() !== req.user.id && req.user.role !== "admin") {
+    // Verify ownership using the helper function
+    if (!isJobOwnerOrAdmin(req, job)) {
       return res.status(403).json({ success: false, message: "Not authorized to delete this job" });
     }
 
@@ -377,15 +508,36 @@ exports.submitProposal = async (req, res) => {
       });
     }
 
-    const { coverLetter, bidAmount, estimatedDuration } = req.body;
+    const { coverLetter, bidPrice, estimatedDuration } = req.body;
+
+    // Get freelancer profile information
+    const freelancerProfile = await Profile.findOne({ user: req.user.id }).populate("user", "name avatar");
+
+    if (!freelancerProfile) {
+      return res.status(400).json({
+        success: false,
+        message: "You must complete your profile before submitting a proposal",
+      });
+    }
+
+    // Create profile snapshot with relevant freelancer information
+    const profileSnapshot = {
+      name: freelancerProfile.user.name,
+      avatar: freelancerProfile.user.avatar,
+      title: freelancerProfile.title || null,
+      skills: freelancerProfile.skills || [],
+      experience: freelancerProfile.experience || null,
+      hourlyRate: freelancerProfile.hourlyRate || null,
+    };
 
     // Create new proposal
     const newProposal = {
       freelancer: req.user.id,
       coverLetter,
-      bidAmount,
+      bidPrice,
       estimatedDuration,
       status: "pending",
+      freelancerProfileSnapshot: profileSnapshot,
     };
 
     // Add proposal to job
@@ -421,8 +573,8 @@ exports.getProposals = async (req, res) => {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
 
-    // Verify ownership
-    if (job.client.toString() !== req.user.id && req.user.role !== "admin") {
+    // Verify ownership using the helper function
+    if (!isJobOwnerOrAdmin(req, job)) {
       return res.status(403).json({ success: false, message: "Not authorized to view proposals for this job" });
     }
 
@@ -466,8 +618,8 @@ exports.updateProposalStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
 
-    // Verify ownership
-    if (job.client.toString() !== req.user.id && req.user.role !== "admin") {
+    // Verify ownership using the helper function
+    if (!isJobOwnerOrAdmin(req, job)) {
       return res.status(403).json({ success: false, message: "Not authorized to update proposals for this job" });
     }
 
@@ -525,8 +677,8 @@ exports.publishJob = async (req, res) => {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
 
-    // Verify ownership
-    if (job.client.toString() !== req.user.id && req.user.role !== "admin") {
+    // Verify ownership using the helper function
+    if (!isJobOwnerOrAdmin(req, job)) {
       return res.status(403).json({ success: false, message: "Not authorized to publish this job" });
     }
 

@@ -27,20 +27,88 @@ export const fetchJobs = createAsyncThunk("jobs/fetchJobs", async (_, { rejectWi
   }
 });
 
-export const fetchClientJobs = createAsyncThunk("jobs/fetchClientJobs", async (_, { rejectWithValue }) => {
+export const fetchClientJobs = createAsyncThunk("jobs/fetchClientJobs", async (_, { rejectWithValue, getState }) => {
   try {
-    const response = await api.get("/api/jobs?mine=true");
+    // Get the current user from auth state
+    const { auth } = getState();
+    const clientId = auth?.user?.id;
+
+    if (!clientId) {
+      return rejectWithValue("Client ID not found. Please re-login.");
+    }
+
+    // Check for auth token
+    const token = localStorage.getItem("token");
+    console.log(`Auth token available: ${!!token}`);
+    if (!token) {
+      console.error("No authentication token found in localStorage");
+      return rejectWithValue("Authentication token missing. Please re-login.");
+    }
+
+    // Explicitly request only the client's own jobs with mine=true and clientId parameter
+    console.log(`Fetching client jobs for client ID: ${clientId}`);
+    const response = await api.get(`/api/jobs?mine=true&clientId=${clientId}`);
+
+    // Log the response for debugging
+    console.log(`Received ${response.data?.data?.jobs?.length || 0} client jobs`);
+
     return response.data;
   } catch (error) {
+    console.error("Error fetching client jobs:", error);
+    console.error("Response:", error.response?.data);
     return rejectWithValue(error.response?.data?.message || "Failed to fetch client jobs");
   }
 });
 
-export const fetchJobById = createAsyncThunk("jobs/fetchJobById", async (jobId, { rejectWithValue }) => {
+export const fetchJobById = createAsyncThunk("jobs/fetchJobById", async (jobId, { rejectWithValue, getState }) => {
   try {
+    console.log("Fetching job by ID:", jobId);
+
+    // Get the current user info from auth state
+    const { auth } = getState();
+    const isClient = auth?.user?.role === "client";
+
+    // Check for auth token
+    const token = localStorage.getItem("token");
+    console.log(`Auth token available: ${!!token}`);
+    if (!token) {
+      console.error("No authentication token found in localStorage");
+      return rejectWithValue("Authentication token missing. Please re-login.");
+    }
+
+    if (isClient) {
+      // For clients, let's verify this job belongs to them by checking clientJobs first
+      const { clientJobs } = getState().jobs;
+      const allClientJobs = [...clientJobs.active, ...clientJobs.closed, ...clientJobs.draft];
+
+      // Check if this job exists in the client's jobs
+      const jobExists = allClientJobs.some((job) => job._id === jobId);
+
+      console.log(`Client attempting to fetch job ${jobId}, exists in client jobs: ${jobExists}`);
+
+      // If we already know the client doesn't own this job, deny access early
+      if (!jobExists) {
+        console.warn(`Client attempted to access job ${jobId} which they don't own`);
+        // Let the API call proceed anyway, as the backend will handle authorization
+      }
+    }
+
     const response = await api.get(`/api/jobs/${jobId}`);
+    console.log(`Fetched job ${jobId} successfully`);
     return response.data;
   } catch (error) {
+    console.error(`Error fetching job ${jobId}:`, error);
+
+    // If authentication error (401), provide a specific message
+    if (error.response?.status === 401) {
+      return rejectWithValue("Authentication required. Please log in again.");
+    }
+
+    // If access denied (403), provide a more specific error message
+    if (error.response?.status === 403) {
+      return rejectWithValue("You don't have permission to view this job");
+    }
+
     return rejectWithValue(error.response?.data?.message || "Failed to fetch job details");
   }
 });
@@ -71,6 +139,15 @@ export const updateJob = createAsyncThunk("jobs/updateJob", async ({ jobId, jobD
     return response.data;
   } catch (error) {
     return rejectWithValue(error.response?.data?.message || "Failed to update job");
+  }
+});
+
+export const fetchJobProposals = createAsyncThunk("jobs/fetchJobProposals", async (jobId, { rejectWithValue }) => {
+  try {
+    const response = await api.get(`/api/jobs/${jobId}/proposals`);
+    return response.data;
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || "Failed to fetch proposals");
   }
 });
 
@@ -276,19 +353,16 @@ const jobsSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload;
       })
-      // Submit Proposal
-      .addCase(submitProposal.pending, (state) => {
+      // Fetch Job Proposals
+      .addCase(fetchJobProposals.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(submitProposal.fulfilled, (state, action) => {
+      .addCase(fetchJobProposals.fulfilled, (state, action) => {
         state.isLoading = false;
-        const proposal = action.payload?.data?.proposal;
-        if (proposal) {
-          state.myProposals.push(proposal);
-        }
+        state.proposals = action.payload?.data?.proposals || [];
       })
-      .addCase(submitProposal.rejected, (state, action) => {
+      .addCase(fetchJobProposals.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
       })

@@ -12,7 +12,7 @@ const ProposalSchema = new Schema({
     type: String,
     required: true,
   },
-  bidAmount: {
+  bidPrice: {
     type: Number,
     required: true,
   },
@@ -24,6 +24,14 @@ const ProposalSchema = new Schema({
     type: String,
     enum: ["pending", "shortlisted", "accepted", "rejected"],
     default: "pending",
+  },
+  freelancerProfileSnapshot: {
+    name: { type: String },
+    avatar: { type: String },
+    title: { type: String },
+    skills: [{ type: String }],
+    experience: { type: String },
+    hourlyRate: { type: Number },
   },
   attachments: [
     {

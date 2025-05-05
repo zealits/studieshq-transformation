@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchJobs, filterJobs } from "../../redux/slices/jobsSlice";
 import Spinner from "../../components/common/Spinner";
 import { formatDistanceToNow } from "date-fns";
+import ApplyJobModal from "../../components/freelancer/ApplyJobModal";
 
 const FindJobsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -12,6 +13,8 @@ const FindJobsPage = () => {
     jobType: "",
     experience: "",
   });
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
 
   const dispatch = useDispatch();
   const { filteredJobs, isLoading } = useSelector((state) => state.jobs);
@@ -31,6 +34,16 @@ const FindJobsPage = () => {
       ...filters,
       [name]: value,
     });
+  };
+
+  const handleApplyClick = (job) => {
+    setSelectedJob(job);
+    setShowApplyModal(true);
+  };
+
+  const closeApplyModal = () => {
+    setShowApplyModal(false);
+    setSelectedJob(null);
   };
 
   const formatPostedDate = (date) => {
@@ -211,7 +224,12 @@ const FindJobsPage = () => {
                     <span>{job.proposals ? job.proposals.length : 0} proposals</span>
                   </div>
                 </div>
-                <button className="btn-primary">Apply Now</button>
+                <button 
+                  className="btn-primary"
+                  onClick={() => handleApplyClick(job)}
+                >
+                  Apply Now
+                </button>
               </div>
 
               <p className="mt-4 text-gray-600">{job.description}</p>
@@ -290,6 +308,11 @@ const FindJobsPage = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Apply Job Modal */}
+      {showApplyModal && selectedJob && (
+        <ApplyJobModal job={selectedJob} onClose={closeApplyModal} />
       )}
     </div>
   );

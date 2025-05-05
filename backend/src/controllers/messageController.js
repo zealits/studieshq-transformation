@@ -26,8 +26,8 @@ exports.createOrGetConversation = async (req, res) => {
     let conversation = await Conversation.findOne({
       participants: {
         $all: [
-          { $elemMatch: { user: mongoose.Types.ObjectId(senderId) } },
-          { $elemMatch: { user: mongoose.Types.ObjectId(recipientId) } },
+          { $elemMatch: { user: new mongoose.Types.ObjectId(senderId) } },
+          { $elemMatch: { user: new mongoose.Types.ObjectId(recipientId) } },
         ],
       },
     }).populate({

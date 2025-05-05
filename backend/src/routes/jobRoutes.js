@@ -38,13 +38,13 @@ router.post(
 
 // @route   GET /api/jobs
 // @desc    Get all jobs with optional filters
-// @access  Public
-router.get("/", jobController.getJobs);
+// @access  Public (limited) / Private (full access)
+router.get("/", auth, jobController.getJobs);
 
 // @route   GET /api/jobs/:id
 // @desc    Get job by ID
-// @access  Public
-router.get("/:id", jobController.getJob);
+// @access  Public (limited) / Private (full access)
+router.get("/:id", auth, jobController.getJob);
 
 // @route   PUT /api/jobs/:id
 // @desc    Update job
@@ -89,7 +89,7 @@ router.post(
     checkRole(["freelancer"]),
     [
       check("coverLetter", "Cover letter is required").not().isEmpty(),
-      check("bidAmount", "Bid amount is required and must be a number").isNumeric(),
+      check("bidPrice", "Bid price is required").isNumeric(),
       check("estimatedDuration", "Estimated duration is required").not().isEmpty(),
     ],
   ],

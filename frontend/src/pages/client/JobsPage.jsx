@@ -5,24 +5,82 @@ import PostJobForm from "./PostJobForm";
 import Spinner from "../../components/common/Spinner";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "react-hot-toast";
+import ProposalsList from "../../components/client/ProposalsList";
+import { useNavigate } from "react-router-dom";
 
 const JobsPage = () => {
   const [activeTab, setActiveTab] = useState("active");
   const [showPostJobForm, setShowPostJobForm] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
+  const [showProposals, setShowProposals] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState(null);
 
   const dispatch = useDispatch();
-  const { clientJobs, isLoading } = useSelector((state) => state.jobs);
+  const navigate = useNavigate();
+  const { clientJobs, isLoading, error } = useSelector((state) => state.jobs);
 
   useEffect(() => {
-    dispatch(fetchClientJobs());
-  }, [dispatch]);
+    const fetchJobs = async () => {
+      // Check for token first
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("No authentication token found. Redirecting to login.");
+        toast.error("Authentication required. Please log in again.");
+        navigate("/login");
+        return;
+      }
+
+      try {
+        const result = await dispatch(fetchClientJobs()).unwrap();
+        console.log(`Loaded ${result?.data?.jobs?.length || 0} jobs for the client`);
+
+        // Log each job's client ID to verify ownership
+        if (result?.data?.jobs?.length > 0) {
+          console.log("Verifying job ownership:");
+          result.data.jobs.forEach((job) => {
+            console.log(`Job ID: ${job._id}, Client ID: ${job.client._id || job.client}`);
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching client jobs:", error);
+        // Show error toast if there's an issue fetching jobs
+        toast.error(error || "Failed to load jobs. Please try again.");
+        // If there's an authentication or authorization error, redirect to login
+        if (
+          error === "Not authorized" ||
+          error === "Authorization required" ||
+          error === "Client ID not found. Please re-login." ||
+          error === "Authentication token missing. Please re-login." ||
+          error.includes("Authentication required")
+        ) {
+          navigate("/login");
+        }
+      }
+    };
+
+    fetchJobs();
+  }, [dispatch, navigate]);
+
+  // Show error toast if there's an issue with the redux state
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
 
   const formatPostedDate = (date) => {
     return formatDistanceToNow(new Date(date), { addSuffix: true });
   };
 
   const handlePublishJob = async (jobId) => {
+    // Check if the client owns this job before publishing
+    const jobExists = clientJobs.draft.some((job) => job._id === jobId);
+
+    if (!jobExists) {
+      toast.error("You don't have permission to publish this job");
+      return;
+    }
+
     try {
       await dispatch(publishDraftJob(jobId)).unwrap();
       toast.success("Job published successfully!");
@@ -32,8 +90,36 @@ const JobsPage = () => {
   };
 
   const handleEditJob = (job) => {
+    // Check if the client owns this job before allowing edits
+    const jobExists = [...clientJobs.active, ...clientJobs.closed, ...clientJobs.draft].some((j) => j._id === job._id);
+
+    if (!jobExists) {
+      toast.error("You don't have permission to edit this job");
+      return;
+    }
+
     setEditingJob(job);
     setShowPostJobForm(true);
+  };
+
+  const handleViewProposals = (jobId) => {
+    // Check if the client owns this job before showing proposals
+    const jobExists = [...clientJobs.active, ...clientJobs.closed, ...clientJobs.draft].some(
+      (job) => job._id === jobId
+    );
+
+    if (!jobExists) {
+      toast.error("You don't have permission to view proposals for this job");
+      return;
+    }
+
+    setSelectedJobId(jobId);
+    setShowProposals(true);
+  };
+
+  const closeProposalsModal = () => {
+    setShowProposals(false);
+    setSelectedJobId(null);
   };
 
   const renderJobsForTab = (jobs) => {
@@ -56,7 +142,7 @@ const JobsPage = () => {
       const currentTab = messages[activeTab] || messages.active;
 
       return (
-        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+        <div className="bg-white rounded-lg shadow-md p-6 text-center">
           <svg
             className="w-24 h-24 mx-auto text-gray-300 mb-4"
             fill="none"
@@ -71,13 +157,13 @@ const JobsPage = () => {
               d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
             />
           </svg>
-          <p className="text-xl font-medium text-gray-600 mb-2">{currentTab.title}</p>
+          <p className="text-xl font-medium text-gray-500 mb-2">{currentTab.title}</p>
           <p className="text-gray-500 mb-6">{currentTab.description}</p>
           <button
-            className="px-5 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
             onClick={() => setShowPostJobForm(true)}
+            className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
           >
-            Post a New Job
+            Post a Job
           </button>
         </div>
       );
@@ -166,7 +252,7 @@ const JobsPage = () => {
 
             <div className="mt-4 flex space-x-2">
               {job.status !== "draft" && (
-                <button className="btn-outline text-sm py-1">
+                <button className="btn-outline text-sm py-1" onClick={() => handleViewProposals(job._id)}>
                   View Proposals ({job.proposals ? job.proposals.length : 0})
                 </button>
               )}
@@ -232,6 +318,8 @@ const JobsPage = () => {
           }}
           jobToEdit={editingJob}
         />
+      ) : showProposals && selectedJobId ? (
+        <ProposalsList jobId={selectedJobId} onClose={closeProposalsModal} />
       ) : (
         <>
           {/* Tabs */}
