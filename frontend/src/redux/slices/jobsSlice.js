@@ -151,6 +151,18 @@ export const fetchJobProposals = createAsyncThunk("jobs/fetchJobProposals", asyn
   }
 });
 
+export const updateProposalStatus = createAsyncThunk(
+  "jobs/updateProposalStatus",
+  async ({ jobId, proposalId, status }, { rejectWithValue }) => {
+    try {
+      const response = await api.put(`/api/jobs/${jobId}/proposals/${proposalId}`, { status });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to update proposal status");
+    }
+  }
+);
+
 export const submitProposal = createAsyncThunk(
   "jobs/submitProposal",
   async ({ jobId, proposalData }, { rejectWithValue }) => {
@@ -361,8 +373,68 @@ const jobsSlice = createSlice({
       .addCase(fetchJobProposals.fulfilled, (state, action) => {
         state.isLoading = false;
         state.proposals = action.payload?.data?.proposals || [];
+
+        // Also update proposals in the corresponding job in clientJobs
+        const proposals = action.payload?.data?.proposals || [];
+        const jobId = action.meta.arg; // The job ID from the original request
+
+        // Update in active jobs
+        const activeJobIndex = state.clientJobs.active.findIndex((job) => job._id === jobId);
+        if (activeJobIndex !== -1) {
+          state.clientJobs.active[activeJobIndex].proposals = proposals;
+        }
+
+        // Update in closed jobs
+        const closedJobIndex = state.clientJobs.closed.findIndex((job) => job._id === jobId);
+        if (closedJobIndex !== -1) {
+          state.clientJobs.closed[closedJobIndex].proposals = proposals;
+        }
       })
       .addCase(fetchJobProposals.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      })
+      // Update Proposal Status
+      .addCase(updateProposalStatus.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(updateProposalStatus.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const updatedProposal = action.payload?.data?.proposal;
+
+        // Update the proposal in the proposals array
+        if (updatedProposal) {
+          state.proposals = state.proposals.map((proposal) =>
+            proposal._id === updatedProposal._id ? updatedProposal : proposal
+          );
+
+          // Also update in the job's proposals
+          const jobId = action.meta.arg.jobId;
+
+          // Update in active jobs
+          const activeJobIndex = state.clientJobs.active.findIndex((job) => job._id === jobId);
+          if (activeJobIndex !== -1) {
+            state.clientJobs.active[activeJobIndex].proposals = state.clientJobs.active[activeJobIndex].proposals.map(
+              (proposal) => (proposal._id === updatedProposal._id ? updatedProposal : proposal)
+            );
+
+            // If the job status changes to in_progress (when a proposal is accepted)
+            if (updatedProposal.status === "accepted") {
+              state.clientJobs.active[activeJobIndex].status = "in_progress";
+            }
+          }
+
+          // Update in closed jobs
+          const closedJobIndex = state.clientJobs.closed.findIndex((job) => job._id === jobId);
+          if (closedJobIndex !== -1) {
+            state.clientJobs.closed[closedJobIndex].proposals = state.clientJobs.closed[closedJobIndex].proposals.map(
+              (proposal) => (proposal._id === updatedProposal._id ? updatedProposal : proposal)
+            );
+          }
+        }
+      })
+      .addCase(updateProposalStatus.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
       })

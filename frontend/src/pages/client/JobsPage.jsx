@@ -113,6 +113,7 @@ const JobsPage = () => {
       return;
     }
 
+    // Set state to show the proposals modal
     setSelectedJobId(jobId);
     setShowProposals(true);
   };
@@ -120,6 +121,9 @@ const JobsPage = () => {
   const closeProposalsModal = () => {
     setShowProposals(false);
     setSelectedJobId(null);
+
+    // Refresh jobs list when modal closes as a proposal might have been accepted
+    dispatch(fetchClientJobs());
   };
 
   const renderJobsForTab = (jobs) => {

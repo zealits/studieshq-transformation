@@ -31,7 +31,7 @@ const isJobOwnerOrAdmin = (req, job) => {
 
     const userId = req.user.id.toString();
 
-    console.log(`Comparing job client ID: ${jobClientId} with user ID: ${userId}`);
+    // console.log(`Comparing job client ID: ${jobClientId} with user ID: ${userId}`);
 
     return jobClientId === userId;
   }
@@ -526,7 +526,9 @@ exports.submitProposal = async (req, res) => {
       avatar: freelancerProfile.user.avatar,
       title: freelancerProfile.title || null,
       skills: freelancerProfile.skills || [],
-      experience: freelancerProfile.experience || null,
+      experience: Array.isArray(freelancerProfile.experience)
+        ? freelancerProfile.experience.map((exp) => `${exp.title} at ${exp.company}`).join(", ")
+        : "",
       hourlyRate: freelancerProfile.hourlyRate || null,
     };
 
