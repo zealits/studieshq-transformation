@@ -21,7 +21,7 @@ const KeyFeaturesSection = () => {
           />
         </svg>
       ),
-      color: "bg-primary",
+      color: "bg-[#3884b8]",
     },
     {
       title: "Fast Payments",
@@ -37,7 +37,7 @@ const KeyFeaturesSection = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       ),
-      color: "bg-secondary",
+      color: "bg-[#0d81c8]",
     },
     {
       title: "Safe & Secure",
@@ -58,7 +58,7 @@ const KeyFeaturesSection = () => {
           />
         </svg>
       ),
-      color: "bg-accent",
+      color: "bg-[#3884b8]",
     },
     {
       title: "Quality Matching",
@@ -80,7 +80,7 @@ const KeyFeaturesSection = () => {
           />
         </svg>
       ),
-      color: "bg-primary",
+      color: "bg-[#0d81c8]",
     },
     {
       title: "Direct Communication",
@@ -102,7 +102,7 @@ const KeyFeaturesSection = () => {
           />
         </svg>
       ),
-      color: "bg-secondary",
+      color: "bg-[#3884b8]",
     },
     {
       title: "24/7 Support",
@@ -123,15 +123,15 @@ const KeyFeaturesSection = () => {
           />
         </svg>
       ),
-      color: "bg-accent",
+      color: "bg-[#0d81c8]",
     },
   ];
 
   return (
-    <section className="py-20 bg-background-light">
+    <section className="py-20 bg-gray-50">
       <div className="container-custom">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Why Choose StudiesHQ</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-[#3884b8]">Why Choose StudiesHQ</h2>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
             We've built the platform with features that address the real challenges freelancers face
           </p>
@@ -139,13 +139,16 @@ const KeyFeaturesSection = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (
-            <div key={index} className="card hover:shadow-lg transition-shadow duration-300">
+            <div
+              key={index}
+              className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-shadow duration-300"
+            >
               {/* Icon */}
               <div className={`${feature.color} w-16 h-16 rounded-lg flex items-center justify-center mb-6`}>
                 {feature.icon}
               </div>
 
-              <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
+              <h3 className="text-xl font-semibold mb-3 text-[#0d81c8]">{feature.title}</h3>
               <p className="text-gray-600">{feature.description}</p>
             </div>
           ))}

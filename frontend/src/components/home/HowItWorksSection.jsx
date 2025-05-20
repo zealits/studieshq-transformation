@@ -8,7 +8,7 @@ const HowItWorksSection = () => {
       description: "Sign up for free and set up your profile with your skills, portfolio, and experience.",
       icon: (
         <svg
-          className="w-12 h-12 text-primary"
+          className="w-12 h-12 text-[#3884b8]"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -29,7 +29,7 @@ const HowItWorksSection = () => {
       description: "Browse projects that match your skills or receive personalized job recommendations.",
       icon: (
         <svg
-          className="w-12 h-12 text-primary"
+          className="w-12 h-12 text-[#3884b8]"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -50,7 +50,7 @@ const HowItWorksSection = () => {
       description: "Send compelling proposals to clients outlining how you can help with their projects.",
       icon: (
         <svg
-          className="w-12 h-12 text-primary"
+          className="w-12 h-12 text-[#3884b8]"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -71,7 +71,7 @@ const HowItWorksSection = () => {
       description: "Work on projects through our secure platform and receive payment for completed milestones.",
       icon: (
         <svg
-          className="w-12 h-12 text-primary"
+          className="w-12 h-12 text-[#3884b8]"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -92,7 +92,7 @@ const HowItWorksSection = () => {
     <section className="py-20 bg-white">
       <div className="container-custom">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">How StudiesHQ Works</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-[#3884b8]">How StudiesHQ Works</h2>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
             Our streamlined process makes it easy to find work or hire talent
           </p>
@@ -102,18 +102,18 @@ const HowItWorksSection = () => {
           {steps.map((step, index) => (
             <div key={index} className="relative">
               {/* Step Number */}
-              <div className="absolute -top-4 -left-4 w-12 h-12 rounded-full bg-primary-light bg-opacity-20 flex items-center justify-center text-primary font-bold">
+              <div className="absolute -top-4 -left-4 w-12 h-12 rounded-full bg-[#3884b8]/20 flex items-center justify-center text-[#3884b8] font-bold">
                 {step.number}
               </div>
 
-              <div className="card h-full flex flex-col items-center text-center pt-12">
-                <div className="mb-6 text-primary">{step.icon}</div>
-                <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
+              <div className="bg-white rounded-xl shadow-lg p-8 h-full flex flex-col items-center text-center pt-12 hover:shadow-xl transition-shadow">
+                <div className="mb-6 text-[#3884b8]">{step.icon}</div>
+                <h3 className="text-xl font-semibold mb-3 text-[#0d81c8]">{step.title}</h3>
                 <p className="text-gray-600">{step.description}</p>
 
                 {/* Connector line (except for last item) */}
                 {index < steps.length - 1 && (
-                  <div className="hidden lg:block absolute top-1/2 -right-8 w-8 h-0.5 bg-gray-300"></div>
+                  <div className="hidden lg:block absolute top-1/2 -right-8 w-8 h-0.5 bg-[#3884b8]/20"></div>
                 )}
               </div>
             </div>
@@ -122,7 +122,10 @@ const HowItWorksSection = () => {
 
         <div className="mt-16 text-center">
           <p className="text-lg mb-6">Ready to start your journey with StudiesHQ?</p>
-          <a href="/register" className="btn-primary px-8 py-3 inline-block">
+          <a
+            href="/register"
+            className="px-8 py-3 bg-[#3884b8] text-white rounded-lg hover:bg-[#0d81c8] transition-colors inline-block"
+          >
             Join Now
           </a>
         </div>

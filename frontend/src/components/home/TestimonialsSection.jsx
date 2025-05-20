@@ -82,10 +82,10 @@ const TestimonialsSection = () => {
   };
 
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-background-light">
+    <section className="py-20 bg-gradient-to-b from-white to-gray-50">
       <div className="container-custom">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">What Our Community Says</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-[#3884b8]">What Our Community Says</h2>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
             Real stories from freelancers and clients who have found success on StudiesHQ
           </p>
@@ -102,7 +102,7 @@ const TestimonialsSection = () => {
                 <div key={testimonial.id} className="w-full flex-shrink-0 px-4">
                   <div className="bg-white rounded-xl shadow-lg p-8 md:p-10 flex flex-col md:flex-row gap-8 items-center">
                     <div className="md:w-1/3 flex flex-col items-center text-center">
-                      <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-4 border-primary/20">
+                      <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-4 border-[#3884b8]/20">
                         {/* <img
                           src={testimonial.image || "https://via.placeholder.com/96"}
                           alt={testimonial.name}
@@ -112,9 +112,9 @@ const TestimonialsSection = () => {
                           }}
                         /> */}
                       </div>
-                      <h4 className="font-bold text-lg">{testimonial.name}</h4>
+                      <h4 className="font-bold text-lg text-[#0d81c8]">{testimonial.name}</h4>
                       <p className="text-sm text-gray-600">{testimonial.role}</p>
-                      <p className="text-sm font-medium text-primary">{testimonial.company}</p>
+                      <p className="text-sm font-medium text-[#3884b8]">{testimonial.company}</p>
                       <p className="text-xs text-gray-500 mt-1">{testimonial.location}</p>
 
                       <div className="flex items-center mt-3">
@@ -135,7 +135,7 @@ const TestimonialsSection = () => {
                     <div className="md:w-2/3">
                       <div className="relative">
                         <svg
-                          className="absolute -top-4 -left-2 w-10 h-10 text-primary/20 transform rotate-180"
+                          className="absolute -top-4 -left-2 w-10 h-10 text-[#3884b8]/20 transform rotate-180"
                           fill="currentColor"
                           viewBox="0 0 20 20"
                           xmlns="http://www.w3.org/2000/svg"
@@ -168,7 +168,7 @@ const TestimonialsSection = () => {
             aria-label="Previous testimonial"
           >
             <svg
-              className="w-6 h-6 text-gray-800"
+              className="w-6 h-6 text-[#3884b8]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -184,7 +184,7 @@ const TestimonialsSection = () => {
             aria-label="Next testimonial"
           >
             <svg
-              className="w-6 h-6 text-gray-800"
+              className="w-6 h-6 text-[#3884b8]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -201,7 +201,7 @@ const TestimonialsSection = () => {
                 key={index}
                 onClick={() => handleDotClick(index)}
                 className={`w-3 h-3 mx-1 rounded-full transition-colors ${
-                  index === activeIndex ? "bg-primary" : "bg-gray-300"
+                  index === activeIndex ? "bg-[#3884b8]" : "bg-gray-300"
                 }`}
                 aria-label={`Go to testimonial ${index + 1}`}
               />
@@ -213,19 +213,19 @@ const TestimonialsSection = () => {
         <div className="mt-20 bg-white rounded-xl shadow-lg p-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             <div className="p-4">
-              <p className="text-4xl font-bold text-primary mb-2">93%</p>
+              <p className="text-4xl font-bold text-[#3884b8] mb-2">93%</p>
               <p className="text-sm text-gray-600">Satisfaction Rate</p>
             </div>
             <div className="p-4">
-              <p className="text-4xl font-bold text-primary mb-2">15k+</p>
+              <p className="text-4xl font-bold text-[#3884b8] mb-2">15k+</p>
               <p className="text-sm text-gray-600">Completed Projects</p>
             </div>
             <div className="p-4">
-              <p className="text-4xl font-bold text-primary mb-2">24/7</p>
+              <p className="text-4xl font-bold text-[#3884b8] mb-2">24/7</p>
               <p className="text-sm text-gray-600">Customer Support</p>
             </div>
             <div className="p-4">
-              <p className="text-4xl font-bold text-primary mb-2">4.8/5</p>
+              <p className="text-4xl font-bold text-[#3884b8] mb-2">4.8/5</p>
               <p className="text-sm text-gray-600">Average Rating</p>
             </div>
           </div>
@@ -233,12 +233,18 @@ const TestimonialsSection = () => {
 
         {/* CTA */}
         <div className="mt-16 text-center">
-          <h3 className="text-2xl font-bold mb-6">Ready to start your journey?</h3>
+          <h3 className="text-2xl font-bold mb-6 text-[#3884b8]">Ready to start your journey?</h3>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="/register" className="btn-primary px-8 py-3 text-lg">
+            <a
+              href="/register"
+              className="px-8 py-3 bg-[#3884b8] text-white rounded-lg hover:bg-[#0d81c8] transition-colors text-lg"
+            >
               Create Free Account
             </a>
-            <a href="/search" className="btn-outline px-8 py-3 text-lg">
+            <a
+              href="/search"
+              className="px-8 py-3 border-2 border-[#3884b8] text-[#3884b8] rounded-lg hover:bg-[#3884b8] hover:text-white transition-colors text-lg"
+            >
               Browse Opportunities
             </a>
           </div>

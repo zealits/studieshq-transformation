@@ -28,14 +28,14 @@ const HeroSection = () => {
   };
 
   return (
-    <section className="relative bg-background-light">
-      <div className="absolute inset-0 bg-gradient-to-r from-primary-light/10 to-secondary-light/10"></div>
+    <section className="relative bg-gray-50">
+      <div className="absolute inset-0 bg-gradient-to-r from-[#3884b8]/10 to-[#0d81c8]/10"></div>
 
       <div className="container-custom relative py-20 md:py-32">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-              Connect with Top Freelancers & Find Quality 
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#3884b8] mb-6 leading-tight">
+              Connect with Top Freelancers & Find Quality
             </h1>
 
             <p className="text-xl text-gray-700 mb-8">
@@ -48,11 +48,11 @@ const HeroSection = () => {
                 <input
                   type="text"
                   placeholder="Search for skills, jobs, or services..."
-                  className="input pr-12 py-4 text-lg"
+                  className="w-full px-4 py-4 text-lg border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3884b8] focus:border-transparent"
                   value={searchQuery}
                   onChange={handleSearchChange}
                 />
-                <button className="absolute right-3 top-1/2 -translate-y-1/2 text-primary hover:text-primary-dark">
+                <button className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3884b8] hover:text-[#0d81c8] transition-colors">
                   <svg
                     className="w-6 h-6"
                     fill="none"
@@ -72,10 +72,10 @@ const HeroSection = () => {
 
               {/* Search Suggestions */}
               {suggestions.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg">
+                <div className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg">
                   <ul className="py-2">
                     {suggestions.map((suggestion, index) => (
-                      <li key={index} className="px-4 py-2 hover:bg-gray-100 cursor-pointer">
+                      <li key={index} className="px-4 py-2 hover:bg-[#3884b8]/5 cursor-pointer transition-colors">
                         {suggestion}
                       </li>
                     ))}
@@ -85,10 +85,16 @@ const HeroSection = () => {
             </div>
 
             <div className="flex flex-wrap gap-4">
-              <Link to="/register" className="btn-primary text-center px-8 py-3 text-lg">
+              <Link
+                to="/register"
+                className="px-8 py-3 text-lg bg-[#3884b8] text-white rounded-lg hover:bg-[#0d81c8] transition-colors"
+              >
                 Get Started
               </Link>
-              <Link to="/how-it-works" className="btn-outline text-center px-8 py-3 text-lg">
+              <Link
+                to="/how-it-works"
+                className="px-8 py-3 text-lg border-2 border-[#3884b8] text-[#3884b8] rounded-lg hover:bg-[#3884b8] hover:text-white transition-colors"
+              >
                 Learn More
               </Link>
             </div>
@@ -109,19 +115,19 @@ const HeroSection = () => {
         <div className="container-custom">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             <div>
-              <p className="text-3xl font-bold text-primary mb-1">10K+</p>
+              <p className="text-3xl font-bold text-[#3884b8] mb-1">10K+</p>
               <p className="text-gray-600">Freelancers</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-primary mb-1">5K+</p>
+              <p className="text-3xl font-bold text-[#3884b8] mb-1">5K+</p>
               <p className="text-gray-600">Clients</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-primary mb-1">25K+</p>
+              <p className="text-3xl font-bold text-[#3884b8] mb-1">25K+</p>
               <p className="text-gray-600">Projects Completed</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-primary mb-1">50+</p>
+              <p className="text-3xl font-bold text-[#3884b8] mb-1">50+</p>
               <p className="text-gray-600">Categories</p>
             </div>
           </div>

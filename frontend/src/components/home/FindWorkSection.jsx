@@ -136,7 +136,7 @@ const FindWorkSection = () => {
       <div className="container-custom">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div>
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">Find Work in Top Categories</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-6 text-[#3884b8]">Find Work in Top Categories</h2>
             <p className="text-lg text-gray-700 mb-8">
               Browse opportunities across in-demand skills and categories where businesses are actively hiring
             </p>
@@ -146,9 +146,9 @@ const FindWorkSection = () => {
                 <Link
                   to="/freelancer/find-jobs"
                   key={index}
-                  className="flex items-center p-4 bg-background-light rounded-lg hover:bg-primary-light hover:text-white group transition-colors"
+                  className="flex items-center p-4 bg-gray-50 rounded-lg hover:bg-[#3884b8] hover:text-white group transition-colors"
                 >
-                  <div className="mr-4 text-primary group-hover:text-white">{category.icon}</div>
+                  <div className="mr-4 text-[#0d81c8] group-hover:text-white">{category.icon}</div>
                   <div>
                     <h3 className="font-medium mb-1">{category.name}</h3>
                     <p className="text-sm text-gray-500 group-hover:text-white/80">{category.jobs} open projects</p>
@@ -157,7 +157,10 @@ const FindWorkSection = () => {
               ))}
             </div>
 
-            <Link to="/freelancer/find-jobs" className="btn-primary px-8 py-3 inline-block">
+            <Link 
+              to="/freelancer/find-jobs" 
+              className="px-8 py-3 bg-[#3884b8] text-white rounded-lg hover:bg-[#0d81c8] transition-colors inline-block"
+            >
               View All Categories
             </Link>
           </div>
