@@ -1,7 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchProposals, withdrawProposal } from "../../redux/actions/proposalActions";
+import { formatDate } from "../../utils/dateUtils";
 
 const ProjectsPage = () => {
   const [activeTab, setActiveTab] = useState("active");
+  const dispatch = useDispatch();
+  const { proposals, loading, error } = useSelector((state) => state.proposals);
+  console.log(proposals);
+  useEffect(() => {
+    if (activeTab === "applied") {
+      dispatch(fetchProposals());
+    }
+  }, [activeTab, dispatch]);
+
+  const handleWithdrawProposal = (proposalId) => {
+    if (window.confirm("Are you sure you want to withdraw this proposal?")) {
+      dispatch(withdrawProposal(proposalId));
+    }
+  };
 
   const projects = {
     active: [
@@ -237,55 +254,100 @@ const ProjectsPage = () => {
       {/* Applied Projects */}
       {activeTab === "applied" && (
         <div className="space-y-6">
-          {projects.applied.map((project) => (
-            <div key={project.id} className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h2 className="text-xl font-semibold">{project.title}</h2>
-                  <p className="text-gray-600">Client: {project.client}</p>
-                </div>
-                <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(project.status)}`}>
-                  {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                </span>
-              </div>
-
-              <p className="mt-4 text-gray-600">{project.description}</p>
-
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Applied Date</p>
-                  <p className="font-medium">{project.appliedDate}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Budget</p>
-                  <p className="font-medium">{project.budget}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Your Bid</p>
-                  <p className="font-medium">{project.proposalDetails.bidPrice}</p>
-                </div>
-              </div>
-
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <h3 className="font-medium mb-2">Proposal Details</h3>
-                <div className="space-y-2">
-                  <p>
-                    <span className="font-medium">Estimated Duration:</span> {project.proposalDetails.estimatedDuration}
-                  </p>
-                  <p>
-                    <span className="font-medium">Cover Letter:</span> {project.proposalDetails.coverLetter}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4 flex justify-end space-x-2">
-                <button className="btn-outline text-sm py-1">View Job Details</button>
-                {project.status === "pending" && (
-                  <button className="btn-primary text-sm py-1">Withdraw Proposal</button>
-                )}
-              </div>
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
-          ))}
+          ) : error ? (
+            <div className="text-center text-red-600 p-4">
+              <p>Error: {error}</p>
+            </div>
+          ) : proposals.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <p className="text-gray-500">No proposals submitted yet</p>
+            </div>
+          ) : (
+            proposals.map((proposal) => (
+              <div key={proposal._id} className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-xl font-semibold">{proposal.job.title}</h2>
+                    <p className="text-gray-600">Client: {proposal.job.client.name}</p>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(proposal.status)}`}>
+                      {proposal.status.charAt(0).toUpperCase() + proposal.status.slice(1)}
+                    </span>
+                    <p className="text-sm text-gray-500 mt-1">Applied {formatDate(proposal.createdAt)}</p>
+                  </div>
+                </div>
+
+                <p className="mt-4 text-gray-600">{proposal.job.description}</p>
+
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Client's Budget</p>
+                    <p className="font-medium">
+                      ${proposal.job.budget.min} - ${proposal.job.budget.max}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Your Bid</p>
+                    <p className="font-medium">${proposal.bidPrice}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Duration</p>
+                    <p className="font-medium">{proposal.estimatedDuration}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="font-medium mb-2">Proposal Details</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Cover Letter</p>
+                      <p className="text-gray-700 whitespace-pre-wrap">{proposal.coverLetter}</p>
+                    </div>
+                    {proposal.status === "shortlisted" && (
+                      <div className="mt-3 p-3 bg-blue-50 rounded-md">
+                        <p className="text-sm text-blue-700">
+                          <span className="font-medium">Note:</span> Your proposal has been shortlisted! The client is
+                          reviewing your profile.
+                        </p>
+                      </div>
+                    )}
+                    {proposal.status === "rejected" && (
+                      <div className="mt-3 p-3 bg-red-50 rounded-md">
+                        <p className="text-sm text-red-700">
+                          <span className="font-medium">Note:</span> This proposal was not selected for this project.
+                        </p>
+                      </div>
+                    )}
+                    {proposal.status === "accepted" && (
+                      <div className="mt-3 p-3 bg-green-50 rounded-md">
+                        <p className="text-sm text-green-700">
+                          <span className="font-medium">Congratulations!</span> Your proposal has been accepted. This
+                          project will appear in your Active Projects.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-4 flex justify-end space-x-2">
+                  <button className="btn-outline text-sm py-1">View Job Details</button>
+                  {proposal.status === "pending" && (
+                    <button onClick={() => handleWithdrawProposal(proposal._id)} className="btn-danger text-sm py-1">
+                      Withdraw Proposal
+                    </button>
+                  )}
+                  {proposal.status === "shortlisted" && (
+                    <button className="btn-primary text-sm py-1">Contact Client</button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 
