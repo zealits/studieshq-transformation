@@ -210,14 +210,27 @@ exports.getJobs = async (req, res) => {
       .select("-__v")
       .sort({ featured: -1, createdAt: -1 });
 
+    // Get proposal counts for each job
+    const jobsWithProposalCounts = await Promise.all(
+      jobs.map(async (job) => {
+        const proposalCount = await Proposal.countDocuments({ job: job._id });
+        const jobObj = job.toObject();
+        return {
+          ...jobObj,
+          proposals: [], // Initialize empty proposals array
+          applicationCount: proposalCount, // Add the actual proposal count
+        };
+      })
+    );
+
     // Log the number of jobs found
-    console.log(`Found ${jobs.length} jobs matching the query`);
+    console.log(`Found ${jobsWithProposalCounts.length} jobs matching the query`);
 
     // Always return an array of jobs, even if empty
     res.json({
       success: true,
-      count: jobs.length,
-      data: { jobs: jobs || [] },
+      count: jobsWithProposalCounts.length,
+      data: { jobs: jobsWithProposalCounts || [] },
     });
   } catch (err) {
     console.error("Error in getJobs:", err.message);
@@ -232,8 +245,7 @@ exports.getJobs = async (req, res) => {
  */
 exports.getJob = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id)
-      .populate("client", "name avatar");
+    const job = await Job.findById(req.params.id).populate("client", "name avatar");
 
     if (!job) {
       return res.status(404).json({

@@ -235,7 +235,7 @@ const JobsPage = () => {
               </div>
               <div>
                 <span className="block text-sm text-gray-500">Proposals</span>
-                <span className="font-medium">{job.proposals ? job.proposals.length : 0}</span>
+                <span className="font-medium">{job.applicationCount || 0}</span>
               </div>
             </div>
 
@@ -257,7 +257,7 @@ const JobsPage = () => {
             <div className="mt-4 flex space-x-2">
               {job.status !== "draft" && (
                 <button className="btn-outline text-sm py-1" onClick={() => handleViewProposals(job._id)}>
-                  View Proposals ({job.proposals ? job.proposals.length : 0})
+                  View Proposals ({job.applicationCount || 0})
                 </button>
               )}
               <button className="btn-outline text-sm py-1" onClick={() => handleEditJob(job)}>
