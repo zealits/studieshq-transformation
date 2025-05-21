@@ -59,6 +59,7 @@ jobs:
             # Use git pull if the repository exists; otherwise, clone it
             if [ -d ~/studieshq-transformation ]; then
               cd ~/studieshq-transformation
+              git reset --hard
               git pull origin main
             else
               git clone https://github.com/zealits/BiddingApp.git ~/BiddingApp
