@@ -1,54 +1,6 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-// Proposal Schema
-const ProposalSchema = new Schema({
-  freelancer: {
-    type: Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-  },
-  coverLetter: {
-    type: String,
-    required: true,
-  },
-  bidPrice: {
-    type: Number,
-    required: true,
-  },
-  estimatedDuration: {
-    type: String,
-    required: true,
-  },
-  status: {
-    type: String,
-    enum: ["pending", "shortlisted", "accepted", "rejected"],
-    default: "pending",
-  },
-  freelancerProfileSnapshot: {
-    name: { type: String },
-    avatar: { type: String },
-    title: { type: String },
-    skills: [{ type: String }],
-    experience: { type: String },
-    hourlyRate: { type: Number },
-  },
-  attachments: [
-    {
-      type: Schema.Types.ObjectId,
-      ref: "Attachment",
-    },
-  ],
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
-
 // Job Schema
 const JobSchema = new Schema({
   title: {
@@ -128,7 +80,6 @@ const JobSchema = new Schema({
     description: { type: String },
     location: { type: String },
   },
-  proposals: [ProposalSchema],
   viewCount: {
     type: Number,
     default: 0,
@@ -161,13 +112,7 @@ JobSchema.pre("save", function (next) {
   next();
 });
 
-ProposalSchema.pre("save", function (next) {
-  this.updatedAt = Date.now();
-  next();
-});
-
-// Create models
+// Create model
 const Job = mongoose.model("Job", JobSchema);
-const Proposal = mongoose.model("Proposal", ProposalSchema);
 
-module.exports = { Job, Proposal };
+module.exports = Job;

@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // Layouts
 import MainLayout from "./layouts/MainLayout";
@@ -32,6 +34,7 @@ import ClientMessages from "./pages/client/MessagesPage";
 import ClientPayments from "./pages/client/PaymentsPage";
 import ClientProfile from "./pages/client/ProfilePage";
 import ClientSettings from "./pages/client/SettingsPage";
+import JobProposals from "./components/client/JobProposals";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/DashboardPage";
@@ -60,75 +63,96 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
 function App() {
   return (
-    <Routes>
-      {/* Public Routes */}
-      <Route path="/" element={<MainLayout />}>
-        <Route index element={<HomePage />} />
-        <Route path="about" element={<AboutPage />} />
-        <Route path="login" element={<LoginPage />} />
-        <Route path="register" element={<RegisterPage />} />
-        <Route path="verify-email" element={<EmailVerificationPage />} />
-      </Route>
+    <>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<MainLayout />}>
+          <Route index element={<HomePage />} />
+          <Route path="about" element={<AboutPage />} />
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
+          <Route path="verify-email" element={<EmailVerificationPage />} />
+        </Route>
 
-      {/* Freelancer Routes */}
-      <Route
-        path="/freelancer"
-        element={
-          <ProtectedRoute allowedRoles={["freelancer"]}>
-            <DashboardLayout role="freelancer" />
-         </ProtectedRoute>
-        }
-      >
-        <Route index element={<FreelancerDashboard />} />
-        <Route path="find-jobs" element={<FreelancerFindJobs />} />
-        <Route path="projects" element={<FreelancerProjects />} />
-        <Route path="messages" element={<FreelancerMessages />} />
-        <Route path="payments" element={<FreelancerPayments />} />
-        <Route path="profile" element={<FreelancerProfile />} />
-        {/* <Route path="settings" element={<FreelancerSettings />} />  */}
-      </Route>
+        {/* Freelancer Routes */}
+        <Route
+          path="/freelancer"
+          element={
+            <ProtectedRoute allowedRoles={["freelancer"]}>
+              <DashboardLayout role="freelancer" />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<FreelancerDashboard />} />
+          <Route path="find-jobs" element={<FreelancerFindJobs />} />
+          <Route path="projects" element={<FreelancerProjects />} />
+          <Route path="messages" element={<FreelancerMessages />} />
+          <Route path="payments" element={<FreelancerPayments />} />
+          <Route path="profile" element={<FreelancerProfile />} />
+          {/* <Route path="settings" element={<FreelancerSettings />} />  */}
+        </Route>
 
-      {/* Client Routes */}
-      <Route
-        path="/client"
-        element={
-          <ProtectedRoute allowedRoles={["client"]}>
-            <DashboardLayout role="client" />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<ClientDashboard />} />
-        <Route path="jobs" element={<ClientJobs />} />
-        <Route path="freelancers" element={<ClientFreelancers />} />
-        <Route path="projects" element={<ClientProjects />} />
-        <Route path="messages" element={<ClientMessages />} />
-        <Route path="payments" element={<ClientPayments />} />
-        <Route path="profile" element={<ClientProfile />} />
-        <Route path="settings" element={<ClientSettings />} />
-      </Route>
+        {/* Client Routes */}
+        <Route
+          path="/client"
+          element={
+            <ProtectedRoute allowedRoles={["client"]}>
+              <DashboardLayout role="client" />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<ClientDashboard />} />
+          <Route path="jobs" element={<ClientJobs />} />
+          <Route path="freelancers" element={<ClientFreelancers />} />
+          <Route path="projects" element={<ClientProjects />} />
+          <Route path="messages" element={<ClientMessages />} />
+          <Route path="payments" element={<ClientPayments />} />
+          <Route path="profile" element={<ClientProfile />} />
+          <Route path="settings" element={<ClientSettings />} />
+          <Route
+            path="jobs/:jobId/proposals"
+            element={
+              <ProtectedRoute allowedRoles={["client"]}>
+                <JobProposals />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
 
-      {/* Admin Routes */}
-      <Route
-        path="/admin"
-        element={
-           <ProtectedRoute allowedRoles={["admin"]}>
-            <DashboardLayout role="admin" />
-           </ProtectedRoute>
-        }
-      >
-        <Route index element={<AdminDashboard />} />
-        <Route path="users" element={<AdminUserManagement />} />
-        <Route path="jobs" element={<AdminJobManagement />} />
-        <Route path="projects" element={<AdminProjects />} />
-        <Route path="reports" element={<AdminReports />} />
-        <Route path="payments" element={<AdminPayments />} />
-        <Route path="settings" element={<AdminSettings />} />
-        <Route path="support" element={<AdminSupport />} />
-      </Route>
+        {/* Admin Routes */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <DashboardLayout role="admin" />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="users" element={<AdminUserManagement />} />
+          <Route path="jobs" element={<AdminJobManagement />} />
+          <Route path="projects" element={<AdminProjects />} />
+          <Route path="reports" element={<AdminReports />} />
+          <Route path="payments" element={<AdminPayments />} />
+          <Route path="settings" element={<AdminSettings />} />
+          <Route path="support" element={<AdminSupport />} />
+        </Route>
 
-      {/* 404 Not Found */}
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+        {/* 404 Not Found */}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </>
   );
 }
 

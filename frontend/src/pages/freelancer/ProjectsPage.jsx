@@ -70,6 +70,65 @@ const ProjectsPage = () => {
         description: "Developed a custom WordPress website with booking functionality for a local service business.",
       },
     ],
+    applied: [
+      {
+        id: 6,
+        title: "Social Media Marketing Campaign",
+        client: "Growth Marketing Co.",
+        appliedDate: "May 5, 2023",
+        budget: "$3,000",
+        status: "shortlisted",
+        description: "Running a comprehensive social media marketing campaign across multiple platforms.",
+        proposalDetails: {
+          bidPrice: "$2,800",
+          estimatedDuration: "2 months",
+          coverLetter: "I have extensive experience in social media marketing...",
+        },
+      },
+      {
+        id: 7,
+        title: "UI/UX Design for Mobile App",
+        client: "TechStart Inc.",
+        appliedDate: "May 3, 2023",
+        budget: "$5,000",
+        status: "pending",
+        description: "Designing the user interface and experience for a new mobile application.",
+        proposalDetails: {
+          bidPrice: "$4,500",
+          estimatedDuration: "3 weeks",
+          coverLetter: "As a UI/UX designer with 5 years of experience...",
+        },
+      },
+      {
+        id: 8,
+        title: "Backend Development",
+        client: "Enterprise Solutions",
+        appliedDate: "May 1, 2023",
+        budget: "$8,000",
+        status: "rejected",
+        description: "Developing a robust backend system for an enterprise application.",
+        proposalDetails: {
+          bidPrice: "$7,500",
+          estimatedDuration: "3 months",
+          coverLetter: "I specialize in scalable backend solutions...",
+        },
+      },
+    ],
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "shortlisted":
+        return "bg-blue-100 text-blue-800";
+      case "accepted":
+        return "bg-green-100 text-green-800";
+      case "rejected":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
   };
 
   return (
@@ -85,6 +144,14 @@ const ProjectsPage = () => {
           onClick={() => setActiveTab("active")}
         >
           Active Projects
+        </button>
+        <button
+          className={`pb-2 px-4 font-medium ${
+            activeTab === "applied" ? "border-b-2 border-primary text-primary" : "text-gray-500 hover:text-gray-700"
+          }`}
+          onClick={() => setActiveTab("applied")}
+        >
+          Applied Projects
         </button>
         <button
           className={`pb-2 px-4 font-medium ${
@@ -161,6 +228,61 @@ const ProjectsPage = () => {
                     <button className="btn-primary text-sm py-1">Submit Work</button>
                   </div>
                 </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Applied Projects */}
+      {activeTab === "applied" && (
+        <div className="space-y-6">
+          {projects.applied.map((project) => (
+            <div key={project.id} className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-xl font-semibold">{project.title}</h2>
+                  <p className="text-gray-600">Client: {project.client}</p>
+                </div>
+                <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(project.status)}`}>
+                  {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                </span>
+              </div>
+
+              <p className="mt-4 text-gray-600">{project.description}</p>
+
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Applied Date</p>
+                  <p className="font-medium">{project.appliedDate}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Budget</p>
+                  <p className="font-medium">{project.budget}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Your Bid</p>
+                  <p className="font-medium">{project.proposalDetails.bidPrice}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <h3 className="font-medium mb-2">Proposal Details</h3>
+                <div className="space-y-2">
+                  <p>
+                    <span className="font-medium">Estimated Duration:</span> {project.proposalDetails.estimatedDuration}
+                  </p>
+                  <p>
+                    <span className="font-medium">Cover Letter:</span> {project.proposalDetails.coverLetter}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex justify-end space-x-2">
+                <button className="btn-outline text-sm py-1">View Job Details</button>
+                {project.status === "pending" && (
+                  <button className="btn-primary text-sm py-1">Withdraw Proposal</button>
+                )}
               </div>
             </div>
           ))}

@@ -1,6 +1,7 @@
 const { validationResult } = require("express-validator");
 const mongoose = require("mongoose");
-const { Job, Proposal } = require("../models/Job");
+const Job = require("../models/Job");
+const Proposal = require("../models/Proposal");
 const User = require("../models/User");
 const Profile = require("../models/Profile");
 
@@ -232,15 +233,7 @@ exports.getJobs = async (req, res) => {
 exports.getJob = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id)
-      .populate("client", "name avatar")
-      .populate({
-        path: "proposals",
-        populate: {
-          path: "freelancer",
-          select: "name avatar",
-        },
-        select: "-coverLetter",
-      });
+      .populate("client", "name avatar");
 
     if (!job) {
       return res.status(404).json({
@@ -310,8 +303,13 @@ exports.getJob = async (req, res) => {
 
     let responseJob = job.toObject();
 
-    // If not owner or admin, remove proposals
-    if (!isOwner && !isAdmin) {
+    // If owner or admin, populate proposals
+    if (isOwner || isAdmin) {
+      const proposals = await Proposal.find({ job: job._id })
+        .populate("freelancer", "name avatar")
+        .select("-coverLetter");
+      responseJob.proposals = proposals;
+    } else {
       responseJob.proposals = [];
     }
 
@@ -499,7 +497,10 @@ exports.submitProposal = async (req, res) => {
     }
 
     // Check if freelancer already submitted a proposal
-    const existingProposal = job.proposals.find((proposal) => proposal.freelancer.toString() === req.user.id);
+    const existingProposal = await Proposal.findOne({
+      job: job._id,
+      freelancer: req.user.id,
+    });
 
     if (existingProposal) {
       return res.status(400).json({
@@ -533,23 +534,26 @@ exports.submitProposal = async (req, res) => {
     };
 
     // Create new proposal
-    const newProposal = {
+    const newProposal = new Proposal({
+      job: job._id,
       freelancer: req.user.id,
+      client: job.client,
       coverLetter,
       bidPrice,
       estimatedDuration,
       status: "pending",
       freelancerProfileSnapshot: profileSnapshot,
-    };
+    });
 
-    // Add proposal to job
-    job.proposals.push(newProposal);
+    await newProposal.save();
+
+    // Update job application count
     job.applicationCount += 1;
     await job.save();
 
     res.status(201).json({
       success: true,
-      data: { proposal: job.proposals[job.proposals.length - 1] },
+      data: { proposal: newProposal },
     });
   } catch (err) {
     console.error("Error in submitProposal:", err.message);
@@ -580,16 +584,15 @@ exports.getProposals = async (req, res) => {
       return res.status(403).json({ success: false, message: "Not authorized to view proposals for this job" });
     }
 
-    // Populate freelancer details
-    await job.populate({
-      path: "proposals.freelancer",
-      select: "name avatar",
-    });
+    // Get proposals for this job
+    const proposals = await Proposal.find({ job: job._id })
+      .populate("freelancer", "name avatar")
+      .sort({ createdAt: -1 });
 
     res.json({
       success: true,
-      count: job.proposals.length,
-      data: { proposals: job.proposals },
+      count: proposals.length,
+      data: { proposals },
     });
   } catch (err) {
     console.error("Error in getProposals:", err.message);
@@ -626,7 +629,11 @@ exports.updateProposalStatus = async (req, res) => {
     }
 
     // Find the proposal
-    const proposal = job.proposals.id(req.params.proposalId);
+    const proposal = await Proposal.findOne({
+      _id: req.params.proposalId,
+      job: job._id,
+    });
+
     if (!proposal) {
       return res.status(404).json({ success: false, message: "Proposal not found" });
     }
@@ -635,7 +642,11 @@ exports.updateProposalStatus = async (req, res) => {
 
     // If accepting, make sure no other proposal is already accepted
     if (status === "accepted") {
-      const alreadyAccepted = job.proposals.find((p) => p.status === "accepted");
+      const alreadyAccepted = await Proposal.findOne({
+        job: job._id,
+        status: "accepted",
+      });
+
       if (alreadyAccepted) {
         return res.status(400).json({
           success: false,
@@ -645,11 +656,12 @@ exports.updateProposalStatus = async (req, res) => {
 
       // Update job status to in_progress when a proposal is accepted
       job.status = "in_progress";
+      await job.save();
     }
 
     // Update proposal status
     proposal.status = status;
-    await job.save();
+    await proposal.save();
 
     res.json({
       success: true,
