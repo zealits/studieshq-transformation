@@ -8,6 +8,7 @@ import authReducer from "./slices/authSlice";
 import jobsReducer from "./slices/jobsSlice";
 import profileReducer from "./slices/profileSlice";
 import proposalReducer from "./reducers/proposalReducer";
+import freelancerReducer from "./slices/freelancerSlice";
 
 const persistConfig = {
   key: "root",
@@ -20,6 +21,7 @@ const rootReducer = combineReducers({
   jobs: jobsReducer,
   profile: profileReducer,
   proposals: proposalReducer,
+  freelancers: freelancerReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

@@ -1,76 +1,45 @@
-import React, { useState } from "react";
+import React, { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  fetchFreelancers,
+  setFilters,
+  selectFilteredFreelancers,
+  selectFreelancerLoading,
+  selectFreelancerError,
+  selectFreelancerFilters,
+} from "../../redux/slices/freelancerSlice";
 
 const FreelancersPage = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filters, setFilters] = useState({
-    skill: "",
-    rate: "",
-    experience: "",
-  });
+  const dispatch = useDispatch();
+  const freelancers = useSelector(selectFilteredFreelancers);
+  const loading = useSelector(selectFreelancerLoading);
+  const error = useSelector(selectFreelancerError);
+  const filters = useSelector(selectFreelancerFilters);
 
-  // Mock data for freelancers
-  const freelancers = [
-    {
-      id: 1,
-      name: "Alex Johnson",
-      avatar: "AJ",
-      title: "Senior Web Developer",
-      skills: ["React", "Node.js", "MongoDB", "Express", "JavaScript"],
-      hourlyRate: "$45",
-      rating: 4.9,
-      reviews: 28,
-      location: "New York, USA",
-      description:
-        "Full-stack developer with over 8 years of experience in building web applications. Specialized in React and Node.js development.",
-    },
-    {
-      id: 2,
-      name: "Sarah Williams",
-      avatar: "SW",
-      title: "UI/UX Designer",
-      skills: ["UI Design", "UX Design", "Figma", "Adobe XD", "Sketch"],
-      hourlyRate: "$55",
-      rating: 4.8,
-      reviews: 34,
-      location: "London, UK",
-      description:
-        "Creative UI/UX designer with strong focus on user-centered design. Expert in creating intuitive and engaging interfaces.",
-    },
-    {
-      id: 3,
-      name: "Michael Chen",
-      avatar: "MC",
-      title: "WordPress Developer",
-      skills: ["WordPress", "PHP", "MySQL", "JavaScript", "HTML/CSS"],
-      hourlyRate: "$40",
-      rating: 4.7,
-      reviews: 19,
-      location: "Toronto, Canada",
-      description:
-        "WordPress expert with experience in theme development, plugin customization, and e-commerce solutions.",
-    },
-    {
-      id: 4,
-      name: "Emily Carter",
-      avatar: "EC",
-      title: "Content Marketer",
-      skills: ["Content Writing", "SEO", "Social Media", "Email Marketing", "Analytics"],
-      hourlyRate: "$35",
-      rating: 4.9,
-      reviews: 22,
-      location: "Chicago, USA",
-      description:
-        "Experienced content marketer who creates engaging, SEO-optimized content that drives traffic and conversions.",
-    },
-  ];
+  useEffect(() => {
+    dispatch(fetchFreelancers());
+  }, [dispatch]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters({
-      ...filters,
-      [name]: value,
-    });
+    dispatch(setFilters({ [name]: value }));
   };
+
+  const handleSearchChange = (e) => {
+    dispatch(setFilters({ searchTerm: e.target.value }));
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="text-center text-red-500 p-4">{error}</div>;
+  }
 
   return (
     <div>
@@ -84,8 +53,8 @@ const FreelancersPage = () => {
               type="text"
               className="input pl-10 pr-4 py-2 w-full"
               placeholder="Search for skills or freelancers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={filters.searchTerm}
+              onChange={handleSearchChange}
             />
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <svg
@@ -113,10 +82,11 @@ const FreelancersPage = () => {
             </label>
             <select id="skill" name="skill" className="input" value={filters.skill} onChange={handleFilterChange}>
               <option value="">All Skills</option>
-              <option value="react">React</option>
-              <option value="wordpress">WordPress</option>
-              <option value="ui-design">UI Design</option>
-              <option value="content-writing">Content Writing</option>
+              {Array.from(new Set(freelancers.flatMap((f) => f.skills))).map((skill) => (
+                <option key={skill} value={skill}>
+                  {skill}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -156,14 +126,14 @@ const FreelancersPage = () => {
       {/* Freelancers List */}
       <div className="space-y-6">
         {freelancers.map((freelancer) => (
-          <div key={freelancer.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+          <div key={freelancer._id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
             <div className="flex flex-col md:flex-row md:items-start">
               <div className="flex items-center mb-4 md:mb-0">
                 <div className="w-16 h-16 bg-primary-light rounded-full flex items-center justify-center text-white text-xl font-semibold">
-                  {freelancer.avatar}
+                  {freelancer.user.avatar || freelancer.user.name.charAt(0)}
                 </div>
                 <div className="ml-4 md:hidden">
-                  <h2 className="text-xl font-semibold">{freelancer.name}</h2>
+                  <h2 className="text-xl font-semibold">{freelancer.user.name}</h2>
                   <p className="text-gray-600">{freelancer.title}</p>
                 </div>
               </div>
@@ -171,23 +141,15 @@ const FreelancersPage = () => {
               <div className="md:ml-6 flex-1">
                 <div className="flex flex-col md:flex-row md:justify-between md:items-start">
                   <div className="hidden md:block">
-                    <h2 className="text-xl font-semibold">{freelancer.name}</h2>
+                    <h2 className="text-xl font-semibold">{freelancer.user.name}</h2>
                     <p className="text-gray-600">{freelancer.title}</p>
                   </div>
                   <div className="flex items-center mt-2 md:mt-0">
-                    <div className="flex items-center mr-4">
-                      <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                      <span className="ml-1 text-gray-700">
-                        {freelancer.rating} ({freelancer.reviews} reviews)
-                      </span>
-                    </div>
-                    <div className="text-primary font-semibold">{freelancer.hourlyRate}/hr</div>
+                    <div className="text-primary font-semibold">${freelancer.hourlyRate}/hr</div>
                   </div>
                 </div>
 
-                <p className="mt-3 text-gray-600">{freelancer.description}</p>
+                <p className="mt-3 text-gray-600">{freelancer.bio}</p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   {freelancer.skills.map((skill, index) => (
