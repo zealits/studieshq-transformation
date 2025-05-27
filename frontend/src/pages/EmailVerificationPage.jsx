@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
-import axios from "axios";
+import { useDispatch, useSelector } from "react-redux";
+import { resendVerification } from "../redux/slices/authSlice";
 import api from "../api/axios";
 
 const EmailVerificationPage = () => {
   const [status, setStatus] = useState("verifying"); // verifying, success, error
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
+  const [isResending, setIsResending] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
 
   useEffect(() => {
     const verifyEmail = async () => {
@@ -18,32 +22,33 @@ const EmailVerificationPage = () => {
         const token = params.get("token");
         const emailParam = params.get("email");
 
-        if (emailParam) {
+        // If we have a logged-in user but no email param, use their email
+        if (user && !emailParam) {
+          setEmail(user.email);
+        } else if (emailParam) {
           setEmail(emailParam);
         }
 
-        if (!token) {
-          setStatus("error");
-          setMessage("Verification token is missing.");
-          return;
-        }
-
-        // Call the API to verify the email
-        try {
-          await api.get(`/api/auth/verify-email/${token}`);
-        } catch (error) {
-          console.error("Error verifying email with token:", error);
-          // Continue to check verification status even if token verification fails
+        if (token) {
+          // Call the API to verify the email
+          try {
+            await api.get(`/api/auth/verify-email/${token}`);
+            setStatus("success");
+            setMessage("Your email has been successfully verified. You can now access your dashboard.");
+            return;
+          } catch (error) {
+            console.error("Error verifying email with token:", error);
+          }
         }
 
         // If we have an email, check verification status
-        if (emailParam) {
+        if (email) {
           try {
-            const verificationResponse = await api.get(`/api/auth/check-verification/${emailParam}`);
+            const verificationResponse = await api.get(`/api/auth/check-verification/${email}`);
 
             if (verificationResponse.data.isVerified) {
               setStatus("success");
-              setMessage("Your email has been successfully verified. You can now log in.");
+              setMessage("Your email has been successfully verified. You can now access your dashboard.");
               return;
             }
           } catch (error) {
@@ -53,15 +58,28 @@ const EmailVerificationPage = () => {
 
         // If we reach here, either we don't have an email or verification check failed
         setStatus("error");
-        setMessage("Failed to verify your email. The token may be invalid or expired.");
+        setMessage("Please verify your email to access the dashboard. You can request a new verification email below.");
       } catch (error) {
         setStatus("error");
-        setMessage(error.response?.data?.error || "Failed to verify your email. The token may be invalid or expired.");
+        setMessage(error.response?.data?.error || "Failed to verify your email. Please try again.");
       }
     };
 
     verifyEmail();
-  }, [location]);
+  }, [location, user]);
+
+  const handleResendVerification = async () => {
+    if (!email) return;
+    
+    setIsResending(true);
+    try {
+      await dispatch(resendVerification(email));
+      setMessage("A new verification email has been sent. Please check your inbox.");
+    } catch (error) {
+      setMessage("Failed to resend verification email. Please try again.");
+    }
+    setIsResending(false);
+  };
 
   return (
     <div className="container-custom py-12">
@@ -96,10 +114,10 @@ const EmailVerificationPage = () => {
               <h2 className="text-2xl font-bold text-green-600 mb-4">Email Verified!</h2>
               <p className="text-gray-600 mb-6">{message}</p>
               <Link
-                to="/login"
+                to={user?.role === "client" ? "/client" : user?.role === "freelancer" ? "/freelancer" : "/dashboard"}
                 className="inline-block bg-primary text-white py-2 px-6 rounded-md hover:bg-primary-dark transition-colors"
               >
-                Go to Login
+                Go to Dashboard
               </Link>
             </>
           )}
@@ -107,7 +125,7 @@ const EmailVerificationPage = () => {
           {status === "error" && (
             <>
               <svg
-                className="w-16 h-16 text-red-500 mx-auto mb-4"
+                className="w-16 h-16 text-yellow-500 mx-auto mb-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -120,20 +138,21 @@ const EmailVerificationPage = () => {
                   d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <h2 className="text-2xl font-bold text-red-600 mb-4">Verification Failed</h2>
+              <h2 className="text-2xl font-bold text-yellow-600 mb-4">Email Verification Required</h2>
               <p className="text-gray-600 mb-6">{message}</p>
               <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 justify-center">
+                <button
+                  onClick={handleResendVerification}
+                  disabled={isResending}
+                  className="inline-block bg-primary text-white py-2 px-6 rounded-md hover:bg-primary-dark transition-colors disabled:opacity-50"
+                >
+                  {isResending ? "Sending..." : "Resend Verification Email"}
+                </button>
                 <Link
                   to="/login"
-                  className="inline-block bg-primary text-white py-2 px-6 rounded-md hover:bg-primary-dark transition-colors"
-                >
-                  Go to Login
-                </Link>
-                <Link
-                  to="/register"
                   className="inline-block bg-gray-200 text-gray-800 py-2 px-6 rounded-md hover:bg-gray-300 transition-colors"
                 >
-                  Register Again
+                  Back to Login
                 </Link>
               </div>
             </>
