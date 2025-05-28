@@ -2,13 +2,20 @@ import React, { useState, useEffect } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../redux/slices/authSlice";
+import { fetchMyProfile } from "../redux/slices/profileSlice";
 
 const DashboardLayout = ({ role }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { user } = useSelector((state) => state.auth);
+  const { data: profileData } = useSelector((state) => state.profile);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Fetch profile data when component mounts
+  useEffect(() => {
+    dispatch(fetchMyProfile());
+  }, [dispatch]);
 
   // Close sidebar when route changes on mobile
   useEffect(() => {
@@ -286,8 +293,18 @@ const DashboardLayout = ({ role }) => {
 
         {/* User profile section */}
         <div className="flex flex-col items-center pt-6 pb-5 px-4 border-b border-gray-200">
-          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center text-white text-xl font-bold mb-2">
-            {user?.name ? user.name.charAt(0) : "U"}
+          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center text-white text-xl font-bold mb-2 overflow-hidden">
+            {profileData?.data?.profile?.user?.avatar ? (
+              <img
+                src={profileData.data.profile.user.avatar}
+                alt={user?.name || "User"}
+                className="w-full h-full object-cover"
+              />
+            ) : user?.name ? (
+              user.name.charAt(0)
+            ) : (
+              "U"
+            )}
           </div>
           <h2 className="text-base font-semibold text-gray-800">{user?.name || "User"}</h2>
           <p className="text-sm text-gray-500 mt-1 capitalize">{role}</p>

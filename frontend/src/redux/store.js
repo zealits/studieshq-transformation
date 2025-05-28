@@ -9,6 +9,7 @@ import jobsReducer from "./slices/jobsSlice";
 import profileReducer from "./slices/profileSlice";
 import proposalReducer from "./reducers/proposalReducer";
 import freelancerReducer from "./slices/freelancerSlice";
+import uploadReducer from "./slices/uploadSlice";
 
 const persistConfig = {
   key: "root",
@@ -22,6 +23,7 @@ const rootReducer = combineReducers({
   profile: profileReducer,
   proposals: proposalReducer,
   freelancers: freelancerReducer,
+  upload: uploadReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

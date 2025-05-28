@@ -1,5 +1,12 @@
 require("dotenv").config();
 
+// Cloudinary Configuration
+const cloudinaryConfig = {
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+};
+
 module.exports = {
   // Server configuration
   port: process.env.PORT || 2001,
@@ -53,4 +60,6 @@ module.exports = {
     paypalClientId: process.env.PAYPAL_CLIENT_ID,
     paypalSecret: process.env.PAYPAL_SECRET,
   },
+
+  cloudinaryConfig,
 };
