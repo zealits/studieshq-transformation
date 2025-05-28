@@ -176,15 +176,22 @@ const ProfilePage = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="mx-auto">
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-center space-x-4 mb-6">
-            <div className="relative">
-              <img
-                src={data?.data?.profile?.user?.avatar || "https://via.placeholder.com/150"}
-                alt="Profile"
-                className="w-24 h-24 rounded-full object-cover"
-              />
+          {/* Profile Header */}
+          <div className="bg-background-light p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row items-center">
+            <div className="relative mb-4 md:mb-0 md:mr-6">
+              <div className="w-32 h-32 bg-gray-300 rounded-full flex items-center justify-center text-4xl text-gray-600 overflow-hidden">
+                {data?.data?.profile?.user?.avatar ? (
+                  <img
+                    src={data.data.profile.user.avatar}
+                    alt={formData.fullName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  formData.fullName.charAt(0)
+                )}
+              </div>
               <label
                 htmlFor="profile-image"
                 className="absolute bottom-0 right-0 bg-blue-500 text-white p-2 rounded-full cursor-pointer hover:bg-blue-600"
@@ -220,8 +227,9 @@ const ProfilePage = () => {
               />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">{data?.data?.profile?.user?.name || user?.name}</h1>
-              <p className="text-gray-600">{data?.data?.profile?.user?.email || user?.email}</p>
+              <h2 className="text-2xl font-semibold">{formData.fullName}</h2>
+              <p className="text-gray-600 mb-2">{formData.location}</p>
+              <p className="text-primary font-semibold">${formData.hourlyRate}/hr</p>
             </div>
           </div>
 
@@ -248,18 +256,6 @@ const ProfilePage = () => {
               </div>
             </div>
           )}
-
-          {/* Profile Header */}
-          <div className="bg-background-light p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row items-center">
-            <div className="w-32 h-32 bg-gray-300 rounded-full mb-4 md:mb-0 md:mr-6 flex items-center justify-center text-4xl text-gray-600">
-              {formData.fullName.charAt(0)}
-            </div>
-            <div>
-              <h2 className="text-2xl font-semibold">{formData.fullName}</h2>
-              <p className="text-gray-600 mb-2">{formData.location}</p>
-              <p className="text-primary font-semibold">${formData.hourlyRate}/hr</p>
-            </div>
-          </div>
 
           {/* Tabs */}
           <div className="mb-6 border-b">
