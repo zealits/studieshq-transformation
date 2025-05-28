@@ -33,22 +33,25 @@ const EmailVerificationPage = () => {
           // Call the API to verify the email
           try {
             await api.get(`/api/auth/verify-email/${token}`);
-            setStatus("success");
-            setMessage("Your email has been successfully verified. You can now access your dashboard.");
-            return;
+            // After successful verification, check the status
+            const verificationResponse = await api.get(`/api/auth/check-verification/${emailParam || user?.email}`);
+            if (verificationResponse.data.isVerified) {
+              setStatus("success");
+              setMessage("Your email has been successfully verified. You can now log in to your account.");
+              return;
+            }
           } catch (error) {
             console.error("Error verifying email with token:", error);
           }
         }
 
-        // If we have an email, check verification status
+        // If we have an email but no token, check verification status
         if (email) {
           try {
             const verificationResponse = await api.get(`/api/auth/check-verification/${email}`);
-
             if (verificationResponse.data.isVerified) {
               setStatus("success");
-              setMessage("Your email has been successfully verified. You can now access your dashboard.");
+              setMessage("Your email has been successfully verified. You can now log in to your account.");
               return;
             }
           } catch (error) {
@@ -70,7 +73,7 @@ const EmailVerificationPage = () => {
 
   const handleResendVerification = async () => {
     if (!email) return;
-    
+
     setIsResending(true);
     try {
       await dispatch(resendVerification(email));
@@ -112,12 +115,14 @@ const EmailVerificationPage = () => {
                 />
               </svg>
               <h2 className="text-2xl font-bold text-green-600 mb-4">Email Verified!</h2>
-              <p className="text-gray-600 mb-6">{message}</p>
+              <p className="text-gray-600 mb-6">
+                Your email has been successfully verified. You can now log in to your account.
+              </p>
               <Link
-                to={user?.role === "client" ? "/client" : user?.role === "freelancer" ? "/freelancer" : "/dashboard"}
+                to="/login"
                 className="inline-block bg-primary text-white py-2 px-6 rounded-md hover:bg-primary-dark transition-colors"
               >
-                Go to Dashboard
+                Go to Login
               </Link>
             </>
           )}
