@@ -100,7 +100,14 @@ const ProfileSchema = new Schema({
 
   // Freelancer specific fields
   hourlyRate: {
-    type: Number,
+    min: {
+      type: Number,
+      default: 0,
+    },
+    max: {
+      type: Number,
+      default: 0,
+    },
   },
   title: {
     type: String,
