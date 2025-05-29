@@ -16,6 +16,10 @@ import RegisterPage from "./pages/RegisterPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import EmailVerificationPage from "./pages/EmailVerificationPage";
 
+// Admin Auth Pages
+import AdminLoginPage from "./pages/admin/AdminLoginPage";
+import AdminRegisterPage from "./pages/admin/AdminRegisterPage";
+
 // Freelancer Pages
 import FreelancerDashboard from "./pages/freelancer/DashboardPage";
 import FreelancerFindJobs from "./pages/freelancer/FindJobsPage";
@@ -88,6 +92,12 @@ function App() {
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="verify-email" element={<EmailVerificationPage />} />
+        </Route>
+
+        {/* Admin Auth Routes */}
+        <Route path="/studieshq/admin" element={<MainLayout />}>
+          <Route path="login" element={<AdminLoginPage />} />
+          <Route path="register" element={<AdminRegisterPage />} />
         </Route>
 
         {/* Freelancer Routes */}
