@@ -15,15 +15,16 @@ const initialState = {
   savedJobs: [],
   isLoading: false,
   error: null,
+  categories: [],
 };
 
 // Async thunks
-export const fetchJobs = createAsyncThunk("jobs/fetchJobs", async (_, { rejectWithValue }) => {
+export const fetchJobs = createAsyncThunk("jobs/fetchAll", async (_, { rejectWithValue }) => {
   try {
     const response = await api.get("/api/jobs");
-    return response.data;
+    return response.data.data;
   } catch (error) {
-    return rejectWithValue(error.response?.data?.message || "Failed to fetch jobs");
+    return rejectWithValue(error.response?.data || error.message);
   }
 });
 
@@ -213,37 +214,69 @@ const jobsSlice = createSlice({
       const { query, filters } = action.payload;
       let filtered = [...state.jobs];
 
-      // Apply search query if provided
+      // Search filter
       if (query) {
-        const searchTerms = query.toLowerCase().split(" ");
+        const searchTerm = query.toLowerCase();
+        filtered = filtered.filter(
+          (job) =>
+            job.title.toLowerCase().includes(searchTerm) ||
+            job.description.toLowerCase().includes(searchTerm) ||
+            job.skills.some((skill) => skill.toLowerCase().includes(searchTerm))
+        );
+      }
+
+      // Category filter
+      if (filters.category) {
+        filtered = filtered.filter((job) => job.category === filters.category);
+      }
+
+      // Budget filter
+      if (filters.budget) {
         filtered = filtered.filter((job) => {
-          return searchTerms.every(
-            (term) =>
-              job.title.toLowerCase().includes(term) ||
-              job.description.toLowerCase().includes(term) ||
-              job.skills.some((skill) => skill.toLowerCase().includes(term))
-          );
+          const [min, max] = filters.budget.split("-").map(Number);
+          const jobBudget = job.budget.type === "fixed" ? job.budget.max : job.budget.max * 40; // Assuming 40 hours per week for hourly jobs
+          
+          if (filters.budget === "10000+") {
+            return jobBudget >= 10000;
+          }
+          return jobBudget >= min && jobBudget <= max;
         });
       }
 
-      // Apply filters if provided
-      if (filters) {
-        if (filters.payRange) {
-          const [min, max] = filters.payRange;
-          filtered = filtered.filter((job) => job.budget >= min && (max === null || job.budget <= max));
-        }
+      // Job type filter
+      if (filters.jobType) {
+        filtered = filtered.filter((job) => job.budget.type === filters.jobType);
+      }
 
-        if (filters.jobType && filters.jobType.length > 0) {
-          filtered = filtered.filter((job) => filters.jobType.includes(job.jobType));
-        }
+      // Experience level filter
+      if (filters.experience) {
+        filtered = filtered.filter((job) => job.experience === filters.experience);
+      }
 
-        if (filters.experienceLevel && filters.experienceLevel.length > 0) {
-          filtered = filtered.filter((job) => filters.experienceLevel.includes(job.experienceLevel));
-        }
-
-        if (filters.skills && filters.skills.length > 0) {
-          filtered = filtered.filter((job) => filters.skills.some((skill) => job.skills.includes(skill)));
-        }
+      // Sorting
+      switch (filters.sortBy) {
+        case "newest":
+          filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          break;
+        case "budget-high":
+          filtered.sort((a, b) => {
+            const budgetA = a.budget.type === "fixed" ? a.budget.max : a.budget.max * 40;
+            const budgetB = b.budget.type === "fixed" ? b.budget.max : b.budget.max * 40;
+            return budgetB - budgetA;
+          });
+          break;
+        case "budget-low":
+          filtered.sort((a, b) => {
+            const budgetA = a.budget.type === "fixed" ? a.budget.min : a.budget.min * 40;
+            const budgetB = b.budget.type === "fixed" ? b.budget.min : b.budget.min * 40;
+            return budgetA - budgetB;
+          });
+          break;
+        case "proposals":
+          filtered.sort((a, b) => (b.proposals?.length || 0) - (a.proposals?.length || 0));
+          break;
+        default:
+          break;
       }
 
       state.filteredJobs = filtered;
@@ -258,12 +291,14 @@ const jobsSlice = createSlice({
       })
       .addCase(fetchJobs.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.jobs = action.payload?.data?.jobs || [];
-        state.filteredJobs = action.payload?.data?.jobs || [];
+        state.jobs = action.payload.jobs || [];
+        state.filteredJobs = action.payload.jobs || [];
+        // Extract unique categories from jobs
+        state.categories = [...new Set(action.payload.jobs.map(job => job.category))].filter(Boolean);
       })
       .addCase(fetchJobs.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload;
+        state.error = action.payload || "Failed to fetch jobs";
       })
       // Fetch Client Jobs
       .addCase(fetchClientJobs.pending, (state) => {

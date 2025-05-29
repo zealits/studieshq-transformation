@@ -12,12 +12,13 @@ const FindJobsPage = () => {
     budget: "",
     jobType: "",
     experience: "",
+    sortBy: "newest",
   });
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
 
   const dispatch = useDispatch();
-  const { filteredJobs, isLoading } = useSelector((state) => state.jobs);
+  const { filteredJobs, isLoading, categories } = useSelector((state) => state.jobs);
 
   useEffect(() => {
     dispatch(fetchJobs());
@@ -50,16 +51,12 @@ const FindJobsPage = () => {
     return formatDistanceToNow(new Date(date), { addSuffix: true });
   };
 
-  const categories = [
-    "All Categories",
-    "Web Development",
-    "Mobile Development",
-    "UI/UX Design",
-    "Graphic Design",
-    "Content Writing",
-    "Digital Marketing",
-    "Data Analysis",
-  ];
+  const handleSort = (sortBy) => {
+    setFilters((prev) => ({
+      ...prev,
+      sortBy,
+    }));
+  };
 
   return (
     <div>
@@ -72,7 +69,7 @@ const FindJobsPage = () => {
             <input
               type="text"
               className="input pl-10 pr-4 py-2 w-full"
-              placeholder="Search jobs..."
+              placeholder="Search jobs by title, description, or skills..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -107,24 +104,27 @@ const FindJobsPage = () => {
               value={filters.category}
               onChange={handleFilterChange}
             >
-              {categories.map((category, index) => (
-                <option key={index} value={category === "All Categories" ? "" : category}>
-                  {category}
-                </option>
-              ))}
+              <option value="">All Categories</option>
+              {categories &&
+                categories.map((category, index) => (
+                  <option key={index} value={category}>
+                    {category}
+                  </option>
+                ))}
             </select>
           </div>
 
           <div>
             <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-1">
-              Budget
+              Budget Range
             </label>
             <select id="budget" name="budget" className="input" value={filters.budget} onChange={handleFilterChange}>
               <option value="">Any Budget</option>
-              <option value="under-500">Under $500</option>
+              <option value="0-500">Under $500</option>
               <option value="500-1000">$500 - $1,000</option>
               <option value="1000-5000">$1,000 - $5,000</option>
-              <option value="over-5000">Over $5,000</option>
+              <option value="5000-10000">$5,000 - $10,000</option>
+              <option value="10000+">Over $10,000</option>
             </select>
           </div>
 
@@ -156,6 +156,68 @@ const FindJobsPage = () => {
               <option value="expert">Expert</option>
             </select>
           </div>
+        </div>
+
+        {/* Sort Options */}
+        <div className="mt-4 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm font-medium text-gray-700">Sort by:</span>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => handleSort("newest")}
+                className={`px-3 py-1 text-sm rounded-md ${
+                  filters.sortBy === "newest" ? "bg-primary text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                Newest
+              </button>
+              <button
+                onClick={() => handleSort("budget-high")}
+                className={`px-3 py-1 text-sm rounded-md ${
+                  filters.sortBy === "budget-high"
+                    ? "bg-primary text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                Budget: High to Low
+              </button>
+              <button
+                onClick={() => handleSort("budget-low")}
+                className={`px-3 py-1 text-sm rounded-md ${
+                  filters.sortBy === "budget-low"
+                    ? "bg-primary text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                Budget: Low to High
+              </button>
+              <button
+                onClick={() => handleSort("proposals")}
+                className={`px-3 py-1 text-sm rounded-md ${
+                  filters.sortBy === "proposals"
+                    ? "bg-primary text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                Most Proposals
+              </button>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setSearchTerm("");
+              setFilters({
+                category: "",
+                budget: "",
+                jobType: "",
+                experience: "",
+                sortBy: "newest",
+              });
+            }}
+            className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+          >
+            Reset Filters
+          </button>
         </div>
       </div>
 
@@ -224,10 +286,7 @@ const FindJobsPage = () => {
                     <span>{job.proposals ? job.proposals.length : 0} proposals</span>
                   </div>
                 </div>
-                <button 
-                  className="btn-primary"
-                  onClick={() => handleApplyClick(job)}
-                >
+                <button className="btn-primary" onClick={() => handleApplyClick(job)}>
                   Apply Now
                 </button>
               </div>
@@ -311,9 +370,7 @@ const FindJobsPage = () => {
       )}
 
       {/* Apply Job Modal */}
-      {showApplyModal && selectedJob && (
-        <ApplyJobModal job={selectedJob} onClose={closeApplyModal} />
-      )}
+      {showApplyModal && selectedJob && <ApplyJobModal job={selectedJob} onClose={closeApplyModal} />}
     </div>
   );
 };

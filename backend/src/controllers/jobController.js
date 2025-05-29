@@ -745,3 +745,90 @@ exports.publishJob = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+const getAllJobs = async (req, res) => {
+  try {
+    const { query, category, budget, jobType, experience, sortBy = "newest" } = req.query;
+
+    // Build the filter object
+    const filter = { status: "open" };
+
+    // Add category filter
+    if (category) {
+      filter.category = category;
+    }
+
+    // Add job type filter
+    if (jobType) {
+      filter["budget.type"] = jobType;
+    }
+
+    // Add experience level filter
+    if (experience) {
+      filter.experience = experience;
+    }
+
+    // Add budget range filter
+    if (budget) {
+      const [min, max] = budget.split("-").map(Number);
+      if (budget === "10000+") {
+        filter["budget.max"] = { $gte: 10000 };
+      } else {
+        filter["budget.max"] = { $gte: min, $lte: max };
+      }
+    }
+
+    // Build the search query
+    if (query) {
+      filter.$or = [
+        { title: { $regex: query, $options: "i" } },
+        { description: { $regex: query, $options: "i" } },
+        { skills: { $in: [new RegExp(query, "i")] } },
+      ];
+    }
+
+    // Build the sort object
+    let sort = {};
+    switch (sortBy) {
+      case "newest":
+        sort = { createdAt: -1 };
+        break;
+      case "budget-high":
+        sort = { "budget.max": -1 };
+        break;
+      case "budget-low":
+        sort = { "budget.min": 1 };
+        break;
+      case "proposals":
+        sort = { "proposals.length": -1 };
+        break;
+      default:
+        sort = { createdAt: -1 };
+    }
+
+    // Get all jobs with filters and sorting
+    const jobs = await Job.find(filter)
+      .sort(sort)
+      .populate("client", "name email profile")
+      .populate("proposals")
+      .lean();
+
+    // Get unique categories for the filter dropdown
+    const categories = await Job.distinct("category", { status: "open" });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        jobs,
+        categories,
+      },
+    });
+  } catch (error) {
+    console.error("Error in getAllJobs:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching jobs",
+      error: error.message,
+    });
+  }
+};
