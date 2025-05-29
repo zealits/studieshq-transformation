@@ -190,7 +190,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label htmlFor="budget.min" className="block text-sm font-medium text-gray-700 mb-1">
-              Minimum Budget
+              Minimum Budget ($)
             </label>
             <input
               type="number"
@@ -205,7 +205,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
 
           <div>
             <label htmlFor="budget.max" className="block text-sm font-medium text-gray-700 mb-1">
-              Maximum Budget
+              Maximum Budget ($)
             </label>
             <input
               type="number"
