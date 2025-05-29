@@ -60,6 +60,47 @@ const ExperienceSchema = new Schema({
   },
 });
 
+// Verification Documents Schema
+const VerificationDocumentSchema = new Schema({
+  type: {
+    type: String,
+    required: true,
+    enum: [
+      // Address Proof Types
+      "electricity_bill",
+      "gas_bill",
+      "water_bill",
+      "bank_statement",
+      "rent_agreement",
+      // Identity Proof Types
+      "passport",
+      "driving_license",
+      "national_id",
+      "aadhar_card",
+      "pan_card",
+    ],
+  },
+  documentUrl: {
+    type: String,
+    required: true,
+  },
+  status: {
+    type: String,
+    enum: ["pending", "approved", "rejected"],
+    default: "pending",
+  },
+  uploadedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  verifiedAt: {
+    type: Date,
+  },
+  rejectionReason: {
+    type: String,
+  },
+});
+
 // Profile Schema
 const ProfileSchema = new Schema({
   user: {
@@ -71,7 +112,13 @@ const ProfileSchema = new Schema({
     type: String,
   },
   phone: {
-    type: String,
+    countryCode: {
+      type: String,
+      default: "+91",
+    },
+    number: {
+      type: String,
+    },
   },
   location: {
     type: String,
@@ -156,6 +203,12 @@ const ProfileSchema = new Schema({
   },
   companyWebsite: {
     type: String,
+  },
+
+  // Verification Documents
+  verificationDocuments: {
+    addressProof: VerificationDocumentSchema,
+    identityProof: VerificationDocumentSchema,
   },
 
   // Common fields

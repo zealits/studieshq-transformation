@@ -60,6 +60,8 @@ exports.createOrUpdateProfile = async (req, res) => {
     industry,
     companySize,
     companyWebsite,
+    // Verification documents
+    verificationDocuments,
   } = req.body;
 
   // Build profile object
@@ -70,6 +72,16 @@ exports.createOrUpdateProfile = async (req, res) => {
     website: website || "",
     phone: phone || "",
   };
+
+  // Handle verification documents if provided
+  if (verificationDocuments) {
+    if (verificationDocuments.addressProof) {
+      profileFields["verificationDocuments.addressProof"] = verificationDocuments.addressProof;
+    }
+    if (verificationDocuments.identityProof) {
+      profileFields["verificationDocuments.identityProof"] = verificationDocuments.identityProof;
+    }
+  }
 
   // Handle skills - ensure it's an array
   if (skills) {

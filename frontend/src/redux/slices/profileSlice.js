@@ -15,22 +15,64 @@ const initialState = {
 export const fetchMyProfile = createAsyncThunk("profile/fetchMyProfile", async (_, { rejectWithValue }) => {
   try {
     const response = await api.get("/api/profile/me");
-    console.log("response.data", response.data);
     return response.data;
   } catch (error) {
-    return rejectWithValue(error.response?.data?.message || "Failed to fetch profile");
+    return rejectWithValue(error.response.data);
   }
 });
 
 export const updateProfile = createAsyncThunk("profile/updateProfile", async (profileData, { rejectWithValue }) => {
   try {
-    console.log("Sending profile update data:", profileData);
-    const response = await api.put("/api/profile", profileData);
-    console.log("Profile update response:", response.data);
+    // First upload any selected documents
+    const uploadPromises = [];
+
+    if (profileData.verificationDocuments?.addressProof?.file) {
+      const formData = new FormData();
+      formData.append("document", profileData.verificationDocuments.addressProof.file);
+      formData.append("documentType", "addressProof");
+      uploadPromises.push(
+        api.post("/api/upload/verification-document", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Accept: "application/json",
+          },
+        })
+      );
+    }
+
+    if (profileData.verificationDocuments?.identityProof?.file) {
+      const formData = new FormData();
+      formData.append("document", profileData.verificationDocuments.identityProof.file);
+      formData.append("documentType", "identityProof");
+      uploadPromises.push(
+        api.post("/api/upload/verification-document", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Accept: "application/json",
+          },
+        })
+      );
+    }
+
+    // Wait for all uploads to complete
+    const uploadResults = await Promise.all(uploadPromises);
+
+    // Update profile data with uploaded document URLs
+    const updatedProfileData = { ...profileData };
+    uploadResults.forEach((result, index) => {
+      const documentType = index === 0 ? "addressProof" : "identityProof";
+      if (result.data.success) {
+        updatedProfileData.verificationDocuments[documentType].documentUrl = result.data.data.documentUrl;
+        updatedProfileData.verificationDocuments[documentType].file = null; // Clear the file after upload
+      }
+    });
+
+    // Now send the profile update
+    const response = await api.put("/api/profile", updatedProfileData);
     return response.data;
   } catch (error) {
-    console.error("Profile update error:", error.response?.data || error.message);
-    return rejectWithValue(error.response?.data?.message || "Failed to update profile");
+    console.error("Profile update error:", error);
+    return rejectWithValue(error.response?.data || { message: "Failed to update profile" });
   }
 });
 
@@ -118,6 +160,11 @@ const profileSlice = createSlice({
     clearPublicProfile: (state) => {
       state.publicProfile = null;
     },
+    clearProfile: (state) => {
+      state.data = null;
+      state.isLoading = false;
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -132,7 +179,7 @@ const profileSlice = createSlice({
       })
       .addCase(fetchMyProfile.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload;
+        state.error = action.payload?.message || "Failed to fetch profile";
       })
       // Update Profile
       .addCase(updateProfile.pending, (state) => {
@@ -145,7 +192,7 @@ const profileSlice = createSlice({
       })
       .addCase(updateProfile.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload;
+        state.error = action.payload?.message || "Failed to update profile";
       })
       // Fetch Public Profile
       .addCase(fetchPublicProfile.pending, (state) => {
@@ -215,5 +262,5 @@ const profileSlice = createSlice({
   },
 });
 
-export const { clearProfileError, clearPublicProfile } = profileSlice.actions;
+export const { clearProfileError, clearPublicProfile, clearProfile } = profileSlice.actions;
 export default profileSlice.reducer;

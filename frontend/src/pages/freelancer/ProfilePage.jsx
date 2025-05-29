@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchMyProfile, updateProfile } from "../../redux/slices/profileSlice";
 import { uploadProfileImage } from "../../redux/slices/uploadSlice";
 import { toast } from "react-toastify";
+import axios from "axios";
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
@@ -33,13 +34,15 @@ const ProfilePage = () => {
     verificationDocuments: {
       addressProof: {
         type: "",
+        documentUrl: "",
+        status: "pending",
         file: null,
-        status: "pending", // pending, approved, rejected
       },
       identityProof: {
         type: "",
-        file: null,
+        documentUrl: "",
         status: "pending",
+        file: null,
       },
     },
     socialLinks: {
@@ -48,6 +51,9 @@ const ProfilePage = () => {
       portfolio: "",
     },
   });
+
+  // State to track if document types are saved
+  const [documentTypesSaved, setDocumentTypesSaved] = useState(false);
 
   // Fetch profile data when component mounts
   useEffect(() => {
@@ -86,13 +92,15 @@ const ProfilePage = () => {
         verificationDocuments: {
           addressProof: {
             type: profile.verificationDocuments?.addressProof?.type || "",
-            file: profile.verificationDocuments?.addressProof?.file || null,
+            documentUrl: profile.verificationDocuments?.addressProof?.documentUrl || "",
             status: profile.verificationDocuments?.addressProof?.status || "pending",
+            file: null,
           },
           identityProof: {
             type: profile.verificationDocuments?.identityProof?.type || "",
-            file: profile.verificationDocuments?.identityProof?.file || null,
+            documentUrl: profile.verificationDocuments?.identityProof?.documentUrl || "",
             status: profile.verificationDocuments?.identityProof?.status || "pending",
+            file: null,
           },
         },
         socialLinks: {
@@ -132,18 +140,18 @@ const ProfilePage = () => {
     }
 
     // Handle verification document type changes
-    if (name === "verificationDocuments.addressProof.type" || name === "verificationDocuments.identityProof.type") {
-      const [docType, proofType] = name.split(".");
-      setFormData({
-        ...formData,
+    if (name.startsWith("verificationDocuments.")) {
+      const [_, documentType, field] = name.split(".");
+      setFormData((prev) => ({
+        ...prev,
         verificationDocuments: {
-          ...formData.verificationDocuments,
-          [docType]: {
-            ...formData.verificationDocuments[docType],
-            type: value,
+          ...prev.verificationDocuments,
+          [documentType]: {
+            ...prev.verificationDocuments[documentType],
+            [field]: value,
           },
         },
-      });
+      }));
       return;
     }
 
@@ -178,42 +186,69 @@ const ProfilePage = () => {
     });
   };
 
-  // Handle form submission
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log("Submitting freelancer profile update:", {
-      fullName: formData.fullName,
-      email: formData.email,
-      phone: formData.phone,
-      bio: formData.bio,
-      location: formData.location,
-      hourlyRate: formData.hourlyRate,
-      skills: formData.skills.length > 0 ? formData.skills : ["JavaScript"],
-      education: formData.education,
-      experience: formData.experience,
-      portfolioItems: formData.portfolioItems,
-      social: formData.socialLinks,
-    });
+  // Handle document selection
+  const handleDocumentSelect = (e, documentType) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-    // Send update request
-    dispatch(
-      updateProfile({
-        fullName: formData.fullName,
-        email: formData.email,
-        phone: formData.phone,
-        bio: formData.bio,
-        location: formData.location,
-        hourlyRate: formData.hourlyRate,
-        skills: formData.skills.length > 0 ? formData.skills : ["JavaScript"],
-        education: formData.education,
-        experience: formData.experience,
-        portfolioItems: formData.portfolioItems,
-        social: formData.socialLinks,
-      })
-    ).then(() => {
-      setUpdateSuccess(true);
-      setIsEditing(false);
-    });
+    // Validate file type (PDF, JPG, PNG)
+    const validTypes = ["application/pdf", "image/jpeg", "image/png"];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Please upload a PDF, JPG, or PNG file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size should be less than 5MB");
+      return;
+    }
+
+    // Update form data with selected file
+    setFormData((prev) => ({
+      ...prev,
+      verificationDocuments: {
+        ...prev.verificationDocuments,
+        [documentType]: {
+          ...prev.verificationDocuments[documentType],
+          file: file,
+        },
+      },
+    }));
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      // Send the profile update with document files
+      const result = await dispatch(
+        updateProfile({
+          fullName: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          bio: formData.bio,
+          location: formData.location,
+          hourlyRate: formData.hourlyRate,
+          skills: formData.skills.length > 0 ? formData.skills : ["JavaScript"],
+          education: formData.education,
+          experience: formData.experience,
+          portfolioItems: formData.portfolioItems,
+          social: formData.socialLinks,
+          verificationDocuments: formData.verificationDocuments,
+        })
+      ).unwrap();
+
+      if (result.success) {
+        setUpdateSuccess(true);
+        setIsEditing(false);
+        // Refresh profile data
+        dispatch(fetchMyProfile());
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to update profile");
+    }
   };
 
   // Add/remove skill
@@ -263,44 +298,6 @@ const ProfilePage = () => {
       }
     } catch (err) {
       toast.error(err.message || "Failed to upload image");
-    }
-  };
-
-  // Handle document upload
-  const handleDocumentUpload = async (e, documentType) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // Validate file type (PDF, JPG, PNG)
-    const validTypes = ["application/pdf", "image/jpeg", "image/png"];
-    if (!validTypes.includes(file.type)) {
-      toast.error("Please upload a PDF, JPG, or PNG file");
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File size should be less than 5MB");
-      return;
-    }
-
-    try {
-      // Here you would typically upload the file to your server
-      // For now, we'll just update the state
-      setFormData({
-        ...formData,
-        verificationDocuments: {
-          ...formData.verificationDocuments,
-          [documentType]: {
-            ...formData.verificationDocuments[documentType],
-            file: file,
-            status: "pending",
-          },
-        },
-      });
-      toast.success("Document uploaded successfully");
-    } catch (err) {
-      toast.error(err.message || "Failed to upload document");
     }
   };
 
@@ -1014,13 +1011,12 @@ const ProfilePage = () => {
               </div>
             )}
 
-            {/* Add new Verification Documents Tab */}
+            {/* Verification Tab */}
             {activeTab === "verification" && (
               <div className="bg-white p-6 rounded-lg shadow-md">
                 <h3 className="text-lg font-semibold mb-4">Verification Documents</h3>
                 <p className="text-gray-600 mb-6">
-                  Please upload your verification documents to get your profile verified. This helps build trust with
-                  potential clients.
+                  Please select document types and files, then click Save Changes to upload.
                 </p>
 
                 <div className="space-y-8">
@@ -1052,7 +1048,7 @@ const ProfilePage = () => {
                           <input
                             type="file"
                             accept=".pdf,.jpg,.jpeg,.png"
-                            onChange={(e) => handleDocumentUpload(e, "addressProof")}
+                            onChange={(e) => handleDocumentSelect(e, "addressProof")}
                             disabled={!isEditing || !formData.verificationDocuments.addressProof.type}
                             className="hidden"
                             id="address-proof-upload"
@@ -1071,6 +1067,19 @@ const ProfilePage = () => {
                             <span className="text-sm text-gray-600">
                               {formData.verificationDocuments.addressProof.file.name}
                             </span>
+                          )}
+                          {formData.verificationDocuments.addressProof.documentUrl && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-600">Document uploaded</span>
+                              <a
+                                href={formData.verificationDocuments.addressProof.documentUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline"
+                              >
+                                View Document
+                              </a>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1121,7 +1130,7 @@ const ProfilePage = () => {
                           <input
                             type="file"
                             accept=".pdf,.jpg,.jpeg,.png"
-                            onChange={(e) => handleDocumentUpload(e, "identityProof")}
+                            onChange={(e) => handleDocumentSelect(e, "identityProof")}
                             disabled={!isEditing || !formData.verificationDocuments.identityProof.type}
                             className="hidden"
                             id="identity-proof-upload"
@@ -1140,6 +1149,19 @@ const ProfilePage = () => {
                             <span className="text-sm text-gray-600">
                               {formData.verificationDocuments.identityProof.file.name}
                             </span>
+                          )}
+                          {formData.verificationDocuments.identityProof.documentUrl && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-600">Document uploaded</span>
+                              <a
+                                href={formData.verificationDocuments.identityProof.documentUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline"
+                              >
+                                View Document
+                              </a>
+                            </div>
                           )}
                         </div>
                       </div>
