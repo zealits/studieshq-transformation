@@ -129,8 +129,16 @@ const FreelancersPage = () => {
           <div key={freelancer._id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
             <div className="flex flex-col md:flex-row md:items-start">
               <div className="flex items-center mb-4 md:mb-0">
-                <div className="w-16 h-16 bg-primary-light rounded-full flex items-center justify-center text-white text-xl font-semibold">
-                  {freelancer.user.avatar || freelancer.user.name.charAt(0)}
+                <div className="w-16 h-16 bg-primary-light rounded-full flex items-center justify-center text-white text-xl font-semibold overflow-hidden">
+                  {freelancer.user.avatar ? (
+                    <img
+                      src={freelancer.user.avatar}
+                      alt={freelancer.user.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    freelancer.user.name.charAt(0)
+                  )}
                 </div>
                 <div className="ml-4 md:hidden">
                   <h2 className="text-xl font-semibold">{freelancer.user.name}</h2>
@@ -145,7 +153,11 @@ const FreelancersPage = () => {
                     <p className="text-gray-600">{freelancer.title}</p>
                   </div>
                   <div className="flex items-center mt-2 md:mt-0">
-                    <div className="text-primary font-semibold">${freelancer.hourlyRate}/hr</div>
+                    <div className="text-primary font-semibold">
+                      {typeof freelancer.hourlyRate === "object"
+                        ? `$${freelancer.hourlyRate.min} - $${freelancer.hourlyRate.max}/hr`
+                        : `$${freelancer.hourlyRate}/hr`}
+                    </div>
                   </div>
                 </div>
 
