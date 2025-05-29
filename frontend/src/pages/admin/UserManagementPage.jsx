@@ -1,102 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchUsers, updateUserVerification } from "../../redux/slices/userManagementSlice";
 
 const UserManagementPage = () => {
+  const dispatch = useDispatch();
+  const { users, pagination, loading, error } = useSelector((state) => state.userManagement);
+
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Mock users data
-  const users = {
-    all: [
-      {
-        id: 1,
-        name: "Alex Johnson",
-        email: "alex.johnson@example.com",
-        role: "freelancer",
-        status: "active",
-        joinDate: "Apr 10, 2023",
-        lastActive: "2 hours ago",
-        earnings: "$12,500",
-        avatar: "AJ",
-      },
-      {
-        id: 2,
-        name: "Sarah Williams",
-        email: "sarah.williams@example.com",
-        role: "freelancer",
-        status: "active",
-        joinDate: "May 5, 2023",
-        lastActive: "1 day ago",
-        earnings: "$10,800",
-        avatar: "SW",
-      },
-      {
-        id: 3,
-        name: "TechSolutions Inc.",
-        email: "contact@techsolutions.com",
-        role: "client",
-        status: "active",
-        joinDate: "Mar 15, 2023",
-        lastActive: "5 hours ago",
-        spent: "$25,700",
-        avatar: "TS",
-      },
-      {
-        id: 4,
-        name: "James Wilson",
-        email: "james.wilson@example.com",
-        role: "freelancer",
-        status: "suspended",
-        joinDate: "Jan 12, 2023",
-        lastActive: "30 days ago",
-        earnings: "$8,900",
-        avatar: "JW",
-      },
-      {
-        id: 5,
-        name: "Media Publishing",
-        email: "info@mediapublishing.com",
-        role: "client",
-        status: "active",
-        joinDate: "Feb 18, 2023",
-        lastActive: "3 days ago",
-        spent: "$18,200",
-        avatar: "MP",
-      },
-      {
-        id: 6,
-        name: "Emily Carter",
-        email: "emily.carter@example.com",
-        role: "freelancer",
-        status: "active",
-        joinDate: "Apr 25, 2023",
-        lastActive: "just now",
-        earnings: "$9,500",
-        avatar: "EC",
-      },
-      {
-        id: 7,
-        name: "Daniel Rodriguez",
-        email: "daniel.rodriguez@example.com",
-        role: "admin",
-        status: "active",
-        joinDate: "Jan 5, 2023",
-        lastActive: "1 hour ago",
-        earnings: "-",
-        avatar: "DR",
-      },
-    ],
-  };
-
-  // Filter users based on active tab and search query
-  const filteredUsers = users.all.filter((user) => {
-    const matchesTab = activeTab === "all" || user.role === activeTab || user.status === activeTab;
-    const matchesSearch =
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesTab && matchesSearch;
-  });
+  useEffect(() => {
+    dispatch(
+      fetchUsers({
+        page: currentPage,
+        limit: 10,
+        role: activeTab !== "all" ? activeTab : undefined,
+        search: searchQuery,
+      })
+    );
+  }, [dispatch, currentPage, activeTab, searchQuery]);
 
   // Handle user selection for details/editing
   const handleUserSelect = (user) => {
@@ -108,6 +33,16 @@ const UserManagementPage = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedUser(null);
+  };
+
+  // Handle verification update
+  const handleVerificationUpdate = async (userId, isVerified, verificationDocuments) => {
+    try {
+      await dispatch(updateUserVerification({ userId, isVerified, verificationDocuments })).unwrap();
+      handleCloseModal();
+    } catch (error) {
+      console.error("Failed to update verification:", error);
+    }
   };
 
   // Render status badge
@@ -137,6 +72,41 @@ const UserManagementPage = () => {
         return <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">{role}</span>;
     }
   };
+
+  // Render verification badge
+  const renderVerificationBadge = (isVerified) => {
+    if (isVerified) {
+      return (
+        <span className="flex items-center px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+          </svg>
+          Verified
+        </span>
+      );
+    }
+    return (
+      <span className="flex items-center px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">
+        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        Pending
+      </span>
+    );
+  };
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="text-red-500 text-center">{error}</div>;
+  }
 
   return (
     <div>
@@ -170,17 +140,7 @@ const UserManagementPage = () => {
               </svg>
             </div>
           </div>
-
-          <select className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-            <option value="">Sort By</option>
-            <option value="name">Name</option>
-            <option value="date">Join Date</option>
-            <option value="activity">Last Active</option>
-            <option value="earnings">Earnings</option>
-          </select>
         </div>
-
-        <button className="btn-primary py-2 px-4">Add New User</button>
       </div>
 
       {/* User Type Tabs */}
@@ -263,6 +223,12 @@ const UserManagementPage = () => {
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                 >
+                  Verification
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
                   Join Date
                 </th>
                 <th
@@ -275,23 +241,17 @@ const UserManagementPage = () => {
                   scope="col"
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                 >
-                  Earnings/Spent
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
+              {users.map((user) => (
+                <tr key={user._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-full bg-primary text-white flex items-center justify-center mr-3">
-                        {user.avatar}
+                        {user.name.charAt(0)}
                       </div>
                       <div>
                         <div className="text-sm font-medium text-gray-900">{user.name}</div>
@@ -301,10 +261,12 @@ const UserManagementPage = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">{renderRoleBadge(user.role)}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{renderStatusBadge(user.status)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.joinDate}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.lastActive}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {user.earnings || user.spent || "-"}
+                  <td className="px-6 py-4 whitespace-nowrap">{renderVerificationBadge(user.isVerified)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(user.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : "Never"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="flex space-x-2">
@@ -324,39 +286,6 @@ const UserManagementPage = () => {
                           />
                         </svg>
                       </button>
-                      <button className="text-blue-600 hover:text-blue-800">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                      </button>
-                      {user.status === "active" ? (
-                        <button className="text-red-600 hover:text-red-800">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-                            />
-                          </svg>
-                        </button>
-                      ) : (
-                        <button className="text-green-600 hover:text-green-800">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                        </button>
-                      )}
                     </div>
                   </td>
                 </tr>
@@ -369,17 +298,26 @@ const UserManagementPage = () => {
       {/* Pagination */}
       <div className="mt-4 flex justify-between items-center">
         <div className="text-sm text-gray-700">
-          Showing <span className="font-medium">1</span> to <span className="font-medium">{filteredUsers.length}</span>{" "}
-          of <span className="font-medium">{filteredUsers.length}</span> results
+          Showing <span className="font-medium">{(currentPage - 1) * 10 + 1}</span> to{" "}
+          <span className="font-medium">{Math.min(currentPage * 10, pagination.total)}</span> of{" "}
+          <span className="font-medium">{pagination.total}</span> results
         </div>
         <nav className="flex space-x-1" aria-label="Pagination">
-          <button className="relative inline-flex items-center px-3 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+          <button
+            className="relative inline-flex items-center px-3 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+          >
             Previous
           </button>
           <button className="relative inline-flex items-center px-3 py-2 rounded-md border border-gray-300 bg-primary text-sm font-medium text-white">
-            1
+            {currentPage}
           </button>
-          <button className="relative inline-flex items-center px-3 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+          <button
+            className="relative inline-flex items-center px-3 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, pagination.pages))}
+            disabled={currentPage === pagination.pages}
+          >
             Next
           </button>
         </nav>
@@ -405,7 +343,7 @@ const UserManagementPage = () => {
                     <div className="mt-2 space-y-3 w-full">
                       <div className="flex flex-col items-center mb-4">
                         <div className="h-20 w-20 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-bold mb-2">
-                          {selectedUser.avatar}
+                          {selectedUser.name.charAt(0)}
                         </div>
                         <h4 className="text-xl font-semibold">{selectedUser.name}</h4>
                         <p className="text-gray-500">{selectedUser.email}</p>
@@ -421,27 +359,96 @@ const UserManagementPage = () => {
                           <div>{renderStatusBadge(selectedUser.status)}</div>
                         </div>
                         <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Verification Status</label>
+                          <div>{renderVerificationBadge(selectedUser.isVerified)}</div>
+                        </div>
+                        <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Join Date</label>
-                          <p className="text-sm text-gray-600">{selectedUser.joinDate}</p>
+                          <p className="text-sm text-gray-600">
+                            {new Date(selectedUser.createdAt).toLocaleDateString()}
+                          </p>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Last Active</label>
-                          <p className="text-sm text-gray-600">{selectedUser.lastActive}</p>
+                          <p className="text-sm text-gray-600">
+                            {selectedUser.lastLogin ? new Date(selectedUser.lastLogin).toLocaleDateString() : "Never"}
+                          </p>
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            {selectedUser.role === "client" ? "Total Spent" : "Total Earnings"}
-                          </label>
-                          <p className="text-sm font-medium">{selectedUser.earnings || selectedUser.spent || "-"}</p>
+                      </div>
+
+                      <div className="border-t pt-4 mt-4">
+                        <h4 className="font-medium mb-2">Verification Documents</h4>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Identity Proof</label>
+                            <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {selectedUser.verificationDocuments?.identityProof?.type || "Not provided"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  Uploaded:{" "}
+                                  {selectedUser.verificationDocuments?.identityProof?.uploadDate
+                                    ? new Date(
+                                        selectedUser.verificationDocuments.identityProof.uploadDate
+                                      ).toLocaleDateString()
+                                    : "Not available"}
+                                </p>
+                              </div>
+                              <span
+                                className={`px-2 py-1 text-xs rounded-full ${
+                                  selectedUser.verificationDocuments?.identityProof?.status === "verified"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-yellow-100 text-yellow-800"
+                                }`}
+                              >
+                                {selectedUser.verificationDocuments?.identityProof?.status || "pending"}
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Address Proof</label>
+                            <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {selectedUser.verificationDocuments?.addressProof?.type || "Not provided"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  Uploaded:{" "}
+                                  {selectedUser.verificationDocuments?.addressProof?.uploadDate
+                                    ? new Date(
+                                        selectedUser.verificationDocuments.addressProof.uploadDate
+                                      ).toLocaleDateString()
+                                    : "Not available"}
+                                </p>
+                              </div>
+                              <span
+                                className={`px-2 py-1 text-xs rounded-full ${
+                                  selectedUser.verificationDocuments?.addressProof?.status === "verified"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-yellow-100 text-yellow-800"
+                                }`}
+                              >
+                                {selectedUser.verificationDocuments?.addressProof?.status || "pending"}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
                       <div className="border-t pt-4 mt-4">
                         <h4 className="font-medium mb-2">Actions</h4>
                         <div className="flex space-x-2">
-                          <button className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded-md text-sm">
-                            Edit User
-                          </button>
+                          {!selectedUser.isVerified && (
+                            <button
+                              className="bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded-md text-sm"
+                              onClick={() =>
+                                handleVerificationUpdate(selectedUser._id, true, selectedUser.verificationDocuments)
+                              }
+                            >
+                              Verify Documents
+                            </button>
+                          )}
                           {selectedUser.status === "active" ? (
                             <button className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded-md text-sm">
                               Suspend User
@@ -451,9 +458,6 @@ const UserManagementPage = () => {
                               Activate User
                             </button>
                           )}
-                          <button className="bg-gray-600 hover:bg-gray-700 text-white py-1 px-3 rounded-md text-sm">
-                            Reset Password
-                          </button>
                         </div>
                       </div>
                     </div>
