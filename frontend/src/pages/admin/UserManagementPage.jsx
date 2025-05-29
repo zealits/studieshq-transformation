@@ -269,8 +269,14 @@ const UserManagementPage = () => {
                 <tr key={user._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="h-10 w-10 rounded-full bg-primary text-white flex items-center justify-center mr-3">
-                        {user.name.charAt(0)}
+                      <div className="h-10 w-10 rounded-full overflow-hidden mr-3">
+                        {user.avatar ? (
+                          <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="h-full w-full bg-primary text-white flex items-center justify-center">
+                            {user.name.charAt(0)}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <div className="text-sm font-medium text-gray-900">{user.name}</div>
@@ -361,8 +367,18 @@ const UserManagementPage = () => {
                     <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">User Details</h3>
                     <div className="mt-2 space-y-3 w-full">
                       <div className="flex flex-col items-center mb-4">
-                        <div className="h-20 w-20 rounded-full bg-primary text-white flex items-center justify-center text-2xl font-bold mb-2">
-                          {selectedUser.name.charAt(0)}
+                        <div className="h-20 w-20 rounded-full overflow-hidden mb-2">
+                          {selectedUser.avatar ? (
+                            <img
+                              src={selectedUser.avatar}
+                              alt={selectedUser.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="h-full w-full bg-primary text-white flex items-center justify-center text-2xl font-bold">
+                              {selectedUser.name.charAt(0)}
+                            </div>
+                          )}
                         </div>
                         <h4 className="text-xl font-semibold">{selectedUser.name}</h4>
                         <p className="text-gray-500">{selectedUser.email}</p>
