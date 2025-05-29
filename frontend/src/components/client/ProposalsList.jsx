@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 const ProposalsList = ({ jobId, onClose }) => {
   const dispatch = useDispatch();
   const { clientJobs, proposals, isLoading, error } = useSelector((state) => state.jobs);
+  const [confirmingProposal, setConfirmingProposal] = useState(null);
 
   // Find the selected job from active jobs
   const selectedJob =
@@ -67,15 +68,15 @@ const ProposalsList = ({ jobId, onClose }) => {
         return;
       }
 
-      // Use window.confirm for simplicity, could be replaced with a more styled modal
-      const confirmed = window.confirm(
-        `Accepting this proposal will hire this freelancer. ${remainingSlots - 1} more freelancer${
-          remainingSlots - 1 === 1 ? "" : "s"
-        } can be hired for this job. Continue?`
-      );
-      if (!confirmed) return;
+      // Set the proposal being confirmed
+      setConfirmingProposal(proposalId);
+      return;
     }
 
+    await updateProposal(proposalId, status);
+  };
+
+  const updateProposal = async (proposalId, status) => {
     setUpdatingProposalId(proposalId);
     try {
       await dispatch(
@@ -107,6 +108,7 @@ const ProposalsList = ({ jobId, onClose }) => {
       toast.error(err || `Failed to ${status} proposal`);
     } finally {
       setUpdatingProposalId(null);
+      setConfirmingProposal(null);
     }
   };
 
@@ -258,6 +260,34 @@ const ProposalsList = ({ jobId, onClose }) => {
                       <Spinner size="medium" />
                     </div>
                   )}
+
+                  {/* Confirmation Overlay */}
+                  {confirmingProposal === proposal._id && (
+                    <div className="absolute inset-0 bg-white bg-opacity-95 flex items-center justify-center z-20 rounded-lg p-6">
+                      <div className="text-center max-w-md">
+                        <h3 className="text-lg font-semibold mb-4">Confirm Hiring</h3>
+                        <p className="text-gray-600 mb-6">
+                          Accepting this proposal will hire this freelancer. {remainingSlots - 1} more freelancer
+                          {remainingSlots - 1 === 1 ? "" : "s"} can be hired for this job.
+                        </p>
+                        <div className="flex justify-center space-x-4">
+                          <button
+                            onClick={() => setConfirmingProposal(null)}
+                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => updateProposal(proposal._id, "accepted")}
+                            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                          >
+                            Confirm Hire
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
                     <div className="flex items-start">
                       <div className="w-12 h-12 bg-primary-light rounded-full flex items-center justify-center text-white overflow-hidden">
