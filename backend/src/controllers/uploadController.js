@@ -47,31 +47,12 @@ const uploadProfileImage = async (req, res) => {
     }
 
     // Check if file is provided
-    if (!req.files || !req.files.image) {
+    if (!req.file) {
       return res.status(400).json({ success: false, message: "No image file provided" });
     }
 
-    const file = req.files.image;
-
-    // Validate file type
-    if (!file.mimetype.startsWith("image/")) {
-      return res.status(400).json({ success: false, message: "Please upload an image file" });
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      return res.status(400).json({ success: false, message: "Image size should be less than 5MB" });
-    }
-
-    // Upload to Cloudinary
-    const result = await cloudinary.uploader.upload(file.tempFilePath, {
-      folder: "profile_images",
-      width: 300,
-      crop: "scale",
-    });
-
     // Update user's avatar in database
-    const user = await User.findByIdAndUpdate(req.user.id, { avatar: result.secure_url }, { new: true }).select(
+    const user = await User.findByIdAndUpdate(req.user.id, { avatar: req.file.path }, { new: true }).select(
       "-password"
     );
 
@@ -83,7 +64,7 @@ const uploadProfileImage = async (req, res) => {
       success: true,
       data: {
         user,
-        imageUrl: result.secure_url,
+        imageUrl: req.file.path,
       },
     });
   } catch (err) {

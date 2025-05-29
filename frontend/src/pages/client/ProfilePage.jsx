@@ -1,23 +1,45 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchMyProfile, updateProfile } from "../../redux/slices/profileSlice";
+import { uploadProfileImage } from "../../redux/slices/uploadSlice";
+import { toast } from "react-toastify";
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
   const { data, isLoading, error } = useSelector((state) => state.profile);
+  const { loading: uploadLoading, error: uploadError, success: uploadSuccess } = useSelector((state) => state.upload);
   const [updateSuccess, setUpdateSuccess] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showImageConfirm, setShowImageConfirm] = useState(false);
 
   // State for form data
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
-    phone: "",
+    phone: {
+      countryCode: "+91", // Default to India
+      number: "",
+    },
     location: "",
     companyName: "",
     companyWebsite: "",
     industry: "",
     companySize: "",
     bio: "",
+    verificationDocuments: {
+      addressProof: {
+        type: "",
+        documentUrl: "",
+        status: "pending",
+        file: null,
+      },
+      identityProof: {
+        type: "",
+        documentUrl: "",
+        status: "pending",
+        file: null,
+      },
+    },
     socialLinks: {
       linkedin: "",
       twitter: "",
@@ -43,13 +65,30 @@ const ProfilePage = () => {
       setFormData({
         fullName: profile.user?.name || "",
         email: profile.user?.email || "",
-        phone: profile.phone || "",
+        phone: {
+          countryCode: profile.phone?.countryCode || "+91",
+          number: profile.phone?.number || "",
+        },
         location: profile.location || "",
         companyName: profile.company || "",
         companyWebsite: profile.companyWebsite || "",
         industry: profile.industry || "",
         companySize: profile.companySize || "",
         bio: profile.bio || "",
+        verificationDocuments: {
+          addressProof: {
+            type: profile.verificationDocuments?.addressProof?.type || "",
+            documentUrl: profile.verificationDocuments?.addressProof?.documentUrl || "",
+            status: profile.verificationDocuments?.addressProof?.status || "pending",
+            file: null,
+          },
+          identityProof: {
+            type: profile.verificationDocuments?.identityProof?.type || "",
+            documentUrl: profile.verificationDocuments?.identityProof?.documentUrl || "",
+            status: profile.verificationDocuments?.identityProof?.status || "pending",
+            file: null,
+          },
+        },
         socialLinks: {
           linkedin: profile.social?.linkedin || "",
           twitter: profile.social?.twitter || "",
@@ -70,6 +109,35 @@ const ProfilePage = () => {
   // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // Handle phone number changes
+    if (name === "phone.countryCode" || name === "phone.number") {
+      setFormData({
+        ...formData,
+        phone: {
+          ...formData.phone,
+          [name.split(".")[1]]: value,
+        },
+      });
+      return;
+    }
+
+    // Handle verification document type changes
+    if (name.startsWith("verificationDocuments.")) {
+      const [_, documentType, field] = name.split(".");
+      setFormData((prev) => ({
+        ...prev,
+        verificationDocuments: {
+          ...prev.verificationDocuments,
+          [documentType]: {
+            ...prev.verificationDocuments[documentType],
+            [field]: value,
+          },
+        },
+      }));
+      return;
+    }
+
     setFormData({
       ...formData,
       [name]: value,
@@ -88,40 +156,99 @@ const ProfilePage = () => {
     });
   };
 
-  // Handle form submission
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log("Submitting client profile update:", {
-      fullName: formData.fullName,
-      email: formData.email,
-      phone: formData.phone,
-      bio: formData.bio,
-      location: formData.location,
-      company: formData.companyName,
-      companyWebsite: formData.companyWebsite,
-      industry: formData.industry,
-      companySize: formData.companySize,
-      social: formData.socialLinks,
-      skills: ["Client"], // Adding default skills for the client to meet validation
-    });
+  // Handle document selection
+  const handleDocumentSelect = (e, documentType) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-    dispatch(
-      updateProfile({
-        fullName: formData.fullName,
-        email: formData.email,
-        phone: formData.phone,
-        bio: formData.bio,
-        location: formData.location,
-        company: formData.companyName,
-        companyWebsite: formData.companyWebsite,
-        industry: formData.industry,
-        companySize: formData.companySize,
-        social: formData.socialLinks,
-        skills: ["Client"], // Adding default skills for the client to meet validation
-      })
-    ).then(() => {
-      setUpdateSuccess(true);
-    });
+    // Validate file type (only JPG, PNG, JPEG)
+    const validTypes = ["image/jpeg", "image/jpg", "image/png"];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Please upload only JPG, JPEG, or PNG files for verification documents");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size should be less than 5MB");
+      return;
+    }
+
+    // Update form data with selected file
+    setFormData((prev) => ({
+      ...prev,
+      verificationDocuments: {
+        ...prev.verificationDocuments,
+        [documentType]: {
+          ...prev.verificationDocuments[documentType],
+          file: file,
+        },
+      },
+    }));
+  };
+
+  // Handle image upload
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image size should be less than 5MB");
+      return;
+    }
+
+    try {
+      const result = await dispatch(uploadProfileImage(file)).unwrap();
+      if (result.success) {
+        toast.success("Profile image updated successfully");
+        // Refresh profile data
+        dispatch(fetchMyProfile());
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to upload image");
+    }
+    setShowImageConfirm(false);
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    console.log("Submitting client profile update:", formData);
+
+    try {
+      const result = await dispatch(
+        updateProfile({
+          fullName: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          bio: formData.bio,
+          location: formData.location,
+          company: formData.companyName,
+          companyWebsite: formData.companyWebsite,
+          industry: formData.industry,
+          companySize: formData.companySize,
+          social: formData.socialLinks,
+          verificationDocuments: formData.verificationDocuments,
+          skills: ["Client"], // Adding default skills for the client to meet validation
+        })
+      ).unwrap();
+
+      if (result.success) {
+        setUpdateSuccess(true);
+        setIsEditing(false);
+        // Refresh profile data
+        dispatch(fetchMyProfile());
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to update profile");
+    }
   };
 
   return (
@@ -153,16 +280,97 @@ const ProfilePage = () => {
       )}
 
       {/* Profile Header */}
-      <div className="bg-background-light p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row items-center">
-        <div className="w-32 h-32 bg-gray-300 rounded-full mb-4 md:mb-0 md:mr-6 flex items-center justify-center text-4xl text-gray-600">
-          {formData.fullName.charAt(0)}
+      <div className="bg-background-light p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row items-center justify-between">
+        <div className="flex items-center">
+          <div className="relative mb-4 md:mb-0 md:mr-6">
+            <div className="w-32 h-32 bg-gray-300 rounded-full flex items-center justify-center text-4xl text-gray-600 overflow-hidden">
+              {data?.data?.profile?.user?.avatar ? (
+                <img
+                  src={data.data.profile.user.avatar}
+                  alt={formData.fullName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                formData.fullName.charAt(0)
+              )}
+            </div>
+            {isEditing && (
+              <label
+                htmlFor="profile-image"
+                className="absolute bottom-0 right-0 bg-blue-500 text-white p-2 rounded-full cursor-pointer hover:bg-blue-600"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowImageConfirm(true);
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+              </label>
+            )}
+            <input
+              type="file"
+              id="profile-image"
+              className="hidden"
+              accept="image/*"
+              onChange={handleImageUpload}
+              disabled={uploadLoading || !isEditing}
+            />
+          </div>
+          <div>
+            <h2 className="text-2xl font-semibold">{formData.fullName}</h2>
+            <p className="text-gray-600 mb-1">{formData.location}</p>
+            <p className="text-primary font-semibold">{formData.companyName}</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-semibold">{formData.fullName}</h2>
-          <p className="text-gray-600 mb-1">{formData.location}</p>
-          <p className="text-primary font-semibold">{formData.companyName}</p>
-        </div>
+        <button
+          onClick={() => setIsEditing(!isEditing)}
+          className="mt-4 md:mt-0 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
+        >
+          {isEditing ? "Cancel" : "Edit Profile"}
+        </button>
       </div>
+
+      {/* Image Upload Confirmation Modal */}
+      {showImageConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Change Profile Image</h3>
+            <p className="text-gray-600 mb-6">Are you sure you want to change your profile image?</p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setShowImageConfirm(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <label
+                htmlFor="profile-image"
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark cursor-pointer"
+              >
+                Change Image
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="mb-6 border-b">
@@ -185,15 +393,15 @@ const ProfilePage = () => {
               Company Details
             </button>
           </li>
-          <li className="mr-2" onClick={() => setActiveTab("security")}>
+          <li className="mr-2" onClick={() => setActiveTab("verification")}>
             <button
               className={`inline-block p-4 ${
-                activeTab === "security"
+                activeTab === "verification"
                   ? "border-b-2 border-primary text-primary"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              Security
+              Verification
             </button>
           </li>
         </ul>
@@ -215,6 +423,7 @@ const ProfilePage = () => {
                   name="fullName"
                   value={formData.fullName}
                   onChange={handleChange}
+                  disabled={!isEditing}
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
@@ -228,23 +437,40 @@ const ProfilePage = () => {
                   id="email"
                   name="email"
                   value={formData.email}
-                  onChange={handleChange}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  disabled={true}
+                  className="w-full p-3 border border-gray-300 rounded-md bg-gray-100"
                 />
               </div>
 
               <div>
                 <label className="block text-gray-700 mb-2" htmlFor="phone">
-                  Phone
+                  Phone Number
                 </label>
-                <input
-                  type="text"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+                <div className="flex gap-2">
+                  <select
+                    id="phone.countryCode"
+                    name="phone.countryCode"
+                    value={formData.phone.countryCode}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="w-24 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="+91">+91 (IN)</option>
+                    <option value="+1">+1 (US)</option>
+                    <option value="+44">+44 (UK)</option>
+                    <option value="+61">+61 (AU)</option>
+                  </select>
+                  <input
+                    type="tel"
+                    id="phone.number"
+                    name="phone.number"
+                    value={formData.phone.number}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="flex-1 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Phone number"
+                  />
+                </div>
               </div>
 
               <div>
@@ -257,6 +483,7 @@ const ProfilePage = () => {
                   name="location"
                   value={formData.location}
                   onChange={handleChange}
+                  disabled={!isEditing}
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
@@ -270,6 +497,7 @@ const ProfilePage = () => {
                   name="bio"
                   value={formData.bio}
                   onChange={handleChange}
+                  disabled={!isEditing}
                   rows="4"
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 />
@@ -289,6 +517,7 @@ const ProfilePage = () => {
                     name="linkedin"
                     value={formData.socialLinks.linkedin}
                     onChange={(e) => handleNestedChange(e, "socialLinks")}
+                    disabled={!isEditing}
                     className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
@@ -303,6 +532,7 @@ const ProfilePage = () => {
                     name="twitter"
                     value={formData.socialLinks.twitter}
                     onChange={(e) => handleNestedChange(e, "socialLinks")}
+                    disabled={!isEditing}
                     className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
@@ -317,6 +547,7 @@ const ProfilePage = () => {
                     name="facebook"
                     value={formData.socialLinks.facebook}
                     onChange={(e) => handleNestedChange(e, "socialLinks")}
+                    disabled={!isEditing}
                     className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
@@ -339,6 +570,7 @@ const ProfilePage = () => {
                   name="companyName"
                   value={formData.companyName}
                   onChange={handleChange}
+                  disabled={!isEditing}
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
@@ -353,6 +585,7 @@ const ProfilePage = () => {
                   name="companyWebsite"
                   value={formData.companyWebsite}
                   onChange={handleChange}
+                  disabled={!isEditing}
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
@@ -366,6 +599,7 @@ const ProfilePage = () => {
                   name="industry"
                   value={formData.industry}
                   onChange={handleChange}
+                  disabled={!isEditing}
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="Technology">Technology</option>
@@ -388,6 +622,7 @@ const ProfilePage = () => {
                   name="companySize"
                   value={formData.companySize}
                   onChange={handleChange}
+                  disabled={!isEditing}
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="1-10">1-10 employees</option>
@@ -397,121 +632,191 @@ const ProfilePage = () => {
                   <option value="500+">500+ employees</option>
                 </select>
               </div>
-
-              <div className="col-span-1 md:col-span-2">
-                <label className="block text-gray-700 mb-2" htmlFor="companyLogo">
-                  Company Logo
-                </label>
-                <div className="flex items-center">
-                  <div className="w-16 h-16 bg-gray-200 rounded-md mr-4 flex items-center justify-center text-gray-400">
-                    <svg
-                      className="w-8 h-8"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                  </div>
-                  <button type="button" className="btn-outline">
-                    Upload New Logo
-                  </button>
-                </div>
-                <p className="text-sm text-gray-500 mt-2">Recommended size: 200x200px. Max file size: 2MB.</p>
-              </div>
             </div>
           </div>
         )}
 
-        {/* Security Tab */}
-        {activeTab === "security" && (
+        {/* Verification Tab */}
+        {activeTab === "verification" && (
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-4">Change Password</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-gray-700 mb-2" htmlFor="currentPassword">
-                    Current Password
-                  </label>
-                  <input
-                    type="password"
-                    id="currentPassword"
-                    name="currentPassword"
-                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
+            <h3 className="text-lg font-semibold mb-4">Verification Documents</h3>
+            <p className="text-gray-600 mb-6">
+              Please select document types and files. Only JPG, JPEG, and PNG files are allowed for verification
+              documents.
+            </p>
 
-                <div>
-                  <label className="block text-gray-700 mb-2" htmlFor="newPassword">
-                    New Password
-                  </label>
-                  <input
-                    type="password"
-                    id="newPassword"
-                    name="newPassword"
-                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
+            <div className="space-y-8">
+              {/* Address Proof Section */}
+              <div className="border rounded-lg p-6">
+                <h4 className="text-lg font-medium mb-4">Address Proof</h4>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-gray-700 mb-2">Document Type</label>
+                    <select
+                      name="verificationDocuments.addressProof.type"
+                      value={formData.verificationDocuments.addressProof.type}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Select document type</option>
+                      <option value="electricity_bill">Electricity Bill</option>
+                      <option value="gas_bill">Gas Bill</option>
+                      <option value="water_bill">Water Bill</option>
+                      <option value="bank_statement">Bank Statement</option>
+                      <option value="rent_agreement">Rent Agreement</option>
+                    </select>
+                  </div>
 
-                <div>
-                  <label className="block text-gray-700 mb-2" htmlFor="confirmPassword">
-                    Confirm New Password
-                  </label>
-                  <input
-                    type="password"
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-gray-700 mb-2">Upload Document</label>
+                    <div className="flex items-center gap-4">
+                      <input
+                        type="file"
+                        accept=".jpg,.jpeg,.png"
+                        onChange={(e) => handleDocumentSelect(e, "addressProof")}
+                        disabled={!isEditing || !formData.verificationDocuments.addressProof.type}
+                        className="hidden"
+                        id="address-proof-upload"
+                      />
+                      <label
+                        htmlFor="address-proof-upload"
+                        className={`px-4 py-2 rounded-md cursor-pointer ${
+                          isEditing && formData.verificationDocuments.addressProof.type
+                            ? "bg-primary text-white hover:bg-primary-dark"
+                            : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        }`}
+                      >
+                        Choose File
+                      </label>
+                      {formData.verificationDocuments.addressProof.file && (
+                        <span className="text-sm text-gray-600">
+                          {formData.verificationDocuments.addressProof.file.name}
+                        </span>
+                      )}
+                      {formData.verificationDocuments.addressProof.documentUrl && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">Document uploaded</span>
+                          <a
+                            href={formData.verificationDocuments.addressProof.documentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            View Document
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">Accepted formats: JPG, JPEG, PNG (max 5MB)</p>
+                  </div>
 
-                <button type="button" className="btn-primary mt-2">
-                  Update Password
-                </button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Status:</span>
+                    <span
+                      className={`text-sm ${
+                        formData.verificationDocuments.addressProof.status === "approved"
+                          ? "text-green-600"
+                          : formData.verificationDocuments.addressProof.status === "rejected"
+                          ? "text-red-600"
+                          : "text-yellow-600"
+                      }`}
+                    >
+                      {formData.verificationDocuments.addressProof.status.charAt(0).toUpperCase() +
+                        formData.verificationDocuments.addressProof.status.slice(1)}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div className="border-t pt-6 mt-6">
-              <h3 className="text-lg font-semibold mb-4">Two-Factor Authentication</h3>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium">Protect your account with 2FA</p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Add an extra layer of security to your account by requiring both your password and a verification
-                    code from your mobile device.
-                  </p>
-                </div>
-                <button type="button" className="btn-outline">
-                  Enable 2FA
-                </button>
-              </div>
-            </div>
+              {/* Identity Proof Section */}
+              <div className="border rounded-lg p-6">
+                <h4 className="text-lg font-medium mb-4">Identity Proof</h4>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-gray-700 mb-2">Document Type</label>
+                    <select
+                      name="verificationDocuments.identityProof.type"
+                      value={formData.verificationDocuments.identityProof.type}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Select document type</option>
+                      <option value="passport">Passport</option>
+                      <option value="driving_license">Driving License</option>
+                      <option value="national_id">National ID Card</option>
+                      <option value="aadhar_card">Aadhar Card (India)</option>
+                      <option value="pan_card">PAN Card (India)</option>
+                    </select>
+                  </div>
 
-            <div className="border-t pt-6 mt-6">
-              <h3 className="text-lg font-semibold mb-4 text-red-600">Danger Zone</h3>
-              <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
-                <div>
-                  <p className="font-medium text-red-700">Delete Account</p>
-                  <p className="text-sm text-red-600 mt-1">
-                    Once you delete your account, there is no going back. Please be certain.
-                  </p>
+                  <div>
+                    <label className="block text-gray-700 mb-2">Upload Document</label>
+                    <div className="flex items-center gap-4">
+                      <input
+                        type="file"
+                        accept=".jpg,.jpeg,.png"
+                        onChange={(e) => handleDocumentSelect(e, "identityProof")}
+                        disabled={!isEditing || !formData.verificationDocuments.identityProof.type}
+                        className="hidden"
+                        id="identity-proof-upload"
+                      />
+                      <label
+                        htmlFor="identity-proof-upload"
+                        className={`px-4 py-2 rounded-md cursor-pointer ${
+                          isEditing && formData.verificationDocuments.identityProof.type
+                            ? "bg-primary text-white hover:bg-primary-dark"
+                            : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        }`}
+                      >
+                        Choose File
+                      </label>
+                      {formData.verificationDocuments.identityProof.file && (
+                        <span className="text-sm text-gray-600">
+                          {formData.verificationDocuments.identityProof.file.name}
+                        </span>
+                      )}
+                      {formData.verificationDocuments.identityProof.documentUrl && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">Document uploaded</span>
+                          <a
+                            href={formData.verificationDocuments.identityProof.documentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            View Document
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">Accepted formats: JPG, JPEG, PNG (max 5MB)</p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Status:</span>
+                    <span
+                      className={`text-sm ${
+                        formData.verificationDocuments.identityProof.status === "approved"
+                          ? "text-green-600"
+                          : formData.verificationDocuments.identityProof.status === "rejected"
+                          ? "text-red-600"
+                          : "text-yellow-600"
+                      }`}
+                    >
+                      {formData.verificationDocuments.identityProof.status.charAt(0).toUpperCase() +
+                        formData.verificationDocuments.identityProof.status.slice(1)}
+                    </span>
+                  </div>
                 </div>
-                <button type="button" className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md">
-                  Delete Account
-                </button>
               </div>
             </div>
           </div>
         )}
 
         {/* Save Button */}
-        {(activeTab === "basic" || activeTab === "company") && (
+        {isEditing && (
           <div className="mt-8">
             <button type="submit" className="btn-primary px-6 py-3 rounded-md">
               Save Changes

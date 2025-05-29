@@ -6,7 +6,7 @@ const { upload, uploadProfileImage, uploadVerificationDocument } = require("../c
 // @route   POST /api/upload/profile-image
 // @desc    Upload profile image
 // @access  Private
-router.post("/profile-image", auth, uploadProfileImage);
+router.post("/profile-image", auth, upload.single("image"), uploadProfileImage);
 
 // @route   POST /api/upload/verification-document
 // @desc    Upload verification document
