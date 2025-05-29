@@ -31,6 +31,7 @@ router.post(
         "more_than_6_months",
       ]),
       check("deadline", "Deadline is required").isISO8601(),
+      check("freelancersNeeded", "Number of freelancers needed is required").isInt({ min: 1 }),
     ],
   ],
   jobController.createJob
@@ -69,6 +70,7 @@ router.put(
       check("status", "Status must be a valid status")
         .optional()
         .isIn(["draft", "open", "in_progress", "completed", "cancelled"]),
+      check("freelancersNeeded", "Number of freelancers needed must be at least 1").optional().isInt({ min: 1 }),
     ],
   ],
   jobController.updateJob

@@ -23,6 +23,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
     duration: "less_than_1_month",
     location: "remote",
     deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), // 30 days from now
+    freelancersNeeded: 1, // Add default value for number of freelancers
   });
 
   // Initialize form data if editing an existing job
@@ -63,6 +64,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
         location: jobToEdit.location || "remote",
         deadline: jobToEdit.deadline ? new Date(jobToEdit.deadline).toISOString().slice(0, 10) : "",
         status: jobToEdit.status || "open",
+        freelancersNeeded: jobToEdit.freelancersNeeded || 1,
       });
     }
   }, [jobToEdit]);
@@ -322,6 +324,24 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
           </div>
 
           <div>
+            <label htmlFor="freelancersNeeded" className="block text-sm font-medium text-gray-700 mb-1">
+              Number of Freelancers Needed
+            </label>
+            <input
+              type="number"
+              id="freelancersNeeded"
+              name="freelancersNeeded"
+              value={formData.freelancersNeeded}
+              onChange={handleChange}
+              min="1"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
             <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
               Location
             </label>
@@ -337,21 +357,21 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
               <option value="hybrid">Hybrid</option>
             </select>
           </div>
-        </div>
 
-        <div>
-          <label htmlFor="deadline" className="block text-sm font-medium text-gray-700 mb-1">
-            Application Deadline
-          </label>
-          <input
-            type="date"
-            id="deadline"
-            name="deadline"
-            value={formData.deadline}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-            required
-          />
+          <div>
+            <label htmlFor="deadline" className="block text-sm font-medium text-gray-700 mb-1">
+              Application Deadline
+            </label>
+            <input
+              type="date"
+              id="deadline"
+              name="deadline"
+              value={formData.deadline}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              required
+            />
+          </div>
         </div>
 
         <div>

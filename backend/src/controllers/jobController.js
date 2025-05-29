@@ -52,7 +52,19 @@ exports.createJob = async (req, res) => {
   }
 
   try {
-    const { title, description, category, skills, budget, experience, duration, location, deadline, status } = req.body;
+    const {
+      title,
+      description,
+      category,
+      skills,
+      budget,
+      experience,
+      duration,
+      location,
+      deadline,
+      status,
+      freelancersNeeded,
+    } = req.body;
 
     // Get client profile for company details
     const clientProfile = await Profile.findOne({ user: req.user.id }).populate("user", "name email");
@@ -94,6 +106,7 @@ exports.createJob = async (req, res) => {
       deadline,
       status: status === "draft" ? "draft" : "open", // Default to open if not explicitly set to draft
       companyDetails,
+      freelancersNeeded: freelancersNeeded || 1,
     });
 
     await job.save();
@@ -404,6 +417,7 @@ exports.updateJob = async (req, res) => {
       "deadline",
       "status",
       "featured",
+      "freelancersNeeded",
     ];
 
     updatableFields.forEach((field) => {
@@ -533,6 +547,17 @@ exports.submitProposal = async (req, res) => {
       });
     }
 
+    // Validate bid price against freelancer's hourly rate
+    if (job.budget.type === "hourly" && freelancerProfile.hourlyRate) {
+      const minHourlyRate = freelancerProfile.hourlyRate.min || 0;
+      if (bidPrice < minHourlyRate) {
+        return res.status(400).json({
+          success: false,
+          message: `Your bid price ($${bidPrice}/hr) cannot be lower than your minimum hourly rate ($${minHourlyRate}/hr)`,
+        });
+      }
+    }
+
     // Create profile snapshot with relevant freelancer information
     const profileSnapshot = {
       name: freelancerProfile.user.name,
@@ -542,7 +567,7 @@ exports.submitProposal = async (req, res) => {
       experience: Array.isArray(freelancerProfile.experience)
         ? freelancerProfile.experience.map((exp) => `${exp.title} at ${exp.company}`).join(", ")
         : "",
-      hourlyRate: freelancerProfile.hourlyRate || null,
+      hourlyRate: freelancerProfile.hourlyRate || { min: 0, max: 0 },
     };
 
     // Create new proposal

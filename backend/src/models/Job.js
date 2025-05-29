@@ -43,6 +43,12 @@ const JobSchema = new Schema({
       default: "fixed",
     },
   },
+  freelancersNeeded: {
+    type: Number,
+    required: true,
+    default: 1,
+    min: 1,
+  },
   experience: {
     type: String,
     enum: ["entry", "intermediate", "expert"],

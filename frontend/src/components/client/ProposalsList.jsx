@@ -9,7 +9,6 @@ const ProposalsList = ({ jobId, onClose }) => {
   const dispatch = useDispatch();
   const { clientJobs, proposals, isLoading, error } = useSelector((state) => state.jobs);
 
-  
   // Find the selected job from active jobs
   const selectedJob =
     clientJobs.active.find((job) => job._id === jobId) ||
@@ -18,6 +17,10 @@ const ProposalsList = ({ jobId, onClose }) => {
 
   // Get proposals from the selected job
   const jobProposals = selectedJob?.proposals || [];
+
+  // Count accepted proposals
+  const acceptedProposalsCount = jobProposals.filter((p) => p.status === "accepted").length;
+  const remainingSlots = (selectedJob?.freelancersNeeded || 1) - acceptedProposalsCount;
 
   const [selectedTab, setSelectedTab] = useState("all");
   const [loadingError, setLoadingError] = useState(null);
@@ -58,9 +61,17 @@ const ProposalsList = ({ jobId, onClose }) => {
   const handleUpdateStatus = async (proposalId, status) => {
     // Add confirmation for accepting a proposal
     if (status === "accepted") {
+      // Check if there are remaining slots
+      if (remainingSlots <= 0) {
+        toast.error("No more freelancer slots available for this job");
+        return;
+      }
+
       // Use window.confirm for simplicity, could be replaced with a more styled modal
       const confirmed = window.confirm(
-        "Accepting this proposal will mark the job as in-progress and hire this freelancer. Other proposals will remain available but cannot be accepted. Continue?"
+        `Accepting this proposal will hire this freelancer. ${remainingSlots - 1} more freelancer${
+          remainingSlots - 1 === 1 ? "" : "s"
+        } can be hired for this job. Continue?`
       );
       if (!confirmed) return;
     }
@@ -84,9 +95,9 @@ const ProposalsList = ({ jobId, onClose }) => {
         `Proposal ${status === "accepted" ? "accepted" : status === "rejected" ? "rejected" : "updated"} successfully`
       );
 
-      // If accepting a proposal, offer to close the modal since the job is now filled
-      if (status === "accepted") {
-        toast.success("Freelancer has been hired! The job is now in progress.");
+      // If accepting a proposal and no more slots are available, offer to close the modal
+      if (status === "accepted" && remainingSlots <= 1) {
+        toast.success("All freelancer slots have been filled! The job is now in progress.");
         // Automatically close the modal after a brief delay
         setTimeout(() => {
           onClose();
@@ -102,7 +113,7 @@ const ProposalsList = ({ jobId, onClose }) => {
   // Filter proposals based on selected tab
   const filteredProposals = localProposals.filter((proposal) => {
     console.log(proposal);
-    
+
     if (selectedTab === "all") return true;
     return proposal.status === selectedTab;
   });
@@ -111,7 +122,12 @@ const ProposalsList = ({ jobId, onClose }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white px-6 py-4 border-b z-10 flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Proposals ({localProposals.length})</h2>
+          <div>
+            <h2 className="text-xl font-semibold">Proposals ({localProposals.length})</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              {remainingSlots} freelancer{remainingSlots === 1 ? "" : "s"} needed
+            </p>
+          </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700 focus:outline-none" aria-label="Close">
             <svg
               className="w-6 h-6"
@@ -318,7 +334,9 @@ const ProposalsList = ({ jobId, onClose }) => {
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <span className="block text-sm text-gray-500 mb-1">Hourly Rate</span>
                       <span className="font-medium">
-                        ${proposal.freelancerProfileSnapshot?.hourlyRate || "Not specified"}
+                        {proposal.freelancerProfileSnapshot?.hourlyRate
+                          ? `$${proposal.freelancerProfileSnapshot.hourlyRate.min} - $${proposal.freelancerProfileSnapshot.hourlyRate.max}/hr`
+                          : "Not specified"}
                       </span>
                     </div>
                   </div>

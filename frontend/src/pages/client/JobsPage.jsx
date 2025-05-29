@@ -233,9 +233,13 @@ const JobsPage = () => {
                     : "More than 6 months"}
                 </span>
               </div>
-              <div>
+              {/* <div>
                 <span className="block text-sm text-gray-500">Proposals</span>
                 <span className="font-medium">{job.applicationCount || 0}</span>
+              </div> */}
+              <div>
+                <span className="block text-sm text-gray-500">Freelancers Needed</span>
+                <span className="font-medium">{job.freelancersNeeded || 1}</span>
               </div>
             </div>
 

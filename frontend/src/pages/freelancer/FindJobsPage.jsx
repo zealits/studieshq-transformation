@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchJobs, filterJobs } from "../../redux/slices/jobsSlice";
+import { fetchProposals } from "../../redux/actions/proposalActions";
 import Spinner from "../../components/common/Spinner";
 import { formatDistanceToNow } from "date-fns";
 import ApplyJobModal from "../../components/freelancer/ApplyJobModal";
@@ -19,9 +20,11 @@ const FindJobsPage = () => {
 
   const dispatch = useDispatch();
   const { filteredJobs, isLoading, categories } = useSelector((state) => state.jobs);
+  const { proposals } = useSelector((state) => state.proposals);
 
   useEffect(() => {
     dispatch(fetchJobs());
+    dispatch(fetchProposals());
   }, [dispatch]);
 
   // Apply filters when searchTerm or filters change
@@ -56,6 +59,17 @@ const FindJobsPage = () => {
       ...prev,
       sortBy,
     }));
+  };
+
+  // Check if a job has been applied to
+  const hasAppliedToJob = (jobId) => {
+    return proposals.some((proposal) => proposal.job._id === jobId);
+  };
+
+  // Get proposal status for a job
+  const getProposalStatus = (jobId) => {
+    const proposal = proposals.find((proposal) => proposal.job._id === jobId);
+    return proposal ? proposal.status : null;
   };
 
   return (
@@ -267,105 +281,129 @@ const FindJobsPage = () => {
         </div>
       ) : (
         <div className="space-y-6">
-          {filteredJobs.map((job) => (
-            <div key={job._id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h2 className="text-xl font-semibold hover:text-primary">{job.title}</h2>
-                  <div className="flex items-center text-sm text-gray-500 mt-1">
-                    <span>
-                      {job.budget.type === "fixed"
-                        ? `$${job.budget.min} - $${job.budget.max}`
-                        : `$${job.budget.min} - $${job.budget.max}/hr`}
-                    </span>
-                    <span className="mx-2">•</span>
-                    <span>{job.budget.type === "fixed" ? "Fixed Price" : "Hourly"}</span>
-                    <span className="mx-2">•</span>
-                    <span>Posted {formatPostedDate(job.createdAt)}</span>
-                    <span className="mx-2">•</span>
-                    <span>{job.proposals ? job.proposals.length : 0} proposals</span>
-                  </div>
-                </div>
-                <button className="btn-primary" onClick={() => handleApplyClick(job)}>
-                  Apply Now
-                </button>
-              </div>
+          {filteredJobs.map((job) => {
+            const hasApplied = hasAppliedToJob(job._id);
+            const proposalStatus = getProposalStatus(job._id);
 
-              <p className="mt-4 text-gray-600">{job.description}</p>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {job.skills.map((skill, index) => (
-                  <span key={index} className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                    {skill}
-                  </span>
-                ))}
-              </div>
-
-              {job.client && (
-                <div className="mt-4 pt-4 border-t flex items-center">
-                  <div className="w-8 h-8 bg-primary-light rounded-full flex items-center justify-center text-white">
-                    {job.client.name ? job.client.name.charAt(0) : "C"}
-                  </div>
-                  <div className="ml-3">
-                    {job.companyDetails && job.companyDetails.name ? (
-                      <div>
-                        <div className="font-medium">{job.companyDetails.name}</div>
-                        <div className="flex items-center text-sm">
-                          <span className="text-gray-500">{job.companyDetails.location || job.location}</span>
-                          {job.companyDetails.website && (
-                            <>
-                              <span className="mx-2">•</span>
-                              <a
-                                href={
-                                  job.companyDetails.website.startsWith("http")
-                                    ? job.companyDetails.website
-                                    : `https://${job.companyDetails.website}`
-                                }
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary hover:underline"
-                              >
-                                Website
-                              </a>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="font-medium">{job.client.name || "Client"}</div>
-                    )}
-                    <div className="flex items-center text-sm">
-                      {!job.companyDetails?.name && (
-                        <span className="text-gray-500">{job.client.profile?.location || "Unknown Location"}</span>
-                      )}
-                      {job.client.profile?.rating && (
-                        <>
-                          <span className="mx-2">•</span>
-                          <div className="flex items-center">
-                            <svg
-                              className="w-4 h-4 text-yellow-400"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                            <span className="ml-1">{job.client.profile.rating.toFixed(1)}</span>
-                          </div>
-                        </>
-                      )}
-                      {job.client.profile?.totalHires > 0 && (
-                        <>
-                          <span className="mx-2">•</span>
-                          <span className="text-gray-500">{job.client.profile.totalHires} hires</span>
-                        </>
-                      )}
+            return (
+              <div key={job._id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-xl font-semibold hover:text-primary">{job.title}</h2>
+                    <div className="flex items-center text-sm text-gray-500 mt-1">
+                      <span>
+                        {job.budget.type === "fixed"
+                          ? `$${job.budget.min} - $${job.budget.max}`
+                          : `$${job.budget.min} - $${job.budget.max}/hr`}
+                      </span>
+                      <span className="mx-2">•</span>
+                      <span>{job.budget.type === "fixed" ? "Fixed Price" : "Hourly"}</span>
+                      <span className="mx-2">•</span>
+                      <span>Posted {formatPostedDate(job.createdAt)}</span>
+                      <span className="mx-2">•</span>
+                      <span>{job.applicationCount || 0} proposals</span>
                     </div>
                   </div>
+                  {hasApplied ? (
+                    <div className="flex flex-col items-end">
+                      <span
+                        className={`px-3 py-1 text-sm font-medium rounded-full ${
+                          proposalStatus === "pending"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : proposalStatus === "shortlisted"
+                            ? "bg-blue-100 text-blue-800"
+                            : proposalStatus === "accepted"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {proposalStatus.charAt(0).toUpperCase() + proposalStatus.slice(1)}
+                      </span>
+                      <span className="text-sm text-gray-500 mt-1">Already Applied</span>
+                    </div>
+                  ) : (
+                    <button className="btn-primary" onClick={() => handleApplyClick(job)}>
+                      Apply Now
+                    </button>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
+
+                <p className="mt-4 text-gray-600">{job.description}</p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {job.skills.map((skill, index) => (
+                    <span key={index} className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+
+                {job.client && (
+                  <div className="mt-4 pt-4 border-t flex items-center">
+                    <div className="w-8 h-8 bg-primary-light rounded-full flex items-center justify-center text-white">
+                      {job.client.name ? job.client.name.charAt(0) : "C"}
+                    </div>
+                    <div className="ml-3">
+                      {job.companyDetails && job.companyDetails.name ? (
+                        <div>
+                          <div className="font-medium">{job.companyDetails.name}</div>
+                          <div className="flex items-center text-sm">
+                            <span className="text-gray-500">{job.companyDetails.location || job.location}</span>
+                            {job.companyDetails.website && (
+                              <>
+                                <span className="mx-2">•</span>
+                                <a
+                                  href={
+                                    job.companyDetails.website.startsWith("http")
+                                      ? job.companyDetails.website
+                                      : `https://${job.companyDetails.website}`
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline"
+                                >
+                                  Website
+                                </a>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="font-medium">{job.client.name || "Client"}</div>
+                      )}
+                      <div className="flex items-center text-sm">
+                        {!job.companyDetails?.name && (
+                          <span className="text-gray-500">{job.client.profile?.location || "Unknown Location"}</span>
+                        )}
+                        {job.client.profile?.rating && (
+                          <>
+                            <span className="mx-2">•</span>
+                            <div className="flex items-center">
+                              <svg
+                                className="w-4 h-4 text-yellow-400"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                              </svg>
+                              <span className="ml-1">{job.client.profile.rating.toFixed(1)}</span>
+                            </div>
+                          </>
+                        )}
+                        {job.client.profile?.totalHires > 0 && (
+                          <>
+                            <span className="mx-2">•</span>
+                            <span className="text-gray-500">{job.client.profile.totalHires} hires</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

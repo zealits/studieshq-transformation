@@ -40,7 +40,10 @@ const ProposalSchema = new Schema({
     title: { type: String },
     skills: [{ type: String }],
     experience: { type: String },
-    hourlyRate: { type: Number },
+    hourlyRate: {
+      min: { type: Number },
+      max: { type: Number },
+    },
   },
   attachments: [
     {
