@@ -12,6 +12,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
     title: "",
     description: "",
     category: "",
+    customCategory: "",
     skills: [],
     budget: {
       min: "",
@@ -37,10 +38,24 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
         type: jobToEdit.budget.budgetType || jobToEdit.budget.type || "fixed",
       };
 
+      // Check if the category is in the predefined list
+      const predefinedCategories = [
+        "Web Development",
+        "Mobile Development",
+        "UI/UX Design",
+        "Graphic Design",
+        "Content Writing",
+        "Digital Marketing",
+        "Data Analysis",
+      ];
+
+      const isCustomCategory = !predefinedCategories.includes(jobToEdit.category);
+
       setFormData({
         title: jobToEdit.title || "",
         description: jobToEdit.description || "",
-        category: jobToEdit.category || "",
+        category: isCustomCategory ? "other" : jobToEdit.category || "",
+        customCategory: isCustomCategory ? jobToEdit.category : "",
         skills: formattedSkills,
         budget,
         experience: jobToEdit.experience || "intermediate",
@@ -87,6 +102,13 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
       draftData.budget.min = Number(draftData.budget.min);
       draftData.budget.max = Number(draftData.budget.max);
 
+      // Use custom category if "other" is selected
+      if (draftData.category === "other") {
+        draftData.category = draftData.customCategory;
+      }
+      // Remove the customCategory field as it's not needed in the API
+      delete draftData.customCategory;
+
       if (jobToEdit) {
         await dispatch(updateJob({ jobId: jobToEdit._id, jobData: { ...draftData, status: "draft" } })).unwrap();
         toast.success("Job updated and saved as draft successfully!");
@@ -108,6 +130,13 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
       // Convert budget values to numbers
       jobData.budget.min = Number(jobData.budget.min);
       jobData.budget.max = Number(jobData.budget.max);
+
+      // Use custom category if "other" is selected
+      if (jobData.category === "other") {
+        jobData.category = jobData.customCategory;
+      }
+      // Remove the customCategory field as it's not needed in the API
+      delete jobData.customCategory;
 
       if (jobToEdit) {
         await dispatch(updateJob({ jobId: jobToEdit._id, jobData })).unwrap();
@@ -184,8 +213,27 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
             <option value="Content Writing">Content Writing</option>
             <option value="Digital Marketing">Digital Marketing</option>
             <option value="Data Analysis">Data Analysis</option>
+            <option value="other">Other</option>
           </select>
         </div>
+
+        {formData.category === "other" && (
+          <div>
+            <label htmlFor="customCategory" className="block text-sm font-medium text-gray-700 mb-1">
+              Specify Category
+            </label>
+            <input
+              type="text"
+              id="customCategory"
+              name="customCategory"
+              value={formData.customCategory}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Enter your category"
+              required
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
