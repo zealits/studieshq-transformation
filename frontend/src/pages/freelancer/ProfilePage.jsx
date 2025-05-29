@@ -4,6 +4,7 @@ import { fetchMyProfile, updateProfile } from "../../redux/slices/profileSlice";
 import { uploadProfileImage } from "../../redux/slices/uploadSlice";
 import { toast } from "react-toastify";
 import axios from "axios";
+import VerificationBadge from "../../components/VerificationBadge";
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
@@ -322,6 +323,11 @@ const ProfilePage = () => {
                     formData.fullName.charAt(0)
                   )}
                 </div>
+                {/* {data?.data?.profile?.isVerified && data?.data?.profile?.verificationStatus === "verified" && (
+                  <div className="absolute -top-2 -right-2">
+                    <VerificationBadge size="large" showText={false} />
+                  </div>
+                )} */}
                 {isEditing && (
                   <label
                     htmlFor="profile-image"
@@ -364,13 +370,18 @@ const ProfilePage = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-semibold">{formData.fullName}</h2>
-                <p className="text-gray-600 mb-2">{formData.location}</p>
-                <div className="flex items-center">
-                  <p className="text-primary font-semibold">
-                    ${formData.hourlyRate.min} - ${formData.hourlyRate.max}/hr
-                  </p>
-                  {!isEditing && <span className="ml-2 text-sm text-gray-500">(Click Edit to modify)</span>}
-                </div>
+                <p className="text-gray-600 mb-1">{formData.location}</p>
+                <p className="text-primary font-semibold">{formData.title}</p>
+                {data?.data?.profile?.isVerified && data?.data?.profile?.verificationStatus === "verified" && (
+                  <div className="flex items-center mt-2">
+                    <VerificationBadge />
+                    {data?.data?.profile?.verificationDate && (
+                      <span className="text-xs text-gray-500 ml-2">
+                        (Verified on {new Date(data.data.profile.verificationDate).toLocaleDateString()})
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <button
@@ -419,7 +430,7 @@ const ProfilePage = () => {
                   viewBox="0 0 24 24"
                   xmlns="http://www.w3.org/2000/svg"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                 </svg>
                 <div>
                   <p className="font-bold">Success</p>

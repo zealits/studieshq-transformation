@@ -26,13 +26,20 @@ exports.getAllUsers = async (req, res) => {
 
     const total = await User.countDocuments(query);
 
-    // Get profiles for users
+    // Get profiles for users with verification documents
     const usersWithProfiles = await Promise.all(
       users.map(async (user) => {
         const profile = await Profile.findOne({ user: user._id });
         return {
           ...user.toObject(),
           profile: profile || {},
+          verificationDocuments: profile?.verificationDocuments || {
+            addressProof: { status: "pending" },
+            identityProof: { status: "pending" },
+          },
+          isVerified: profile?.isVerified || false,
+          verificationStatus: profile?.verificationStatus || "pending",
+          verificationDate: profile?.verificationDate,
         };
       })
     );
@@ -62,31 +69,44 @@ exports.getAllUsers = async (req, res) => {
 exports.updateUserVerification = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { isVerified, verificationDocuments } = req.body;
+    const { documentType, status, rejectionReason } = req.body;
 
+    const profile = await Profile.findOne({ user: userId });
+    if (!profile) {
+      return res.status(404).json({ success: false, message: "Profile not found" });
+    }
+
+    // Update verification status for the specific document
+    if (documentType === "addressProof" || documentType === "identityProof") {
+      profile.verificationDocuments[documentType].status = status;
+      profile.verificationDocuments[documentType].verifiedAt = status === "approved" ? Date.now() : null;
+      profile.verificationDocuments[documentType].rejectionReason = status === "rejected" ? rejectionReason : null;
+
+      // Check if both documents are approved and update verification status
+      profile.checkVerificationStatus();
+    }
+
+    await profile.save();
+
+    // Update user's isVerified status
     const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+    if (user) {
+      user.isVerified = profile.isVerified;
+      await user.save();
     }
-
-    // Update verification status
-    user.isVerified = isVerified;
-    if (verificationDocuments) {
-      user.verificationDocuments = verificationDocuments;
-    }
-
-    await user.save();
 
     res.json({
       success: true,
       data: {
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          isVerified: user.isVerified,
-          verificationDocuments: user.verificationDocuments,
+        profile: {
+          verificationDocuments: profile.verificationDocuments,
+          isVerified: profile.isVerified,
+          verificationStatus: profile.verificationStatus,
+          verificationDate: profile.verificationDate,
+          user: {
+            id: userId,
+            isVerified: profile.isVerified,
+          },
         },
       },
     });

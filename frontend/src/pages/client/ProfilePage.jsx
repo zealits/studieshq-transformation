@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchMyProfile, updateProfile } from "../../redux/slices/profileSlice";
 import { uploadProfileImage } from "../../redux/slices/uploadSlice";
 import { toast } from "react-toastify";
+import VerificationBadge from "../../components/VerificationBadge";
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
@@ -294,6 +295,11 @@ const ProfilePage = () => {
                 formData.fullName.charAt(0)
               )}
             </div>
+            {data?.data?.profile?.isVerified && data?.data?.profile?.verificationStatus === "verified" && (
+              <div className="absolute -top-2 -right-2">
+                <VerificationBadge size="large" showText={false} />
+              </div>
+            )}
             {isEditing && (
               <label
                 htmlFor="profile-image"
@@ -338,6 +344,16 @@ const ProfilePage = () => {
             <h2 className="text-2xl font-semibold">{formData.fullName}</h2>
             <p className="text-gray-600 mb-1">{formData.location}</p>
             <p className="text-primary font-semibold">{formData.companyName}</p>
+            {data?.data?.profile?.isVerified && data?.data?.profile?.verificationStatus === "verified" && (
+              <div className="flex items-center mt-2">
+                <VerificationBadge />
+                {data?.data?.profile?.verificationDate && (
+                  <span className="text-xs text-gray-500 ml-2">
+                    (Verified on {new Date(data.data.profile.verificationDate).toLocaleDateString()})
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <button

@@ -205,6 +205,20 @@ const ProfileSchema = new Schema({
     type: String,
   },
 
+  // Verification status
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
+  verificationStatus: {
+    type: String,
+    enum: ["pending", "verified", "rejected"],
+    default: "pending",
+  },
+  verificationDate: {
+    type: Date,
+  },
+
   // Verification Documents
   verificationDocuments: {
     addressProof: VerificationDocumentSchema,
@@ -227,6 +241,21 @@ ProfileSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
   next();
 });
+
+// Add a method to check if all documents are verified
+ProfileSchema.methods.checkVerificationStatus = function () {
+  const addressProof = this.verificationDocuments?.addressProof;
+  const identityProof = this.verificationDocuments?.identityProof;
+
+  if (addressProof?.status === "approved" && identityProof?.status === "approved") {
+    this.isVerified = true;
+    this.verificationStatus = "verified";
+    this.verificationDate = new Date();
+  } else {
+    this.isVerified = false;
+    this.verificationStatus = "pending";
+  }
+};
 
 // Create Profile model
 const Profile = mongoose.model("Profile", ProfileSchema);

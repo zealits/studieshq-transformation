@@ -24,13 +24,14 @@ export const fetchUsers = createAsyncThunk(
 
 export const updateUserVerification = createAsyncThunk(
   "userManagement/updateUserVerification",
-  async ({ userId, isVerified, verificationDocuments }, { rejectWithValue }) => {
+  async ({ userId, documentType, status, rejectionReason }, { rejectWithValue }) => {
     try {
       const response = await api.put(`/api/admin/users/${userId}/verify`, {
-        isVerified,
-        verificationDocuments,
+        documentType,
+        status,
+        rejectionReason,
       });
-      return response.data.data.user;
+      return response.data.data;
     } catch (error) {
       return rejectWithValue(error.response.data);
     }
@@ -79,9 +80,11 @@ const userManagementSlice = createSlice({
       })
       .addCase(updateUserVerification.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.users.findIndex((user) => user.id === action.payload.id);
+        const { user, verificationDocuments } = action.payload.profile;
+        const index = state.users.findIndex((u) => u._id === user.id);
         if (index !== -1) {
-          state.users[index] = action.payload;
+          state.users[index].isVerified = user.isVerified;
+          state.users[index].verificationDocuments = verificationDocuments;
         }
       })
       .addCase(updateUserVerification.rejected, (state, action) => {

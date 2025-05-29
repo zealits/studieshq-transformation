@@ -35,11 +35,30 @@ const UserManagementPage = () => {
     setSelectedUser(null);
   };
 
+  const handleViewDocument = (documentUrl) => {
+    if (documentUrl) {
+      window.open(documentUrl, "_blank");
+    }
+  };
+
   // Handle verification update
-  const handleVerificationUpdate = async (userId, isVerified, verificationDocuments) => {
+  const handleVerificationUpdate = async (userId, documentType, status, rejectionReason) => {
     try {
-      await dispatch(updateUserVerification({ userId, isVerified, verificationDocuments })).unwrap();
-      handleCloseModal();
+      if (status === "rejected" && !rejectionReason) {
+        const reason = prompt("Please enter rejection reason:");
+        if (!reason) return;
+        rejectionReason = reason;
+      }
+      await dispatch(updateUserVerification({ userId, documentType, status, rejectionReason })).unwrap();
+      // Refresh the users list instead of closing modal
+      dispatch(
+        fetchUsers({
+          page: currentPage,
+          limit: 10,
+          role: activeTab !== "all" ? activeTab : undefined,
+          search: searchQuery,
+        })
+      );
     } catch (error) {
       console.error("Failed to update verification:", error);
     }
@@ -381,56 +400,216 @@ const UserManagementPage = () => {
                         <div className="space-y-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Identity Proof</label>
-                            <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
-                              <div>
-                                <p className="text-sm font-medium">
-                                  {selectedUser.verificationDocuments?.identityProof?.type || "Not provided"}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  Uploaded:{" "}
-                                  {selectedUser.verificationDocuments?.identityProof?.uploadDate
-                                    ? new Date(
-                                        selectedUser.verificationDocuments.identityProof.uploadDate
-                                      ).toLocaleDateString()
-                                    : "Not available"}
-                                </p>
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                              <div className="flex items-center justify-between mb-3">
+                                <div>
+                                  <p className="text-sm font-medium">
+                                    {selectedUser.verificationDocuments?.identityProof?.type || "Not provided"}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    Uploaded:{" "}
+                                    {selectedUser.verificationDocuments?.identityProof?.uploadedAt
+                                      ? new Date(
+                                          selectedUser.verificationDocuments.identityProof.uploadedAt
+                                        ).toLocaleDateString()
+                                      : "Not available"}
+                                  </p>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  {selectedUser.verificationDocuments?.identityProof?.documentUrl && (
+                                    <button
+                                      onClick={() =>
+                                        handleViewDocument(selectedUser.verificationDocuments.identityProof.documentUrl)
+                                      }
+                                      className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-primary hover:text-primary-dark bg-white border border-primary rounded-md hover:bg-primary/5 transition-colors"
+                                    >
+                                      <svg
+                                        className="w-4 h-4 mr-1.5"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                        />
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                        />
+                                      </svg>
+                                      View Document
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                              <span
-                                className={`px-2 py-1 text-xs rounded-full ${
-                                  selectedUser.verificationDocuments?.identityProof?.status === "verified"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-yellow-100 text-yellow-800"
-                                }`}
-                              >
-                                {selectedUser.verificationDocuments?.identityProof?.status || "pending"}
-                              </span>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <span
+                                    className={`px-2 py-1 text-xs rounded-full ${
+                                      selectedUser.verificationDocuments?.identityProof?.status === "approved"
+                                        ? "bg-green-100 text-green-800"
+                                        : selectedUser.verificationDocuments?.identityProof?.status === "rejected"
+                                        ? "bg-red-100 text-red-800"
+                                        : "bg-yellow-100 text-yellow-800"
+                                    }`}
+                                  >
+                                    {selectedUser.verificationDocuments?.identityProof?.status || "pending"}
+                                  </span>
+                                  {selectedUser.verificationDocuments?.identityProof?.rejectionReason && (
+                                    <span className="text-sm text-red-600">
+                                      {selectedUser.verificationDocuments.identityProof.rejectionReason}
+                                    </span>
+                                  )}
+                                </div>
+                                {selectedUser.verificationDocuments?.identityProof?.status !== "approved" && (
+                                  <div className="flex items-center space-x-2">
+                                    <button
+                                      onClick={() =>
+                                        handleVerificationUpdate(selectedUser._id, "identityProof", "approved")
+                                      }
+                                      className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                                      title="Approve"
+                                    >
+                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M5 13l4 4L19 7"
+                                        />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleVerificationUpdate(selectedUser._id, "identityProof", "rejected")
+                                      }
+                                      className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                      title="Reject"
+                                    >
+                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M6 18L18 6M6 6l12 12"
+                                        />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Address Proof</label>
-                            <div className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
-                              <div>
-                                <p className="text-sm font-medium">
-                                  {selectedUser.verificationDocuments?.addressProof?.type || "Not provided"}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  Uploaded:{" "}
-                                  {selectedUser.verificationDocuments?.addressProof?.uploadDate
-                                    ? new Date(
-                                        selectedUser.verificationDocuments.addressProof.uploadDate
-                                      ).toLocaleDateString()
-                                    : "Not available"}
-                                </p>
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                              <div className="flex items-center justify-between mb-3">
+                                <div>
+                                  <p className="text-sm font-medium">
+                                    {selectedUser.verificationDocuments?.addressProof?.type || "Not provided"}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    Uploaded:{" "}
+                                    {selectedUser.verificationDocuments?.addressProof?.uploadedAt
+                                      ? new Date(
+                                          selectedUser.verificationDocuments.addressProof.uploadedAt
+                                        ).toLocaleDateString()
+                                      : "Not available"}
+                                  </p>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  {selectedUser.verificationDocuments?.addressProof?.documentUrl && (
+                                    <button
+                                      onClick={() =>
+                                        handleViewDocument(selectedUser.verificationDocuments.addressProof.documentUrl)
+                                      }
+                                      className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-primary hover:text-primary-dark bg-white border border-primary rounded-md hover:bg-primary/5 transition-colors"
+                                    >
+                                      <svg
+                                        className="w-4 h-4 mr-1.5"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                        />
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                        />
+                                      </svg>
+                                      View Document
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                              <span
-                                className={`px-2 py-1 text-xs rounded-full ${
-                                  selectedUser.verificationDocuments?.addressProof?.status === "verified"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-yellow-100 text-yellow-800"
-                                }`}
-                              >
-                                {selectedUser.verificationDocuments?.addressProof?.status || "pending"}
-                              </span>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <span
+                                    className={`px-2 py-1 text-xs rounded-full ${
+                                      selectedUser.verificationDocuments?.addressProof?.status === "approved"
+                                        ? "bg-green-100 text-green-800"
+                                        : selectedUser.verificationDocuments?.addressProof?.status === "rejected"
+                                        ? "bg-red-100 text-red-800"
+                                        : "bg-yellow-100 text-yellow-800"
+                                    }`}
+                                  >
+                                    {selectedUser.verificationDocuments?.addressProof?.status || "pending"}
+                                  </span>
+                                  {selectedUser.verificationDocuments?.addressProof?.rejectionReason && (
+                                    <span className="text-sm text-red-600">
+                                      {selectedUser.verificationDocuments.addressProof.rejectionReason}
+                                    </span>
+                                  )}
+                                </div>
+                                {selectedUser.verificationDocuments?.addressProof?.status !== "approved" && (
+                                  <div className="flex items-center space-x-2">
+                                    <button
+                                      onClick={() =>
+                                        handleVerificationUpdate(selectedUser._id, "addressProof", "approved")
+                                      }
+                                      className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                                      title="Approve"
+                                    >
+                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M5 13l4 4L19 7"
+                                        />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleVerificationUpdate(selectedUser._id, "addressProof", "rejected")
+                                      }
+                                      className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                      title="Reject"
+                                    >
+                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M6 18L18 6M6 6l12 12"
+                                        />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -439,16 +618,6 @@ const UserManagementPage = () => {
                       <div className="border-t pt-4 mt-4">
                         <h4 className="font-medium mb-2">Actions</h4>
                         <div className="flex space-x-2">
-                          {!selectedUser.isVerified && (
-                            <button
-                              className="bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded-md text-sm"
-                              onClick={() =>
-                                handleVerificationUpdate(selectedUser._id, true, selectedUser.verificationDocuments)
-                              }
-                            >
-                              Verify Documents
-                            </button>
-                          )}
                           {selectedUser.status === "active" ? (
                             <button className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded-md text-sm">
                               Suspend User
