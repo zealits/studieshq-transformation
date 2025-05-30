@@ -92,4 +92,13 @@ router.put(
   projectController.updateMilestone
 );
 
+// @route   DELETE /api/projects/:id/milestones/:milestoneId
+// @desc    Delete milestone from project
+// @access  Private (Client only)
+router.delete(
+  "/:id/milestones/:milestoneId",
+  [auth, checkRole(["client", "admin"])],
+  projectController.deleteMilestone
+);
+
 module.exports = router;

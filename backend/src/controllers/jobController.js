@@ -4,6 +4,7 @@ const Job = require("../models/Job");
 const Proposal = require("../models/Proposal");
 const User = require("../models/User");
 const Profile = require("../models/Profile");
+const { Project } = require("../models/Project");
 
 /**
  * Helper function to check if the user is the owner of a job or an admin
@@ -677,26 +678,89 @@ exports.updateProposalStatus = async (req, res) => {
 
     const { status } = req.body;
 
-    // If accepting, make sure no other proposal is already accepted
+    // If accepting, check if we can accept more freelancers
     if (status === "accepted") {
-      const alreadyAccepted = await Proposal.findOne({
+      const acceptedProposals = await Proposal.countDocuments({
         job: job._id,
         status: "accepted",
       });
 
-      if (alreadyAccepted) {
+      if (acceptedProposals >= job.freelancersNeeded) {
         return res.status(400).json({
           success: false,
-          message: "Another proposal has already been accepted for this job",
+          message: "Maximum number of freelancers already hired for this job",
         });
       }
 
-      // Update job status to in_progress when a proposal is accepted
-      job.status = "in_progress";
-      await job.save();
+      // Create a project for the accepted freelancer
+      const project = new Project({
+        title: job.title,
+        description: job.description,
+        client: job.client,
+        freelancer: proposal.freelancer,
+        category: job.category,
+        skills: job.skills,
+        budget: proposal.bidPrice,
+        startDate: new Date(),
+        deadline: job.deadline,
+        status: "in_progress",
+        job: job._id,
+        milestones: [
+          {
+            title: "Project Kickoff",
+            description: "Initial project setup and requirements gathering",
+            amount: proposal.bidPrice * 0.2, // 20% of total budget
+            dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 1 week from now
+            status: "pending",
+          },
+          {
+            title: "First Deliverable",
+            description: "First major milestone delivery",
+            amount: proposal.bidPrice * 0.4, // 40% of total budget
+            dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+            status: "pending",
+          },
+          {
+            title: "Final Delivery",
+            description: "Project completion and final delivery",
+            amount: proposal.bidPrice * 0.4, // 40% of total budget
+            dueDate: job.deadline,
+            status: "pending",
+          },
+        ],
+      });
+
+      await project.save();
+
+      // Update proposal with project reference
+      proposal.project = project._id;
+      proposal.status = status;
+      await proposal.save();
+
+      // If this was the last required freelancer, update job status
+      if (acceptedProposals + 1 >= job.freelancersNeeded) {
+        job.status = "in_progress";
+        await job.save();
+      }
+
+      // Send notifications
+      // TODO: Implement notification system
+      // - Notify freelancer about acceptance
+      // - Notify client about successful hiring
+      // - Notify other applicants if job is now closed
+
+      return res.json({
+        success: true,
+        data: {
+          proposal,
+          project,
+          jobStatus: job.status,
+          remainingSlots: job.freelancersNeeded - (acceptedProposals + 1),
+        },
+      });
     }
 
-    // Update proposal status
+    // For other status updates (rejected, shortlisted, etc.)
     proposal.status = status;
     await proposal.save();
 

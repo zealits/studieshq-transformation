@@ -99,6 +99,8 @@ exports.getProjects = async (req, res) => {
   try {
     let query = {};
 
+    console.log(req.query.status);
+
     // Different queries based on user role
     if (req.user.role === "client") {
       query.client = req.user.id;
@@ -115,11 +117,15 @@ exports.getProjects = async (req, res) => {
       query.status = req.query.status;
     }
 
+    console.log(query);
+
     const projects = await Project.find(query)
       .populate("client", "name avatar")
       .populate("freelancer", "name avatar")
       .select("-__v")
       .sort({ createdAt: -1 });
+
+    console.log(projects);
 
     res.json({
       success: true,
@@ -249,59 +255,6 @@ exports.updateProject = async (req, res) => {
 };
 
 /**
- * @desc    Add a milestone to a project
- * @route   POST /api/projects/:id/milestones
- * @access  Private (Client only)
- */
-exports.addMilestone = async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ success: false, errors: errors.array() });
-  }
-
-  try {
-    const project = await Project.findById(req.params.id);
-
-    if (!project) {
-      return res.status(404).json({ success: false, message: "Project not found" });
-    }
-
-    // Only project client or admin can add milestones
-    if (req.user.role !== "admin" && project.client.toString() !== req.user.id) {
-      return res.status(403).json({ success: false, message: "Not authorized to add milestones" });
-    }
-
-    const { title, description, amount, dueDate } = req.body;
-
-    // Create new milestone
-    const newMilestone = {
-      title,
-      description,
-      amount,
-      dueDate,
-      status: "pending",
-    };
-
-    // Add milestone to project
-    project.milestones.push(newMilestone);
-    await project.save();
-
-    res.json({
-      success: true,
-      data: { milestone: project.milestones[project.milestones.length - 1] },
-    });
-  } catch (err) {
-    console.error("Error in addMilestone:", err.message);
-
-    if (err.kind === "ObjectId") {
-      return res.status(404).json({ success: false, message: "Project not found" });
-    }
-
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-/**
  * @desc    Update a milestone
  * @route   PUT /api/projects/:id/milestones/:milestoneId
  * @access  Private
@@ -319,67 +272,43 @@ exports.updateMilestone = async (req, res) => {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
-    // Find the milestone
-    const milestone = project.milestones.id(req.params.milestoneId);
-    if (!milestone) {
-      return res.status(404).json({ success: false, message: "Milestone not found" });
-    }
-
-    // Check if user has permission to update the milestone
+    // Check if user is authorized to update this project
     if (
       req.user.role !== "admin" &&
       project.client.toString() !== req.user.id &&
       (req.user.role !== "freelancer" || project.freelancer.toString() !== req.user.id)
     ) {
-      return res.status(403).json({ success: false, message: "Not authorized to update this milestone" });
+      return res.status(403).json({ success: false, message: "Not authorized to update this project" });
     }
 
-    // Fields that can be updated by both client and freelancer
-    const commonFields = ["title", "description"];
+    const milestone = project.milestones.id(req.params.milestoneId);
 
-    // Fields that only client can update
-    const clientOnlyFields = ["amount", "dueDate"];
-
-    // Update common fields if provided
-    commonFields.forEach((field) => {
-      if (req.body[field] !== undefined) {
-        milestone[field] = req.body[field];
-      }
-    });
-
-    // If user is client or admin, they can update client-only fields
-    if (req.user.role === "client" || req.user.role === "admin") {
-      clientOnlyFields.forEach((field) => {
-        if (req.body[field] !== undefined) {
-          milestone[field] = req.body[field];
-        }
-      });
+    if (!milestone) {
+      return res.status(404).json({ success: false, message: "Milestone not found" });
     }
 
-    // Update status if provided
-    if (req.body.status !== undefined) {
-      // Only freelancer can submit a milestone
-      if (req.body.status === "submitted" && req.user.role !== "freelancer") {
-        return res.status(403).json({ success: false, message: "Only freelancers can submit milestones" });
-      }
+    // Update milestone fields
+    const { title, description, amount, dueDate, status, submissionDetails, feedback } = req.body;
 
-      // Only client can approve a milestone
-      if ((req.body.status === "completed" || req.body.status === "revision_requested") && req.user.role !== "client") {
-        return res.status(403).json({ success: false, message: "Only clients can approve or request revisions" });
-      }
+    if (title) milestone.title = title;
+    if (description) milestone.description = description;
+    if (amount) milestone.amount = amount;
+    if (dueDate) milestone.dueDate = dueDate;
+    if (status) milestone.status = status;
+    if (submissionDetails) milestone.submissionDetails = submissionDetails;
+    if (feedback) milestone.feedback = feedback;
 
-      milestone.status = req.body.status;
+    // If milestone is completed, update project completion percentage
+    if (status === "completed" && milestone.status !== "completed") {
+      const totalMilestones = project.milestones.length;
+      const completedMilestones = project.milestones.filter((m) => m.status === "completed").length + 1;
+      project.completionPercentage = Math.round((completedMilestones / totalMilestones) * 100);
+    }
 
-      // If milestone is submitted, add submission details and date
-      if (req.body.status === "submitted") {
-        milestone.submissionDetails = req.body.submissionDetails || "";
-        milestone.submissionDate = new Date();
-      }
-
-      // If milestone is rejected with request for revision, add feedback
-      if (req.body.status === "revision_requested") {
-        milestone.feedback = req.body.feedback || "";
-      }
+    // If all milestones are completed, update project status
+    if (project.milestones.every((m) => m.status === "completed")) {
+      project.status = "completed";
+      project.completedDate = new Date();
     }
 
     await project.save();
@@ -390,6 +319,107 @@ exports.updateMilestone = async (req, res) => {
     });
   } catch (err) {
     console.error("Error in updateMilestone:", err.message);
+
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ success: false, message: "Project or milestone not found" });
+    }
+
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * @desc    Add a milestone to a project
+ * @route   POST /api/projects/:id/milestones
+ * @access  Private (Client only)
+ */
+exports.addMilestone = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
+
+  try {
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    // Only client can add milestones
+    if (req.user.role !== "admin" && project.client.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not authorized to add milestones to this project" });
+    }
+
+    const { title, description, amount, dueDate } = req.body;
+
+    // Create new milestone
+    const milestone = {
+      title,
+      description,
+      amount,
+      dueDate,
+      status: "pending",
+    };
+
+    project.milestones.push(milestone);
+    await project.save();
+
+    res.status(201).json({
+      success: true,
+      data: { milestone },
+    });
+  } catch (err) {
+    console.error("Error in addMilestone:", err.message);
+
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * @desc    Delete a milestone from a project
+ * @route   DELETE /api/projects/:id/milestones/:milestoneId
+ * @access  Private (Client only)
+ */
+exports.deleteMilestone = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    // Only client can delete milestones
+    if (req.user.role !== "admin" && project.client.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not authorized to delete milestones from this project" });
+    }
+
+    const milestone = project.milestones.id(req.params.milestoneId);
+
+    if (!milestone) {
+      return res.status(404).json({ success: false, message: "Milestone not found" });
+    }
+
+    // Remove the milestone
+    milestone.remove();
+
+    // Recalculate project completion percentage
+    const totalMilestones = project.milestones.length;
+    const completedMilestones = project.milestones.filter((m) => m.status === "completed").length;
+    project.completionPercentage = Math.round((completedMilestones / totalMilestones) * 100);
+
+    await project.save();
+
+    res.json({
+      success: true,
+      data: {},
+    });
+  } catch (err) {
+    console.error("Error in deleteMilestone:", err.message);
 
     if (err.kind === "ObjectId") {
       return res.status(404).json({ success: false, message: "Project or milestone not found" });
