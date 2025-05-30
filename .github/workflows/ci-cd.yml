@@ -74,6 +74,7 @@ jobs:
             # Install backend dependencies
             cd backend
             npm install
+            npm i multer-storage-cloudinary --force 
 
             cd ..
 
