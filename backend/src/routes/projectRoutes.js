@@ -64,7 +64,7 @@ router.post(
     [
       check("title", "Title is required").not().isEmpty(),
       check("description", "Description is required").not().isEmpty(),
-      check("amount", "Amount is required and must be a number").isNumeric(),
+      check("percentage", "Percentage is required and must be between 1 and 100").isInt({ min: 1, max: 100 }),
       check("dueDate", "Due date is required").isISO8601(),
     ],
   ],
@@ -81,11 +81,8 @@ router.put(
     [
       check("title", "Title must be a string").optional().isString(),
       check("description", "Description must be a string").optional().isString(),
-      check("amount", "Amount must be a number").optional().isNumeric(),
+      check("percentage", "Percentage must be between 1 and 100").optional().isInt({ min: 1, max: 100 }),
       check("dueDate", "Due date must be a valid date").optional().isISO8601(),
-      check("status", "Status must be a valid status")
-        .optional()
-        .isIn(["pending", "in_progress", "submitted", "revision_requested", "completed"]),
     ],
   ],
   projectController.updateMilestone
@@ -115,5 +112,11 @@ router.delete(
   [auth, checkRole(["client", "admin"])],
   projectController.deleteMilestone
 );
+
+// Milestone management routes
+router.post("/:projectId/milestones", auth, projectController.createMilestone);
+router.put("/:projectId/milestones/:milestoneId", auth, projectController.updateMilestone);
+router.delete("/:projectId/milestones/:milestoneId", auth, projectController.deleteMilestone);
+router.put("/:projectId/milestones/:milestoneId/approve", auth, projectController.approveMilestone);
 
 module.exports = router;

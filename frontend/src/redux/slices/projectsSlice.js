@@ -1,201 +1,173 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../api/axios";
 
-// Async thunks
+// Fetch projects
 export const fetchProjects = createAsyncThunk("projects/fetchProjects", async ({ status }, { rejectWithValue }) => {
   try {
+    console.log("status", status);
     const response = await api.get(`/api/projects?status=${status}`);
+    console.log("response", response);
     return response.data;
   } catch (error) {
-    return rejectWithValue(error.response?.data?.message || "Failed to fetch projects");
+    return rejectWithValue(error.response.data);
   }
 });
 
+// Create milestone
 export const createMilestone = createAsyncThunk(
   "projects/createMilestone",
-  async ({ projectId, milestoneData }, { rejectWithValue }) => {
+  async ({ projectId, milestone }, { rejectWithValue }) => {
     try {
-      const response = await api.post(`/api/projects/${projectId}/milestones`, milestoneData);
+      console.log("milestone", milestone);
+      const response = await api.post(`/api/projects/${projectId}/milestones`, milestone);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Failed to create milestone");
+      return rejectWithValue(error.response.data);
     }
   }
 );
 
-export const approveMilestone = createAsyncThunk(
-  "projects/approveMilestone",
-  async ({ projectId, milestoneId, approvalData }, { rejectWithValue }) => {
-    try {
-      const response = await api.put(`/api/projects/${projectId}/milestones/${milestoneId}/approve`, approvalData);
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Failed to approve milestone");
-    }
-  }
-);
-
+// Update milestone
 export const updateMilestone = createAsyncThunk(
   "projects/updateMilestone",
-  async ({ projectId, milestoneId, updates }, { rejectWithValue }) => {
+  async ({ projectId, milestoneId, milestone }, { rejectWithValue }) => {
     try {
-      const response = await api.put(`/api/projects/${projectId}/milestones/${milestoneId}`, updates);
+      const response = await api.put(`/api/projects/${projectId}/milestones/${milestoneId}`, milestone);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Failed to update milestone");
+      return rejectWithValue(error.response.data);
     }
   }
 );
 
-const initialState = {
-  active: [],
-  completed: [],
-  loading: false,
-  error: null,
-};
+// Delete milestone
+export const deleteMilestone = createAsyncThunk(
+  "projects/deleteMilestone",
+  async ({ projectId, milestoneId }, { rejectWithValue }) => {
+    try {
+      const response = await api.delete(`/api/projects/${projectId}/milestones/${milestoneId}`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+
+// Approve milestone
+export const approveMilestone = createAsyncThunk(
+  "projects/approveMilestone",
+  async ({ projectId, milestoneId, approvalStatus, approvalComment }, { rejectWithValue }) => {
+    try {
+      const response = await api.put(`/api/projects/${projectId}/milestones/${milestoneId}/approve`, {
+        approvalStatus,
+        approvalComment,
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
 
 const projectsSlice = createSlice({
   name: "projects",
-  initialState,
+  initialState: {
+    projects: [],
+    loading: false,
+    error: null,
+  },
   reducers: {
-    clearProjectsError: (state) => {
+    clearError: (state) => {
       state.error = null;
     },
   },
   extraReducers: (builder) => {
     builder
-      // Fetch Projects
+      // Fetch projects
       .addCase(fetchProjects.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchProjects.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload.success) {
-          const status = action.meta.arg.status;
-          const projects = action.payload.data.projects;
-
-          if (status === "in_progress") {
-            state.active = projects;
-          } else if (status === "completed") {
-            state.completed = projects;
-          }
-        } else {
-          state.error = action.payload.message;
-        }
+        state.projects = action.payload.data.projects;
       })
       .addCase(fetchProjects.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || "Failed to fetch projects";
+        state.error = action.payload?.message || "Failed to fetch projects";
       })
-      // Create Milestone
+      // Create milestone
       .addCase(createMilestone.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(createMilestone.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload.success) {
-          const { projectId } = action.meta.arg;
-          const newMilestone = action.payload.data.milestone;
-
-          // Update milestone in both active and completed arrays
-          const updateProjectMilestones = (array) => {
-            return array.map((project) => {
-              if (project._id === projectId) {
-                return {
-                  ...project,
-                  milestones: [...project.milestones, newMilestone],
-                };
-              }
-              return project;
-            });
-          };
-
-          state.active = updateProjectMilestones(state.active);
-          state.completed = updateProjectMilestones(state.completed);
-        } else {
-          state.error = action.payload.message;
+        const project = state.projects.find((p) => p._id === action.payload.data.milestone.project);
+        if (project) {
+          project.milestones.push(action.payload.data.milestone);
         }
       })
       .addCase(createMilestone.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || "Failed to create milestone";
+        state.error = action.payload?.message || "Failed to create milestone";
       })
-      // Approve Milestone
-      .addCase(approveMilestone.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(approveMilestone.fulfilled, (state, action) => {
-        state.loading = false;
-        if (action.payload.success) {
-          const { projectId, milestoneId } = action.meta.arg;
-          const updatedMilestone = action.payload.data.milestone;
-
-          // Update milestone in both active and completed arrays
-          const updateMilestoneInArray = (array) => {
-            return array.map((project) => {
-              if (project._id === projectId) {
-                return {
-                  ...project,
-                  milestones: project.milestones.map((milestone) =>
-                    milestone._id === milestoneId ? updatedMilestone : milestone
-                  ),
-                };
-              }
-              return project;
-            });
-          };
-
-          state.active = updateMilestoneInArray(state.active);
-          state.completed = updateMilestoneInArray(state.completed);
-        } else {
-          state.error = action.payload.message;
-        }
-      })
-      .addCase(approveMilestone.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload || "Failed to approve milestone";
-      })
-      // Update Milestone
+      // Update milestone
       .addCase(updateMilestone.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(updateMilestone.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload.success) {
-          const { projectId, milestoneId } = action.meta.arg;
-          const updatedMilestone = action.payload.data.milestone;
-
-          // Update milestone in both active and completed arrays
-          const updateMilestoneInArray = (array) => {
-            return array.map((project) => {
-              if (project._id === projectId) {
-                return {
-                  ...project,
-                  milestones: project.milestones.map((milestone) =>
-                    milestone._id === milestoneId ? updatedMilestone : milestone
-                  ),
-                };
-              }
-              return project;
-            });
-          };
-
-          state.active = updateMilestoneInArray(state.active);
-          state.completed = updateMilestoneInArray(state.completed);
-        } else {
-          state.error = action.payload.message;
+        const project = state.projects.find((p) => p._id === action.payload.data.milestone.project);
+        if (project) {
+          const index = project.milestones.findIndex((m) => m._id === action.payload.data.milestone._id);
+          if (index !== -1) {
+            project.milestones[index] = action.payload.data.milestone;
+          }
         }
       })
       .addCase(updateMilestone.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || "Failed to update milestone";
+        state.error = action.payload?.message || "Failed to update milestone";
+      })
+      // Delete milestone
+      .addCase(deleteMilestone.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteMilestone.fulfilled, (state, action) => {
+        state.loading = false;
+        const project = state.projects.find((p) => p._id === action.payload.data.project);
+        if (project) {
+          project.milestones = project.milestones.filter((m) => m._id !== action.payload.data.milestoneId);
+        }
+      })
+      .addCase(deleteMilestone.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Failed to delete milestone";
+      })
+      // Approve milestone
+      .addCase(approveMilestone.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(approveMilestone.fulfilled, (state, action) => {
+        state.loading = false;
+        const project = state.projects.find((p) => p._id === action.payload.data.milestone.project);
+        if (project) {
+          const index = project.milestones.findIndex((m) => m._id === action.payload.data.milestone._id);
+          if (index !== -1) {
+            project.milestones[index] = action.payload.data.milestone;
+          }
+        }
+      })
+      .addCase(approveMilestone.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Failed to approve milestone";
       });
   },
 });
 
-export const { clearProjectsError } = projectsSlice.actions;
+export const { clearError } = projectsSlice.actions;
 export default projectsSlice.reducer;

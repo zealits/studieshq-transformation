@@ -96,6 +96,7 @@ exports.createProject = async (req, res) => {
  * @access  Private
  */
 exports.getProjects = async (req, res) => {
+  console.log("req.user", req.user);
   try {
     let query = {};
 
@@ -260,56 +261,48 @@ exports.updateProject = async (req, res) => {
  * @access  Private
  */
 exports.updateMilestone = async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ success: false, errors: errors.array() });
-  }
-
   try {
     const project = await Project.findById(req.params.id);
-
     if (!project) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
-    // Check if user is authorized to update this project
-    if (
-      req.user.role !== "admin" &&
-      project.client.toString() !== req.user.id &&
-      (req.user.role !== "freelancer" || project.freelancer.toString() !== req.user.id)
-    ) {
-      return res.status(403).json({ success: false, message: "Not authorized to update this project" });
+    // Check if user is authorized to update milestone
+    if (project.client.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not authorized to update milestone" });
     }
 
     const milestone = project.milestones.id(req.params.milestoneId);
-
     if (!milestone) {
       return res.status(404).json({ success: false, message: "Milestone not found" });
     }
 
-    // Update milestone fields
-    const { title, description, amount, dueDate, status, submissionDetails, feedback } = req.body;
+    const { title, description, percentage, dueDate } = req.body;
 
+    // If percentage is being changed, validate the new total
+    if (percentage !== undefined && percentage !== milestone.percentage) {
+      const totalPercentage = project.milestones.reduce((sum, m) => {
+        if (m._id.toString() === req.params.milestoneId) {
+          return sum;
+        }
+        return sum + m.percentage;
+      }, 0);
+
+      if (totalPercentage + percentage > 100) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot update milestone. Total percentage would exceed 100%. Current total: ${totalPercentage}%, Remaining: ${
+            100 - totalPercentage
+          }%`,
+        });
+      }
+    }
+
+    // Update milestone fields
     if (title) milestone.title = title;
     if (description) milestone.description = description;
-    if (amount) milestone.amount = amount;
+    if (percentage) milestone.percentage = percentage;
     if (dueDate) milestone.dueDate = dueDate;
-    if (status) milestone.status = status;
-    if (submissionDetails) milestone.submissionDetails = submissionDetails;
-    if (feedback) milestone.feedback = feedback;
-
-    // If milestone is completed, update project completion percentage
-    if (status === "completed" && milestone.status !== "completed") {
-      const totalMilestones = project.milestones.length;
-      const completedMilestones = project.milestones.filter((m) => m.status === "completed").length + 1;
-      project.completionPercentage = Math.round((completedMilestones / totalMilestones) * 100);
-    }
-
-    // If all milestones are completed, update project status
-    if (project.milestones.every((m) => m.status === "completed")) {
-      project.status = "completed";
-      project.completedDate = new Date();
-    }
 
     await project.save();
 
@@ -319,11 +312,6 @@ exports.updateMilestone = async (req, res) => {
     });
   } catch (err) {
     console.error("Error in updateMilestone:", err.message);
-
-    if (err.kind === "ObjectId") {
-      return res.status(404).json({ success: false, message: "Project or milestone not found" });
-    }
-
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -388,30 +376,26 @@ exports.addMilestone = async (req, res) => {
 exports.deleteMilestone = async (req, res) => {
   try {
     const project = await Project.findById(req.params.id);
-
     if (!project) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
-    // Only client can delete milestones
-    if (req.user.role !== "admin" && project.client.toString() !== req.user.id) {
-      return res.status(403).json({ success: false, message: "Not authorized to delete milestones from this project" });
+    // Check if user is authorized to delete milestone
+    if (project.client.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not authorized to delete milestone" });
     }
 
     const milestone = project.milestones.id(req.params.milestoneId);
-
     if (!milestone) {
       return res.status(404).json({ success: false, message: "Milestone not found" });
     }
 
-    // Remove the milestone
-    milestone.remove();
+    // Check if milestone is already completed
+    if (milestone.status === "completed") {
+      return res.status(400).json({ success: false, message: "Cannot delete a completed milestone" });
+    }
 
-    // Recalculate project completion percentage
-    const totalMilestones = project.milestones.length;
-    const completedMilestones = project.milestones.filter((m) => m.status === "completed").length;
-    project.completionPercentage = Math.round((completedMilestones / totalMilestones) * 100);
-
+    project.milestones.pull(req.params.milestoneId);
     await project.save();
 
     res.json({
@@ -420,11 +404,6 @@ exports.deleteMilestone = async (req, res) => {
     });
   } catch (err) {
     console.error("Error in deleteMilestone:", err.message);
-
-    if (err.kind === "ObjectId") {
-      return res.status(404).json({ success: false, message: "Project or milestone not found" });
-    }
-
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -435,11 +414,6 @@ exports.deleteMilestone = async (req, res) => {
  * @access  Private
  */
 exports.createMilestone = async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ success: false, errors: errors.array() });
-  }
-
   try {
     const project = await Project.findById(req.params.id);
     if (!project) {
@@ -447,26 +421,34 @@ exports.createMilestone = async (req, res) => {
     }
 
     // Check if user is authorized to create milestone
-    if (
-      req.user.role !== "admin" &&
-      project.client.toString() !== req.user.id &&
-      project.freelancer.toString() !== req.user.id
-    ) {
+    if (project.client.toString() !== req.user.id) {
       return res.status(403).json({ success: false, message: "Not authorized to create milestone" });
     }
 
-    const { title, description, amount, dueDate } = req.body;
+    const { title, description, percentage, dueDate } = req.body;
+
+    // Calculate total percentage of existing milestones
+    const totalPercentage = project.milestones.reduce((sum, m) => sum + m.percentage, 0);
+
+    // Check if adding this milestone would exceed 100%
+    if (totalPercentage + percentage > 100) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot add milestone. Total percentage would exceed 100%. Current total: ${totalPercentage}%, Remaining: ${
+          100 - totalPercentage
+        }%`,
+      });
+    }
 
     // Create new milestone
     const milestone = {
       title,
       description,
-      amount,
+      percentage,
       dueDate,
       status: "pending",
       createdBy: req.user.id,
-      // If created by freelancer, needs admin approval
-      approvalStatus: req.user.role === "freelancer" ? "pending" : "approved",
+      approvalStatus: "pending",
     };
 
     project.milestones.push(milestone);
@@ -488,20 +470,15 @@ exports.createMilestone = async (req, res) => {
  * @access  Private (Admin only)
  */
 exports.approveMilestone = async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ success: false, errors: errors.array() });
-  }
-
   try {
     const project = await Project.findById(req.params.id);
     if (!project) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
-    // Only admin can approve milestones
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ success: false, message: "Only admin can approve milestones" });
+    // Check if user is authorized to approve milestone
+    if (project.client.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not authorized to approve milestone" });
     }
 
     const milestone = project.milestones.id(req.params.milestoneId);
@@ -513,12 +490,10 @@ exports.approveMilestone = async (req, res) => {
 
     milestone.approvalStatus = approvalStatus;
     milestone.approvalComment = approvalComment;
-    milestone.approvedBy = req.user.id;
-    milestone.approvalDate = new Date();
 
-    // If milestone is rejected, reset its status to pending
-    if (approvalStatus === "rejected") {
-      milestone.status = "pending";
+    if (approvalStatus === "approved") {
+      milestone.status = "completed";
+      milestone.completedAt = new Date();
     }
 
     await project.save();

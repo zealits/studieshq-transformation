@@ -12,16 +12,19 @@ const MilestoneSchema = new Schema({
     type: String,
     required: true,
   },
-  amount: {
+  percentage: {
     type: Number,
     required: true,
+    min: 1,
+    max: 100,
   },
   dueDate: {
     type: Date,
+    required: true,
   },
   status: {
     type: String,
-    enum: ["pending", "in_progress", "submitted", "revision_requested", "completed"],
+    enum: ["pending", "in_progress", "completed"],
     default: "pending",
   },
   approvalStatus: {
@@ -67,6 +70,7 @@ const MilestoneSchema = new Schema({
     type: Date,
     default: Date.now,
   },
+  completedAt: Date,
 });
 
 // Attachment Schema
