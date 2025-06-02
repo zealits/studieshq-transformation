@@ -1,131 +1,140 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchUsers } from "../../redux/slices/userManagementSlice";
+import { fetchProjects } from "../../redux/slices/projectsSlice";
+import { fetchJobs } from "../../redux/slices/jobsSlice";
+import { formatDate } from "../../utils/dateUtils";
 
 const DashboardPage = () => {
   const [timeRange, setTimeRange] = useState("month");
+  const dispatch = useDispatch();
 
-  // Mock statistics
+  // Redux state
+  const { users, loading: usersLoading } = useSelector((state) => state.userManagement);
+  const { projects, loading: projectsLoading } = useSelector((state) => state.projects);
+  const { jobs, isLoading: jobsLoading } = useSelector((state) => state.jobs);
+
+  useEffect(() => {
+    // Fetch all data for admin dashboard
+    dispatch(fetchUsers({ page: 1, limit: 100 })); // Get more users for statistics
+    dispatch(fetchProjects({})); // Get all projects
+    dispatch(fetchJobs()); // Get all jobs
+  }, [dispatch]);
+
+  // Calculate real statistics
+  const totalUsers = users?.length || 0;
+  const freelancers = users?.filter((user) => user.role === "freelancer") || [];
+  const clients = users?.filter((user) => user.role === "client") || [];
+  const activeUsers = users?.filter((user) => user.status === "active") || [];
+
+  const totalProjects = projects?.length || 0;
+  const activeProjects = projects?.filter((p) => p.status === "in_progress") || [];
+  const completedProjects = projects?.filter((p) => p.status === "completed") || [];
+  const completionRate = totalProjects > 0 ? Math.round((completedProjects.length / totalProjects) * 100) : 0;
+
+  const totalJobs = jobs?.length || 0;
+  const activeJobs = jobs?.filter((job) => job.status === "open") || [];
+
+  // Calculate total revenue from completed projects
+  const totalRevenue = completedProjects.reduce((sum, project) => sum + (project.budget || 0), 0);
+
+  // Get recent activity from projects and users
+  const recentActivities = [
+    ...completedProjects.slice(0, 2).map((project) => ({
+      id: `project-${project._id}`,
+      type: "project_completed",
+      client: project.client?.name || "Unknown Client",
+      freelancer: project.freelancer?.name || "Unknown Freelancer",
+      project: project.title,
+      time: formatDate(project.completedDate) || "Recently",
+    })),
+    ...users.slice(0, 3).map((user) => ({
+      id: `user-${user._id}`,
+      type: "user_joined",
+      user: user.name,
+      role: user.role,
+      time: formatDate(user.createdAt) || "Recently",
+    })),
+  ].slice(0, 5);
+
+  // Calculate top freelancers based on completed projects
+  const freelancerStats = completedProjects.reduce((acc, project) => {
+    if (project.freelancer) {
+      const freelancerId = project.freelancer._id;
+      if (!acc[freelancerId]) {
+        acc[freelancerId] = {
+          ...project.freelancer,
+          completedProjects: 0,
+          totalEarnings: 0,
+          ratings: [],
+        };
+      }
+      acc[freelancerId].completedProjects += 1;
+      acc[freelancerId].totalEarnings += project.budget || 0;
+      if (project.clientReview?.rating) {
+        acc[freelancerId].ratings.push(project.clientReview.rating);
+      }
+    }
+    return acc;
+  }, {});
+
+  const topFreelancers = Object.values(freelancerStats)
+    .map((freelancer) => ({
+      ...freelancer,
+      avgRating:
+        freelancer.ratings.length > 0
+          ? (freelancer.ratings.reduce((sum, rating) => sum + rating, 0) / freelancer.ratings.length).toFixed(1)
+          : 0,
+      category: "General", // You might want to add this to user profile
+    }))
+    .sort((a, b) => b.completedProjects - a.completedProjects)
+    .slice(0, 4);
+
+  // Get ongoing projects (active projects)
+  const ongoingProjects = activeProjects.slice(0, 3).map((project) => {
+    // Calculate progress based on completed milestones
+    const progress =
+      project.milestones && project.milestones.length > 0
+        ? Math.round(
+            project.milestones.filter((m) => m.status === "completed").reduce((sum, m) => sum + (m.percentage || 0), 0)
+          )
+        : project.completionPercentage || 0;
+
+    return {
+      ...project,
+      progress,
+    };
+  });
+
+  // Mock statistics - these would ideally come from analytics API
   const stats = {
-    totalUsers: 2548,
-    totalProjects: 1842,
-    totalRevenue: "$38,450",
-    activeJobs: 386,
-    pendingWithdrawals: 15,
-    newUsers: 128,
-    completionRate: 87,
-    disputeRate: 2.4,
-    userGrowth: 18.2,
-    revenueGrowth: 12.4,
+    totalUsers,
+    totalProjects,
+    totalRevenue: `$${totalRevenue.toLocaleString()}`,
+    activeJobs: activeJobs.length,
+    pendingWithdrawals: 0, // This would come from payments system
+    newUsers:
+      users?.filter((user) => {
+        const createdDate = new Date(user.createdAt);
+        const now = new Date();
+        const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+        return createdDate > monthAgo;
+      }).length || 0,
+    completionRate,
+    disputeRate: 2.4, // This would come from dispute system
+    userGrowth: 18.2, // This would be calculated based on historical data
+    revenueGrowth: 12.4, // This would be calculated based on historical data
   };
 
-  // Mock recent activities
-  const recentActivities = [
-    {
-      id: 1,
-      type: "user_joined",
-      user: "John Miller",
-      role: "freelancer",
-      time: "2 hours ago",
-    },
-    {
-      id: 2,
-      type: "project_completed",
-      client: "TechSolutions Inc.",
-      freelancer: "Sarah Williams",
-      project: "Marketing Campaign",
-      time: "5 hours ago",
-    },
-    {
-      id: 3,
-      type: "payment_processed",
-      amount: "$1,200",
-      client: "Global Health",
-      freelancer: "Michael Chen",
-      time: "yesterday",
-    },
-    {
-      id: 4,
-      type: "dispute_opened",
-      client: "Fashion Retail Ltd.",
-      freelancer: "James Wilson",
-      project: "E-commerce Platform Integration",
-      time: "yesterday",
-    },
-    {
-      id: 5,
-      type: "user_joined",
-      user: "Emily Brown",
-      role: "client",
-      time: "2 days ago",
-    },
-  ];
-
-  // Mock top freelancers
-  const topFreelancers = [
-    {
-      id: 1,
-      name: "Alex Johnson",
-      avatar: "AJ",
-      category: "Web Development",
-      completedProjects: 35,
-      earnings: "$12,500",
-      rating: 4.9,
-    },
-    {
-      id: 2,
-      name: "Sarah Williams",
-      avatar: "SW",
-      category: "Digital Marketing",
-      completedProjects: 28,
-      earnings: "$10,800",
-      rating: 4.8,
-    },
-    {
-      id: 3,
-      name: "Michael Chen",
-      avatar: "MC",
-      category: "Mobile Development",
-      completedProjects: 31,
-      earnings: "$14,200",
-      rating: 4.7,
-    },
-    {
-      id: 4,
-      name: "Emily Carter",
-      avatar: "EC",
-      category: "UI/UX Design",
-      completedProjects: 26,
-      earnings: "$9,500",
-      rating: 4.9,
-    },
-  ];
-
-  // Mock ongoing projects
-  const ongoingProjects = [
-    {
-      id: 1,
-      title: "Corporate Website Redesign",
-      client: "TechSolutions Inc.",
-      freelancer: "Alex Johnson",
-      progress: 65,
-      dueDate: "June 15, 2023",
-    },
-    {
-      id: 2,
-      title: "Marketing Campaign for Product Launch",
-      client: "Global Health",
-      freelancer: "Sarah Williams",
-      progress: 25,
-      dueDate: "May 30, 2023",
-    },
-    {
-      id: 3,
-      title: "Mobile App Development",
-      client: "Startup Ventures",
-      freelancer: "Michael Chen",
-      progress: 10,
-      dueDate: "August 30, 2023",
-    },
-  ];
+  const getInitials = (name) => {
+    return (
+      name
+        ?.split(" ")
+        .map((word) => word[0])
+        .join("")
+        .toUpperCase() || "??"
+    );
+  };
 
   // Get activity icon based on type
   const getActivityIcon = (type) => {
@@ -319,25 +328,42 @@ const DashboardPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {ongoingProjects.map((project) => (
-                    <tr key={project.id} className="hover:bg-gray-50">
-                      <td className="py-3 text-sm font-medium">{project.title}</td>
-                      <td className="py-3 text-sm text-gray-600">{project.client}</td>
-                      <td className="py-3 text-sm text-gray-600">{project.freelancer}</td>
-                      <td className="py-3">
-                        <div className="flex items-center">
-                          <div className="w-full bg-gray-200 rounded-full h-2 mr-2">
-                            <div
-                              className="bg-primary h-2 rounded-full"
-                              style={{ width: `${project.progress}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-xs text-gray-500">{project.progress}%</span>
+                  {projectsLoading ? (
+                    <tr>
+                      <td colSpan="5" className="py-8 text-center">
+                        <div className="flex justify-center items-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                          <span className="ml-2 text-gray-500">Loading projects...</span>
                         </div>
                       </td>
-                      <td className="py-3 text-sm text-gray-600">{project.dueDate}</td>
                     </tr>
-                  ))}
+                  ) : ongoingProjects.length > 0 ? (
+                    ongoingProjects.map((project) => (
+                      <tr key={project._id} className="hover:bg-gray-50">
+                        <td className="py-3 text-sm font-medium">{project.title}</td>
+                        <td className="py-3 text-sm text-gray-600">{project.client?.name || "Unknown Client"}</td>
+                        <td className="py-3 text-sm text-gray-600">{project.freelancer?.name || "Not assigned"}</td>
+                        <td className="py-3">
+                          <div className="flex items-center">
+                            <div className="w-full bg-gray-200 rounded-full h-2 mr-2">
+                              <div
+                                className="bg-primary h-2 rounded-full"
+                                style={{ width: `${project.progress}%` }}
+                              ></div>
+                            </div>
+                            <span className="text-xs text-gray-500">{project.progress}%</span>
+                          </div>
+                        </td>
+                        <td className="py-3 text-sm text-gray-600">{formatDate(project.deadline)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="py-8 text-center text-gray-500">
+                        No ongoing projects found
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -363,31 +389,49 @@ const DashboardPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {topFreelancers.map((freelancer) => (
-                    <tr key={freelancer.id} className="hover:bg-gray-50">
-                      <td className="py-3">
-                        <div className="flex items-center">
-                          <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center mr-3 text-sm font-medium">
-                            {freelancer.avatar}
-                          </div>
-                          <span className="font-medium">{freelancer.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 text-sm text-gray-600">{freelancer.category}</td>
-                      <td className="py-3 text-sm text-gray-600">{freelancer.completedProjects}</td>
-                      <td className="py-3 text-sm font-medium">{freelancer.earnings}</td>
-                      <td className="py-3">
-                        <div className="flex items-center">
-                          <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                          </svg>
-                          <span className="ml-1 text-sm text-gray-600">
-                            {freelancer.rating} ({freelancer.rating * 20}%)
-                          </span>
+                  {usersLoading || projectsLoading ? (
+                    <tr>
+                      <td colSpan="5" className="py-8 text-center">
+                        <div className="flex justify-center items-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                          <span className="ml-2 text-gray-500">Loading freelancers...</span>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  ) : topFreelancers.length > 0 ? (
+                    topFreelancers.map((freelancer) => (
+                      <tr key={freelancer._id} className="hover:bg-gray-50">
+                        <td className="py-3">
+                          <div className="flex items-center">
+                            <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center mr-3 text-sm font-medium">
+                              {getInitials(freelancer.name)}
+                            </div>
+                            <span className="font-medium">{freelancer.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 text-sm text-gray-600">{freelancer.category}</td>
+                        <td className="py-3 text-sm text-gray-600">{freelancer.completedProjects}</td>
+                        <td className="py-3 text-sm font-medium">${freelancer.totalEarnings.toLocaleString()}</td>
+                        <td className="py-3">
+                          <div className="flex items-center">
+                            <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            <span className="ml-1 text-sm text-gray-600">
+                              {freelancer.avgRating || "N/A"}{" "}
+                              {freelancer.avgRating ? `(${Math.round(freelancer.avgRating * 20)}%)` : ""}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="py-8 text-center text-gray-500">
+                        No freelancer data available yet
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
