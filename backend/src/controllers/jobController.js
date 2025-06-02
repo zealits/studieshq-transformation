@@ -705,31 +705,9 @@ exports.updateProposalStatus = async (req, res) => {
         deadline: job.deadline,
         status: "in_progress",
         job: job._id,
-        milestones: [
-          {
-            title: "Project Kickoff",
-            description: "Initial project setup and requirements gathering",
-            amount: proposal.bidPrice * 0.2, // 20% of total budget
-            dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 1 week from now
-            status: "pending",
-          },
-          {
-            title: "First Deliverable",
-            description: "First major milestone delivery",
-            amount: proposal.bidPrice * 0.4, // 40% of total budget
-            dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-            status: "pending",
-          },
-          {
-            title: "Final Delivery",
-            description: "Project completion and final delivery",
-            amount: proposal.bidPrice * 0.4, // 40% of total budget
-            dueDate: job.deadline,
-            status: "pending",
-          },
-        ],
       });
 
+      console.log("project", project);
       await project.save();
 
       // Update proposal with project reference

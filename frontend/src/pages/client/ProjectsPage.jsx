@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { format } from "date-fns";
 import MessageModal from "../../components/Messaging/MessageModal";
-import { fetchProjects, updateMilestone } from "../../redux/slices/projectsSlice";
+import { fetchProjects, updateMilestone, createMilestone, approveMilestone } from "../../redux/slices/projectsSlice";
 
 const ProjectsPage = () => {
   const [activeTab, setActiveTab] = useState("active");
@@ -11,6 +11,22 @@ const ProjectsPage = () => {
     recipientId: null,
     recipientName: "",
     projectId: null,
+  });
+  const [milestoneModal, setMilestoneModal] = useState({
+    isOpen: false,
+    projectId: null,
+    mode: "create", // or "approve"
+    milestoneId: null,
+  });
+  const [newMilestone, setNewMilestone] = useState({
+    title: "",
+    description: "",
+    amount: "",
+    dueDate: "",
+  });
+  const [approvalData, setApprovalData] = useState({
+    approvalStatus: "approved",
+    approvalComment: "",
   });
 
   const dispatch = useDispatch();
@@ -24,10 +40,39 @@ const ProjectsPage = () => {
   const handleMilestoneUpdate = async (projectId, milestoneId, updates) => {
     try {
       await dispatch(updateMilestone({ projectId, milestoneId, updates })).unwrap();
-      // Refresh projects after milestone update
-      dispatch(fetchProjects({ status: activeTab === "active" ? "in_progress,pending" : "completed" }));
+      dispatch(fetchProjects({ status: activeTab === "active" ? "in_progress" : "completed" }));
     } catch (err) {
       console.error("Error updating milestone:", err);
+    }
+  };
+
+  const handleCreateMilestone = async (e) => {
+    e.preventDefault();
+    try {
+      await dispatch(createMilestone({ projectId: milestoneModal.projectId, milestoneData: newMilestone })).unwrap();
+      setMilestoneModal({ isOpen: false, projectId: null, mode: "create", milestoneId: null });
+      setNewMilestone({ title: "", description: "", amount: "", dueDate: "" });
+      dispatch(fetchProjects({ status: activeTab === "active" ? "in_progress" : "completed" }));
+    } catch (err) {
+      console.error("Error creating milestone:", err);
+    }
+  };
+
+  const handleApproveMilestone = async (e) => {
+    e.preventDefault();
+    try {
+      await dispatch(
+        approveMilestone({
+          projectId: milestoneModal.projectId,
+          milestoneId: milestoneModal.milestoneId,
+          approvalData,
+        })
+      ).unwrap();
+      setMilestoneModal({ isOpen: false, projectId: null, mode: "create", milestoneId: null });
+      setApprovalData({ approvalStatus: "approved", approvalComment: "" });
+      dispatch(fetchProjects({ status: activeTab === "active" ? "in_progress" : "completed" }));
+    } catch (err) {
+      console.error("Error approving milestone:", err);
     }
   };
 
@@ -49,6 +94,26 @@ const ProjectsPage = () => {
     });
   };
 
+  const openMilestoneModal = (projectId, mode = "create", milestoneId = null) => {
+    setMilestoneModal({
+      isOpen: true,
+      projectId,
+      mode,
+      milestoneId,
+    });
+  };
+
+  const closeMilestoneModal = () => {
+    setMilestoneModal({
+      isOpen: false,
+      projectId: null,
+      mode: "create",
+      milestoneId: null,
+    });
+    setNewMilestone({ title: "", description: "", amount: "", dueDate: "" });
+    setApprovalData({ approvalStatus: "approved", approvalComment: "" });
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -62,9 +127,7 @@ const ProjectsPage = () => {
       <div className="text-center text-red-600 p-4">
         <p>{error}</p>
         <button
-          onClick={() =>
-            dispatch(fetchProjects({ status: activeTab === "active" ? "in_progress,pending" : "completed" }))
-          }
+          onClick={() => dispatch(fetchProjects({ status: activeTab === "active" ? "in_progress" : "completed" }))}
           className="mt-2 text-primary hover:underline"
         >
           Try Again
@@ -156,7 +219,14 @@ const ProjectsPage = () => {
 
                 {/* Milestones Section */}
                 <div className="mt-6">
-                  <h3 className="font-medium mb-4">Project Milestones</h3>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-medium">Project Milestones</h3>
+                    {user.role === "client" && (
+                      <button onClick={() => openMilestoneModal(project._id)} className="btn-outline text-sm py-1">
+                        Add Milestone
+                      </button>
+                    )}
+                  </div>
                   <div className="space-y-4">
                     {project.milestones.map((milestone) => (
                       <div key={milestone._id} className="border rounded-lg p-4">
@@ -165,17 +235,27 @@ const ProjectsPage = () => {
                             <h4 className="font-medium">{milestone.title}</h4>
                             <p className="text-sm text-gray-600">{milestone.description}</p>
                           </div>
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              milestone.status === "completed"
-                                ? "bg-green-100 text-green-800"
-                                : milestone.status === "in_progress"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {milestone.status.replace("_", " ")}
-                          </span>
+                          <div className="flex flex-col items-end">
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                milestone.status === "completed"
+                                  ? "bg-green-100 text-green-800"
+                                  : milestone.status === "in_progress"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {milestone.status.replace("_", " ")}
+                            </span>
+                            {milestone.approvalStatus === "pending" && user.role === "admin" && (
+                              <button
+                                onClick={() => openMilestoneModal(project._id, "approve", milestone._id)}
+                                className="mt-2 text-sm text-primary hover:underline"
+                              >
+                                Review
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div className="mt-2 grid grid-cols-2 gap-4">
                           <div>
@@ -299,6 +379,114 @@ const ProjectsPage = () => {
         recipientName={messageModal.recipientName}
         projectId={messageModal.projectId}
       />
+
+      {/* Milestone Modal */}
+      {milestoneModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">
+                {milestoneModal.mode === "create" ? "Create Milestone" : "Review Milestone"}
+              </h2>
+              <button onClick={closeMilestoneModal} className="text-gray-500 hover:text-gray-700">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {milestoneModal.mode === "create" ? (
+              <form onSubmit={handleCreateMilestone}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Title</label>
+                    <input
+                      type="text"
+                      value={newMilestone.title}
+                      onChange={(e) => setNewMilestone({ ...newMilestone, title: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Description</label>
+                    <textarea
+                      value={newMilestone.description}
+                      onChange={(e) => setNewMilestone({ ...newMilestone, description: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                      rows="3"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Amount</label>
+                    <input
+                      type="number"
+                      value={newMilestone.amount}
+                      onChange={(e) => setNewMilestone({ ...newMilestone, amount: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Due Date</label>
+                    <input
+                      type="date"
+                      value={newMilestone.dueDate}
+                      onChange={(e) => setNewMilestone({ ...newMilestone, dueDate: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button type="button" onClick={closeMilestoneModal} className="btn-outline">
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-primary">
+                    Create Milestone
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleApproveMilestone}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Status</label>
+                    <select
+                      value={approvalData.approvalStatus}
+                      onChange={(e) => setApprovalData({ ...approvalData, approvalStatus: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                      required
+                    >
+                      <option value="approved">Approve</option>
+                      <option value="rejected">Reject</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Comment</label>
+                    <textarea
+                      value={approvalData.approvalComment}
+                      onChange={(e) => setApprovalData({ ...approvalData, approvalComment: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                      rows="3"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button type="button" onClick={closeMilestoneModal} className="btn-outline">
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-primary">
+                    Submit Review
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

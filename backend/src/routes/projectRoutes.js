@@ -55,13 +55,12 @@ router.put(
 );
 
 // @route   POST /api/projects/:id/milestones
-// @desc    Add milestone to project
-// @access  Private (Client only)
+// @desc    Create milestone
+// @access  Private
 router.post(
   "/:id/milestones",
   [
     auth,
-    checkRole(["client", "admin"]),
     [
       check("title", "Title is required").not().isEmpty(),
       check("description", "Description is required").not().isEmpty(),
@@ -69,7 +68,7 @@ router.post(
       check("dueDate", "Due date is required").isISO8601(),
     ],
   ],
-  projectController.addMilestone
+  projectController.createMilestone
 );
 
 // @route   PUT /api/projects/:id/milestones/:milestoneId
@@ -90,6 +89,22 @@ router.put(
     ],
   ],
   projectController.updateMilestone
+);
+
+// @route   PUT /api/projects/:id/milestones/:milestoneId/approve
+// @desc    Approve or reject milestone
+// @access  Private (Admin only)
+router.put(
+  "/:id/milestones/:milestoneId/approve",
+  [
+    auth,
+    checkRole(["admin"]),
+    [
+      check("approvalStatus", "Approval status is required").isIn(["approved", "rejected"]),
+      check("approvalComment", "Approval comment is required").not().isEmpty(),
+    ],
+  ],
+  projectController.approveMilestone
 );
 
 // @route   DELETE /api/projects/:id/milestones/:milestoneId

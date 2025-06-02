@@ -428,3 +428,107 @@ exports.deleteMilestone = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+/**
+ * @desc    Create a new milestone
+ * @route   POST /api/projects/:id/milestones
+ * @access  Private
+ */
+exports.createMilestone = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
+
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    // Check if user is authorized to create milestone
+    if (
+      req.user.role !== "admin" &&
+      project.client.toString() !== req.user.id &&
+      project.freelancer.toString() !== req.user.id
+    ) {
+      return res.status(403).json({ success: false, message: "Not authorized to create milestone" });
+    }
+
+    const { title, description, amount, dueDate } = req.body;
+
+    // Create new milestone
+    const milestone = {
+      title,
+      description,
+      amount,
+      dueDate,
+      status: "pending",
+      createdBy: req.user.id,
+      // If created by freelancer, needs admin approval
+      approvalStatus: req.user.role === "freelancer" ? "pending" : "approved",
+    };
+
+    project.milestones.push(milestone);
+    await project.save();
+
+    res.status(201).json({
+      success: true,
+      data: { milestone },
+    });
+  } catch (err) {
+    console.error("Error in createMilestone:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * @desc    Approve or reject a milestone
+ * @route   PUT /api/projects/:id/milestones/:milestoneId/approve
+ * @access  Private (Admin only)
+ */
+exports.approveMilestone = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
+
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    // Only admin can approve milestones
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Only admin can approve milestones" });
+    }
+
+    const milestone = project.milestones.id(req.params.milestoneId);
+    if (!milestone) {
+      return res.status(404).json({ success: false, message: "Milestone not found" });
+    }
+
+    const { approvalStatus, approvalComment } = req.body;
+
+    milestone.approvalStatus = approvalStatus;
+    milestone.approvalComment = approvalComment;
+    milestone.approvedBy = req.user.id;
+    milestone.approvalDate = new Date();
+
+    // If milestone is rejected, reset its status to pending
+    if (approvalStatus === "rejected") {
+      milestone.status = "pending";
+    }
+
+    await project.save();
+
+    res.json({
+      success: true,
+      data: { milestone },
+    });
+  } catch (err) {
+    console.error("Error in approveMilestone:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};

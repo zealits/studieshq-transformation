@@ -24,6 +24,26 @@ const MilestoneSchema = new Schema({
     enum: ["pending", "in_progress", "submitted", "revision_requested", "completed"],
     default: "pending",
   },
+  approvalStatus: {
+    type: String,
+    enum: ["pending", "approved", "rejected"],
+    default: "pending",
+  },
+  createdBy: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  approvedBy: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+  },
+  approvalDate: {
+    type: Date,
+  },
+  approvalComment: {
+    type: String,
+  },
   submissionDetails: {
     type: String,
   },
