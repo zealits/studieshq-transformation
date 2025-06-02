@@ -2,6 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+const { createServer } = require("http");
+const path = require("path");
+const { initializeSocket } = require("./sockets/chatSocket");
 const authRoutes = require("./routes/authRoutes");
 const profileRoutes = require("./routes/profileRoutes");
 const jobRoutes = require("./routes/jobRoutes");
@@ -9,12 +12,14 @@ const proposalRoutes = require("./routes/proposalRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const userManagementRoutes = require("./routes/userManagementRoutes");
 const projectRoutes = require("./routes/projectRoutes");
-const path = require("path");
+const messageRoutes = require("./routes/messageRoutes");
+
 // Load environment variables
 dotenv.config();
 
 // Initialize express app
 const app = express();
+const httpServer = createServer(app);
 
 // Middleware
 app.use(cors());
@@ -36,6 +41,7 @@ app.use("/api/proposals", proposalRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/admin/users", userManagementRoutes);
 app.use("/api/projects", projectRoutes);
+app.use("/api/messages", messageRoutes);
 
 // Serve static files from the frontend/dist directory
 app.use(
@@ -62,14 +68,18 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Initialize Socket.io
+initializeSocket(httpServer);
+
 // Connect to MongoDB
 mongoose
-  .connect(process.env.MONGODB_URI)
+  .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/studieshq")
   .then(() => {
     console.log("Connected to MongoDB");
     const PORT = process.env.PORT || 2001;
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
+      console.log(`Socket.io enabled for real-time messaging`);
     });
   })
   .catch((err) => {

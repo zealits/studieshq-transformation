@@ -3,11 +3,13 @@ import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../redux/slices/authSlice";
 import { fetchMyProfile } from "../redux/slices/profileSlice";
+import NotificationBadge from "../components/common/NotificationBadge";
 
 const DashboardLayout = ({ role }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { user } = useSelector((state) => state.auth);
   const { data: profileData } = useSelector((state) => state.profile);
+  const { totalUnreadCount } = useSelector((state) => state.chat);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
@@ -38,7 +40,7 @@ const DashboardLayout = ({ role }) => {
           { path: "/freelancer", label: "Dashboard", icon: "home" },
           { path: "/freelancer/find-jobs", label: "Find Jobs", icon: "search" },
           { path: "/freelancer/projects", label: "My Projects", icon: "folder" },
-          { path: "/freelancer/messages", label: "Messages", icon: "chat", badge: 3 },
+          { path: "/freelancer/messages", label: "Messages", icon: "chat", showUnreadBadge: true },
           { path: "/freelancer/payments", label: "Payments", icon: "dollar" },
           { path: "/freelancer/profile", label: "My Profile", icon: "user" },
           { path: "/freelancer/settings", label: "Settings", icon: "settings" },
@@ -49,7 +51,7 @@ const DashboardLayout = ({ role }) => {
           { path: "/client/jobs", label: "My Jobs", icon: "briefcase" },
           { path: "/client/freelancers", label: "Find Freelancers", icon: "search" },
           { path: "/client/projects", label: "Projects", icon: "folder" },
-          { path: "/client/messages", label: "Messages", icon: "chat", badge: 2 },
+          { path: "/client/messages", label: "Messages", icon: "chat", showUnreadBadge: true },
           { path: "/client/payments", label: "Payments", icon: "dollar" },
           { path: "/client/profile", label: "My Profile", icon: "user" },
           { path: "/client/settings", label: "Settings", icon: "settings" },
@@ -336,15 +338,7 @@ const DashboardLayout = ({ role }) => {
                       </span>
                       <span>{link.label}</span>
                     </div>
-                    {link.badge && (
-                      <span
-                        className={`px-2 py-0.5 text-xs rounded-full ${
-                          isActive ? "bg-white text-primary" : "bg-primary text-white"
-                        }`}
-                      >
-                        {link.badge}
-                      </span>
-                    )}
+                    {link.showUnreadBadge && totalUnreadCount > 0 && <NotificationBadge size="xs" />}
                   </Link>
                 </li>
               );

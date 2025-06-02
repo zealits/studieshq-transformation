@@ -12,6 +12,7 @@ import freelancerReducer from "./slices/freelancerSlice";
 import uploadReducer from "./slices/uploadSlice";
 import userManagementReducer from "./slices/userManagementSlice";
 import projectsReducer from "./slices/projectsSlice";
+import chatReducer from "./chatSlice";
 
 const persistConfig = {
   key: "root",
@@ -28,6 +29,7 @@ const rootReducer = combineReducers({
   upload: uploadReducer,
   userManagement: userManagementReducer,
   projects: projectsReducer,
+  chat: chatReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

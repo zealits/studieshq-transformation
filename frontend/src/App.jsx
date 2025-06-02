@@ -1,12 +1,21 @@
 import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 // Layouts
 import MainLayout from "./layouts/MainLayout";
 import DashboardLayout from "./layouts/DashboardLayout";
+
+// Components
+import NotificationToast from "./components/common/NotificationToast";
+
+// Hooks
+import { useSocket } from "./hooks/useSocket";
+
+// Redux actions
+import { fetchConversations } from "./redux/chatSlice";
 
 // Pages
 import HomePage from "./pages/HomePage";
@@ -15,6 +24,7 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import EmailVerificationPage from "./pages/EmailVerificationPage";
+import ChatPage from "./pages/ChatPage";
 
 // Admin Auth Pages
 import AdminLoginPage from "./pages/admin/AdminLoginPage";
@@ -71,6 +81,20 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 };
 
 function App() {
+  const { user } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
+
+  // Initialize socket connection globally for authenticated users
+  useSocket();
+
+  // Load conversations for unread counts when user is authenticated
+  useEffect(() => {
+    if (user && user.isVerified) {
+      console.log("Loading conversations for unread counts...");
+      dispatch(fetchConversations());
+    }
+  }, [user, dispatch]);
+
   return (
     <>
       <ToastContainer
@@ -84,6 +108,10 @@ function App() {
         draggable
         pauseOnHover
       />
+
+      {/* Global Chat Notifications - Only show for authenticated users */}
+      {user && <NotificationToast />}
+
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<MainLayout />}>
@@ -93,6 +121,16 @@ function App() {
           <Route path="register" element={<RegisterPage />} />
           <Route path="verify-email" element={<EmailVerificationPage />} />
         </Route>
+
+        {/* Chat Route - Available to all authenticated users */}
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute allowedRoles={["freelancer", "client", "admin"]}>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Admin Auth Routes */}
         <Route path="/studieshq/admin" element={<MainLayout />}>

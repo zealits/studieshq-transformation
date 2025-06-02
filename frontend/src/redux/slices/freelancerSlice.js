@@ -61,19 +61,19 @@ const freelancerSlice = createSlice({
 
 export const { setFilters, clearFilters } = freelancerSlice.actions;
 
-// Base selectors
-const selectFreelancerState = (state) => state.freelancers;
+// Simple selectors (no createSelector needed for these)
+export const selectFreelancerLoading = (state) => state.freelancers.loading;
+export const selectFreelancerError = (state) => state.freelancers.error;
+export const selectFreelancerFilters = (state) => state.freelancers.filters;
+
+// Base selectors for createSelector
 const selectFreelancers = (state) => state.freelancers.freelancers;
 const selectFilters = (state) => state.freelancers.filters;
 
-// Memoized selectors with transformations
-export const selectAllFreelancers = createSelector([selectFreelancers], (freelancers) => freelancers || []);
-
-export const selectFreelancerFilters = createSelector([selectFilters], (filters) => filters);
-
-export const selectFreelancerLoading = createSelector([selectFreelancerState], (state) => state.loading);
-
-export const selectFreelancerError = createSelector([selectFreelancerState], (state) => state.error);
+// Memoized selectors with proper transformations
+export const selectAllFreelancers = createSelector([selectFreelancers], (freelancers) =>
+  Array.isArray(freelancers) ? freelancers : []
+);
 
 // Memoized filtered freelancers selector with proper transformation
 export const selectFilteredFreelancers = createSelector([selectFreelancers, selectFilters], (freelancers, filters) => {

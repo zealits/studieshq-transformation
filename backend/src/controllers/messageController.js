@@ -1,8 +1,8 @@
 const mongoose = require("mongoose");
 const { validationResult } = require("express-validator");
-const Conversation = require("../models/Message").Conversation;
-const Message = require("../models/Message").Message;
+const { Conversation, Message } = require("../models/Message");
 const User = require("../models/User");
+const { getIO } = require("../sockets/chatSocket");
 
 // @desc    Create or get a conversation between two users
 // @route   POST /api/messages/conversations
@@ -25,29 +25,43 @@ exports.createOrGetConversation = async (req, res) => {
     // Check if we already have a conversation between these users
     let conversation = await Conversation.findOne({
       participants: {
-        $all: [
-          { $elemMatch: { user: new mongoose.Types.ObjectId(senderId) } },
-          { $elemMatch: { user: new mongoose.Types.ObjectId(recipientId) } },
-        ],
+        $all: [senderId, recipientId],
       },
-    }).populate({
-      path: "participants.user",
-      select: "name email avatar role",
-    });
+    })
+      .populate("participants", "name email avatar role")
+      .populate("lastMessage");
+
+    let isNewConversation = false;
 
     // If no conversation exists, create a new one
     if (!conversation) {
       conversation = new Conversation({
-        participants: [{ user: senderId }, { user: recipientId }],
+        participants: [senderId, recipientId],
       });
 
       await conversation.save();
+      isNewConversation = true;
 
       // Populate the newly created conversation's participants
-      conversation = await Conversation.findById(conversation._id).populate({
-        path: "participants.user",
-        select: "name email avatar role",
-      });
+      conversation = await Conversation.findById(conversation._id)
+        .populate("participants", "name email avatar role")
+        .populate("lastMessage");
+
+      // Auto-join both users to the new conversation room via Socket.io
+      try {
+        const io = getIO();
+        const connectedSockets = await io.fetchSockets();
+
+        connectedSockets.forEach((socket) => {
+          if (socket.userId === senderId || socket.userId === recipientId) {
+            socket.join(`conversation_${conversation._id}`);
+            console.log(`Auto-joined user ${socket.user.name} to new conversation ${conversation._id}`);
+          }
+        });
+      } catch (socketError) {
+        console.error("Error auto-joining users to new conversation:", socketError);
+        // Don't fail the request if socket operation fails
+      }
     }
 
     res.json(conversation);
@@ -65,15 +79,15 @@ exports.getConversations = async (req, res) => {
 
     // Find all conversations where the user is a participant
     const conversations = await Conversation.find({
-      "participants.user": userId,
+      participants: userId,
     })
-      .populate({
-        path: "participants.user",
-        select: "name email avatar role",
-      })
+      .populate("participants", "name email avatar role")
       .populate({
         path: "lastMessage",
-        select: "content sender createdAt isRead",
+        populate: {
+          path: "sender",
+          select: "name email avatar role",
+        },
       })
       .sort({ updatedAt: -1 });
 
@@ -92,10 +106,7 @@ exports.getConversationById = async (req, res) => {
     const conversationId = req.params.id;
 
     // Find the conversation
-    const conversation = await Conversation.findById(conversationId).populate({
-      path: "participants.user",
-      select: "name email avatar role",
-    });
+    const conversation = await Conversation.findById(conversationId).populate("participants", "name email avatar role");
 
     // Check if conversation exists
     if (!conversation) {
@@ -103,7 +114,7 @@ exports.getConversationById = async (req, res) => {
     }
 
     // Check if user is a participant
-    const isParticipant = conversation.participants.some((participant) => participant.user._id.toString() === userId);
+    const isParticipant = conversation.participants.some((participant) => participant._id.toString() === userId);
 
     if (!isParticipant && req.user.role !== "admin") {
       return res.status(403).json({ msg: "Not authorized to access this conversation" });
@@ -130,7 +141,7 @@ exports.sendMessage = async (req, res) => {
   try {
     const userId = req.user.id;
     const conversationId = req.params.id;
-    const { content, attachment } = req.body;
+    const { content } = req.body;
 
     // Find the conversation
     const conversation = await Conversation.findById(conversationId);
@@ -141,7 +152,7 @@ exports.sendMessage = async (req, res) => {
     }
 
     // Check if user is a participant
-    const isParticipant = conversation.participants.some((participant) => participant.user.toString() === userId);
+    const isParticipant = conversation.participants.some((participant) => participant.toString() === userId);
 
     if (!isParticipant && req.user.role !== "admin") {
       return res.status(403).json({ msg: "Not authorized to send messages in this conversation" });
@@ -152,7 +163,7 @@ exports.sendMessage = async (req, res) => {
       conversation: conversationId,
       sender: userId,
       content,
-      attachment: attachment || undefined,
+      messageType: "text",
     });
 
     // Save the message
@@ -160,16 +171,11 @@ exports.sendMessage = async (req, res) => {
 
     // Update conversation's lastMessage and updatedAt
     conversation.lastMessage = message._id;
-    conversation.updatedAt = Date.now();
+    conversation.lastActivity = new Date();
     await conversation.save();
 
     // Populate the sender info for the response
-    await message
-      .populate({
-        path: "sender",
-        select: "name email avatar role",
-      })
-      .execPopulate();
+    await message.populate("sender", "name email avatar role");
 
     // Return the message
     res.json(message);
@@ -189,7 +195,7 @@ exports.getMessages = async (req, res) => {
     const userId = req.user.id;
     const conversationId = req.params.id;
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 20;
+    const limit = parseInt(req.query.limit, 10) || 50;
     const skip = (page - 1) * limit;
 
     // Find the conversation
@@ -201,7 +207,7 @@ exports.getMessages = async (req, res) => {
     }
 
     // Check if user is a participant
-    const isParticipant = conversation.participants.some((participant) => participant.user.toString() === userId);
+    const isParticipant = conversation.participants.some((participant) => participant.toString() === userId);
 
     if (!isParticipant && req.user.role !== "admin") {
       return res.status(403).json({ msg: "Not authorized to view messages in this conversation" });
@@ -209,34 +215,13 @@ exports.getMessages = async (req, res) => {
 
     // Get messages with pagination
     const messages = await Message.find({ conversation: conversationId })
-      .populate({
-        path: "sender",
-        select: "name email avatar role",
-      })
+      .populate("sender", "name email avatar role")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
     // Count total messages for pagination info
     const total = await Message.countDocuments({ conversation: conversationId });
-
-    // Mark messages as read
-    await Message.updateMany(
-      {
-        conversation: conversationId,
-        sender: { $ne: userId },
-        isRead: false,
-      },
-      { isRead: true }
-    );
-
-    // Update unread count for the user in this conversation
-    const participant = conversation.participants.find((p) => p.user.toString() === userId);
-
-    if (participant) {
-      participant.unreadCount = 0;
-      await conversation.save();
-    }
 
     res.json({
       messages,
@@ -272,29 +257,23 @@ exports.markAsRead = async (req, res) => {
     }
 
     // Check if user is a participant
-    const isParticipant = conversation.participants.some((participant) => participant.user.toString() === userId);
+    const isParticipant = conversation.participants.some((participant) => participant.toString() === userId);
 
     if (!isParticipant && req.user.role !== "admin") {
       return res.status(403).json({ msg: "Not authorized" });
     }
 
-    // Mark messages as read
+    // Mark messages as read by adding user to readBy array
     await Message.updateMany(
       {
         conversation: conversationId,
         sender: { $ne: userId },
-        isRead: false,
+        readBy: { $nin: [userId] },
       },
-      { isRead: true }
+      {
+        $addToSet: { readBy: userId },
+      }
     );
-
-    // Update unread count for the user in this conversation
-    const participant = conversation.participants.find((p) => p.user.toString() === userId);
-
-    if (participant) {
-      participant.unreadCount = 0;
-      await conversation.save();
-    }
 
     res.json({ msg: "Messages marked as read" });
   } catch (err) {
@@ -322,7 +301,7 @@ exports.deleteConversation = async (req, res) => {
     }
 
     // Check if user is a participant or admin
-    const isParticipant = conversation.participants.some((participant) => participant.user.toString() === userId);
+    const isParticipant = conversation.participants.some((participant) => participant.toString() === userId);
 
     if (!isParticipant && req.user.role !== "admin") {
       return res.status(403).json({ msg: "Not authorized to delete this conversation" });
@@ -332,7 +311,7 @@ exports.deleteConversation = async (req, res) => {
     await Message.deleteMany({ conversation: conversationId });
 
     // Delete the conversation
-    await conversation.remove();
+    await Conversation.findByIdAndDelete(conversationId);
 
     res.json({ msg: "Conversation and messages deleted" });
   } catch (err) {

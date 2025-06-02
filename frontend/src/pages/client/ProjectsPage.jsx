@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { format } from "date-fns";
-import MessageModal from "../../components/Messaging/MessageModal";
+import ChatButton from "../../components/common/ChatButton";
 import {
   fetchProjects,
   updateMilestone,
@@ -12,12 +12,6 @@ import {
 
 const ProjectsPage = () => {
   const [activeTab, setActiveTab] = useState("active");
-  const [messageModal, setMessageModal] = useState({
-    isOpen: false,
-    recipientId: null,
-    recipientName: "",
-    projectId: null,
-  });
   const [selectedProject, setSelectedProject] = useState(null);
   const [showMilestoneModal, setShowMilestoneModal] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState(null);
@@ -205,24 +199,6 @@ const ProjectsPage = () => {
     return 100 - total + currentPercentage; // Add back the current milestone's percentage when editing
   };
 
-  const handleMessageFreelancer = (project) => {
-    setMessageModal({
-      isOpen: true,
-      recipientId: project.freelancer._id,
-      recipientName: project.freelancer.name,
-      projectId: project._id,
-    });
-  };
-
-  const closeMessageModal = () => {
-    setMessageModal({
-      isOpen: false,
-      recipientId: null,
-      recipientName: "",
-      projectId: null,
-    });
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -398,19 +374,31 @@ const ProjectsPage = () => {
                             <div>
                               <p className="text-sm text-gray-500">Amount</p>
                               <p className="font-medium">
-                                ${((project.budget * Number(milestone.percentage)) / 100).toFixed(2)}
+                                ${((project.budget * milestone.percentage) / 100).toFixed(2)}
                               </p>
                             </div>
                           </div>
-                          {milestone.status === "pending" && (
-                            <div className="mt-4 flex justify-end space-x-2">
+
+                          {/* Milestone Approval Actions */}
+                          {user.role === "client" && milestone.status === "pending_approval" && (
+                            <div className="mt-4 flex space-x-2">
                               <button
-                                onClick={() =>
-                                  handleMilestoneUpdate(project._id, milestone._id, { status: "in_progress" })
-                                }
-                                className="btn-outline text-sm py-1"
+                                onClick={() => {
+                                  setSelectedProject(project);
+                                  handleApproveMilestone(milestone._id, "approved");
+                                }}
+                                className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
                               >
-                                Start Milestone
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedProject(project);
+                                  handleApproveMilestone(milestone._id, "rejected");
+                                }}
+                                className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+                              >
+                                Reject
                               </button>
                             </div>
                           )}
@@ -418,10 +406,8 @@ const ProjectsPage = () => {
                       ))}
                     </div>
                   </div>
-                </div>
 
-                <div className="bg-gray-50 px-6 py-4 border-t">
-                  <div className="flex justify-between items-center">
+                  <div className="mt-6 flex justify-between items-center">
                     <div>
                       <h3 className="font-medium">Next Milestone</h3>
                       <p className="text-sm text-gray-500">
@@ -429,9 +415,12 @@ const ProjectsPage = () => {
                       </p>
                     </div>
                     <div className="flex space-x-2">
-                      <button onClick={() => handleMessageFreelancer(project)} className="btn-outline text-sm py-1">
-                        Message Freelancer
-                      </button>
+                      <ChatButton
+                        recipientId={project.freelancer._id}
+                        recipientName={project.freelancer.name}
+                        size="sm"
+                        className="text-sm py-1"
+                      />
                       <button className="btn-primary text-sm py-1">View Details</button>
                     </div>
                   </div>
@@ -502,9 +491,12 @@ const ProjectsPage = () => {
                 )}
 
                 <div className="flex justify-end space-x-2">
-                  <button onClick={() => handleMessageFreelancer(project)} className="btn-outline text-sm py-1">
-                    Message Freelancer
-                  </button>
+                  <ChatButton
+                    recipientId={project.freelancer._id}
+                    recipientName={project.freelancer.name}
+                    size="sm"
+                    className="text-sm py-1"
+                  />
                   <button className="btn-primary text-sm py-1">Rehire Freelancer</button>
                 </div>
               </div>
@@ -516,15 +508,6 @@ const ProjectsPage = () => {
           )}
         </div>
       )}
-
-      {/* Message Modal */}
-      <MessageModal
-        isOpen={messageModal.isOpen}
-        onClose={closeMessageModal}
-        recipientId={messageModal.recipientId}
-        recipientName={messageModal.recipientName}
-        projectId={messageModal.projectId}
-      />
 
       {/* Milestone Modal */}
       {showMilestoneModal && selectedProject && (
@@ -622,7 +605,7 @@ const ProjectsPage = () => {
                   type="submit"
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
                 >
-                  {editingMilestone ? "Update" : "Create"}
+                  {editingMilestone ? "Update" : "Create"} Milestone
                 </button>
               </div>
             </form>

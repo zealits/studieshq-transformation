@@ -37,6 +37,14 @@ const UserSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
+    lastSeen: {
+      type: Date,
+      default: Date.now,
+    },
     verificationDocuments: {
       identityProof: {
         type: {

@@ -17,6 +17,11 @@ const MessageSchema = new Schema({
     type: String,
     required: true,
   },
+  messageType: {
+    type: String,
+    enum: ["text", "image", "file"],
+    default: "text",
+  },
   attachments: [
     {
       type: String, // URL to the attachment
@@ -25,14 +30,8 @@ const MessageSchema = new Schema({
   ],
   readBy: [
     {
-      user: {
-        type: Schema.Types.ObjectId,
-        ref: "User",
-      },
-      readAt: {
-        type: Date,
-        default: Date.now,
-      },
+      type: Schema.Types.ObjectId,
+      ref: "User",
     },
   ],
   createdAt: {
@@ -52,6 +51,10 @@ const ConversationSchema = new Schema({
   lastMessage: {
     type: Schema.Types.ObjectId,
     ref: "Message",
+  },
+  lastActivity: {
+    type: Date,
+    default: Date.now,
   },
   unreadCount: {
     type: Map,
