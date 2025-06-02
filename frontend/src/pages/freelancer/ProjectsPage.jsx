@@ -1,16 +1,25 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchProposals, withdrawProposal } from "../../redux/actions/proposalActions";
+import { fetchProjects } from "../../redux/slices/projectsSlice";
 import { formatDate } from "../../utils/dateUtils";
 
 const ProjectsPage = () => {
   const [activeTab, setActiveTab] = useState("active");
   const dispatch = useDispatch();
-  const { proposals, loading, error } = useSelector((state) => state.proposals);
+  const { proposals, loading: proposalsLoading, error: proposalsError } = useSelector((state) => state.proposals);
+  const { projects, loading: projectsLoading, error: projectsError } = useSelector((state) => state.projects);
+
   console.log(proposals);
+  console.log(projects);
+
   useEffect(() => {
     if (activeTab === "applied") {
       dispatch(fetchProposals());
+    } else if (activeTab === "active") {
+      dispatch(fetchProjects({ status: "in_progress" }));
+    } else if (activeTab === "completed") {
+      dispatch(fetchProjects({ status: "completed" }));
     }
   }, [activeTab, dispatch]);
 
@@ -20,118 +29,9 @@ const ProjectsPage = () => {
     }
   };
 
-  const projects = {
-    active: [
-      {
-        id: 1,
-        title: "E-commerce Website Redesign",
-        client: "RetailSolutions Ltd.",
-        startDate: "April 10, 2023",
-        dueDate: "June 15, 2023",
-        budget: "$4,500",
-        status: "In Progress",
-        completion: 65,
-        description: "Redesigning the user interface and improving the UX of an existing e-commerce platform.",
-        nextMilestone: "Responsive Design Implementation",
-        milestoneDate: "May 20, 2023",
-        milestoneAmount: "$1,200",
-      },
-      {
-        id: 2,
-        title: "Mobile App Development",
-        client: "HealthTech Innovations",
-        startDate: "March 5, 2023",
-        dueDate: "July 30, 2023",
-        budget: "$12,000",
-        status: "On Track",
-        completion: 40,
-        description: "Building a health tracking mobile application for iOS and Android platforms.",
-        nextMilestone: "User Authentication Module",
-        milestoneDate: "May 15, 2023",
-        milestoneAmount: "$2,800",
-      },
-      {
-        id: 3,
-        title: "Content Writing for Blog Series",
-        client: "Digital Marketing Pro",
-        startDate: "May 1, 2023",
-        dueDate: "May 30, 2023",
-        budget: "$1,800",
-        status: "Needs Attention",
-        completion: 25,
-        description: "Creating a series of 12 blog posts about digital marketing strategies.",
-        nextMilestone: "First Draft of 4 Articles",
-        milestoneDate: "May 12, 2023",
-        milestoneAmount: "$600",
-      },
-    ],
-    completed: [
-      {
-        id: 4,
-        title: "Logo and Brand Identity",
-        client: "StartUp Ventures",
-        completedDate: "April 28, 2023",
-        budget: "$1,200",
-        rating: 5,
-        feedback: "Exceptional work! The designer captured our vision perfectly and was very responsive to feedback.",
-        description: "Created logo, color palette, typography, and brand guidelines for a new tech startup.",
-      },
-      {
-        id: 5,
-        title: "WordPress Website Development",
-        client: "Local Business Services",
-        completedDate: "March 15, 2023",
-        budget: "$2,500",
-        rating: 4.5,
-        feedback: "Great job on our website. It looks professional and works perfectly on all devices.",
-        description: "Developed a custom WordPress website with booking functionality for a local service business.",
-      },
-    ],
-    applied: [
-      {
-        id: 6,
-        title: "Social Media Marketing Campaign",
-        client: "Growth Marketing Co.",
-        appliedDate: "May 5, 2023",
-        budget: "$3,000",
-        status: "shortlisted",
-        description: "Running a comprehensive social media marketing campaign across multiple platforms.",
-        proposalDetails: {
-          bidPrice: "$2,800",
-          estimatedDuration: "2 months",
-          coverLetter: "I have extensive experience in social media marketing...",
-        },
-      },
-      {
-        id: 7,
-        title: "UI/UX Design for Mobile App",
-        client: "TechStart Inc.",
-        appliedDate: "May 3, 2023",
-        budget: "$5,000",
-        status: "pending",
-        description: "Designing the user interface and experience for a new mobile application.",
-        proposalDetails: {
-          bidPrice: "$4,500",
-          estimatedDuration: "3 weeks",
-          coverLetter: "As a UI/UX designer with 5 years of experience...",
-        },
-      },
-      {
-        id: 8,
-        title: "Backend Development",
-        client: "Enterprise Solutions",
-        appliedDate: "May 1, 2023",
-        budget: "$8,000",
-        status: "rejected",
-        description: "Developing a robust backend system for an enterprise application.",
-        proposalDetails: {
-          bidPrice: "$7,500",
-          estimatedDuration: "3 months",
-          coverLetter: "I specialize in scalable backend solutions...",
-        },
-      },
-    ],
-  };
+  // Filter projects based on status
+  const activeProjects = projects?.filter((p) => p.status === "in_progress") || [];
+  const completedProjects = projects?.filter((p) => p.status === "completed") || [];
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -143,6 +43,27 @@ const ProjectsPage = () => {
         return "bg-green-100 text-green-800";
       case "rejected":
         return "bg-red-100 text-red-800";
+      case "in_progress":
+        return "bg-blue-100 text-blue-800";
+      case "completed":
+        return "bg-green-100 text-green-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const formatStatus = (status) => {
+    return status?.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase()) || "Unknown";
+  };
+
+  const getProjectStatusColor = (status) => {
+    switch (status) {
+      case "in_progress":
+        return "bg-blue-100 text-blue-800";
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -183,84 +104,250 @@ const ProjectsPage = () => {
       {/* Active Projects */}
       {activeTab === "active" && (
         <div className="space-y-6">
-          {projects.active.map((project) => (
-            <div key={project.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-              <div className="p-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h2 className="text-xl font-semibold">{project.title}</h2>
-                    <p className="text-gray-600">Client: {project.client}</p>
-                  </div>
-                  <span
-                    className={`px-3 py-1 text-sm font-medium rounded-full ${
-                      project.status === "In Progress"
-                        ? "bg-blue-100 text-blue-800"
-                        : project.status === "On Track"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {project.status}
-                  </span>
-                </div>
-
-                <p className="mt-4 text-gray-600">{project.description}</p>
-
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Start Date</p>
-                    <p className="font-medium">{project.startDate}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Due Date</p>
-                    <p className="font-medium">{project.dueDate}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Budget</p>
-                    <p className="font-medium">{project.budget}</p>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <div className="flex justify-between mb-1">
-                    <span className="text-sm font-medium text-gray-700">Completion</span>
-                    <span className="text-sm font-medium text-gray-700">{project.completion}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div className="bg-primary h-2.5 rounded-full" style={{ width: `${project.completion}%` }}></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 px-6 py-4 border-t">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="font-medium">Next Milestone: {project.nextMilestone}</h3>
-                    <p className="text-sm text-gray-500">
-                      Due: {project.milestoneDate} • {project.milestoneAmount}
-                    </p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button className="btn-outline text-sm py-1">Message Client</button>
-                    <button className="btn-primary text-sm py-1">Submit Work</button>
-                  </div>
-                </div>
-              </div>
+          {projectsLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
-          ))}
+          ) : projectsError ? (
+            <div className="text-center text-red-600 p-4">
+              <p>Error: {projectsError}</p>
+            </div>
+          ) : activeProjects.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <p className="text-gray-500">No active projects found</p>
+            </div>
+          ) : (
+            activeProjects.map((project) => (
+              <div key={project._id} className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="p-6">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h2 className="text-xl font-semibold">{project.title}</h2>
+                      <p className="text-gray-600">Client: {project.client?.name || "Unknown Client"}</p>
+                    </div>
+                    <span
+                      className={`px-3 py-1 text-sm font-medium rounded-full ${getProjectStatusColor(project.status)}`}
+                    >
+                      {formatStatus(project.status)}
+                    </span>
+                  </div>
+
+                  <p className="mt-4 text-gray-600">{project.description}</p>
+
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Start Date</p>
+                      <p className="font-medium">{formatDate(project.startDate)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Due Date</p>
+                      <p className="font-medium">{formatDate(project.deadline)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Budget</p>
+                      <p className="font-medium">${project.budget?.toLocaleString() || "N/A"}</p>
+                    </div>
+                  </div>
+
+                  {/* Progress */}
+                  <div className="mt-4">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>Project Progress</span>
+                      <span>
+                        {project.milestones && project.milestones.length > 0
+                          ? Math.round(
+                              project.milestones
+                                .filter((m) => m.status === "completed")
+                                .reduce((sum, m) => sum + (m.percentage || 0), 0)
+                            )
+                          : project.completionPercentage || 0}
+                        %
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-primary h-2 rounded-full"
+                        style={{
+                          width: `${
+                            project.milestones && project.milestones.length > 0
+                              ? Math.round(
+                                  project.milestones
+                                    .filter((m) => m.status === "completed")
+                                    .reduce((sum, m) => sum + (m.percentage || 0), 0)
+                                )
+                              : project.completionPercentage || 0
+                          }%`,
+                        }}
+                      ></div>
+                    </div>
+
+                    {/* Progress details */}
+                    {project.milestones && project.milestones.length > 0 && (
+                      <div className="mt-2 text-xs text-gray-500">
+                        {project.milestones.filter((m) => m.status === "completed").length} of{" "}
+                        {project.milestones.length} milestones completed
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Milestones */}
+                  {project.milestones && project.milestones.length > 0 && (
+                    <div className="mt-6">
+                      <h3 className="font-medium mb-3">Milestones</h3>
+                      <div className="space-y-3">
+                        {project.milestones.map((milestone) => {
+                          // Calculate amount based on percentage and project budget
+                          const calculatedAmount = (milestone.percentage / 100) * (project.budget || 0);
+
+                          return (
+                            <div key={milestone._id} className="border rounded-lg p-4">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <h4 className="font-medium">{milestone.title}</h4>
+                                  <p className="text-sm text-gray-600 mt-1">{milestone.description}</p>
+                                  <div className="flex items-center text-sm text-gray-500 mt-2">
+                                    <span>Due: {formatDate(milestone.dueDate)}</span>
+                                    <span className="mx-2">•</span>
+                                    <span className="font-medium text-primary">{milestone.percentage}%</span>
+                                    <span className="mx-2">•</span>
+                                    <span className="font-medium text-green-600">
+                                      $
+                                      {calculatedAmount.toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </span>
+                                  </div>
+                                  {/* Milestone progress bar */}
+                                  <div className="mt-3">
+                                    <div className="flex justify-between text-xs mb-1">
+                                      <span>Progress</span>
+                                      <span>
+                                        {milestone.status === "completed"
+                                          ? "100%"
+                                          : milestone.status === "in_progress"
+                                          ? "50%"
+                                          : "0%"}
+                                      </span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                      <div
+                                        className={`h-1.5 rounded-full ${
+                                          milestone.status === "completed"
+                                            ? "bg-green-500"
+                                            : milestone.status === "in_progress"
+                                            ? "bg-blue-500"
+                                            : "bg-gray-300"
+                                        }`}
+                                        style={{
+                                          width:
+                                            milestone.status === "completed"
+                                              ? "100%"
+                                              : milestone.status === "in_progress"
+                                              ? "50%"
+                                              : "0%",
+                                        }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="ml-4 text-right">
+                                  <span
+                                    className={`px-2 py-1 text-xs font-medium rounded ${getStatusColor(
+                                      milestone.status
+                                    )}`}
+                                  >
+                                    {formatStatus(milestone.status)}
+                                  </span>
+                                  {milestone.approvalStatus && milestone.approvalStatus !== "pending" && (
+                                    <div className="mt-1">
+                                      <span
+                                        className={`px-2 py-1 text-xs font-medium rounded ${
+                                          milestone.approvalStatus === "approved"
+                                            ? "bg-green-100 text-green-800"
+                                            : "bg-red-100 text-red-800"
+                                        }`}
+                                      >
+                                        {milestone.approvalStatus}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Milestone Summary */}
+                      <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-500">Total Milestones:</span>
+                            <div className="font-medium">{project.milestones.length}</div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Completed:</span>
+                            <div className="font-medium text-green-600">
+                              {project.milestones.filter((m) => m.status === "completed").length}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">In Progress:</span>
+                            <div className="font-medium text-blue-600">
+                              {project.milestones.filter((m) => m.status === "in_progress").length}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Earnings Progress:</span>
+                            <div className="font-medium text-primary">
+                              $
+                              {project.milestones
+                                .filter((m) => m.status === "completed")
+                                .reduce((sum, m) => sum + (m.percentage / 100) * (project.budget || 0), 0)
+                                .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-gray-50 px-6 py-4 border-t">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-medium">Skills Required</h3>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {project.skills?.map((skill, index) => (
+                          <span key={index} className="bg-primary bg-opacity-10 text-primary text-xs px-2 py-1 rounded">
+                            {skill}
+                          </span>
+                        )) || <span className="text-sm text-gray-500">No skills specified</span>}
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button className="btn-outline text-sm py-1">View Details</button>
+                      <button className="btn-primary text-sm py-1">Contact Client</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 
       {/* Applied Projects */}
       {activeTab === "applied" && (
         <div className="space-y-6">
-          {loading ? (
+          {proposalsLoading ? (
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
-          ) : error ? (
+          ) : proposalsError ? (
             <div className="text-center text-red-600 p-4">
-              <p>Error: {error}</p>
+              <p>Error: {proposalsError}</p>
             </div>
           ) : proposals.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 rounded-lg">
@@ -354,57 +441,82 @@ const ProjectsPage = () => {
       {/* Completed Projects */}
       {activeTab === "completed" && (
         <div className="space-y-6">
-          {projects.completed.map((project) => (
-            <div key={project.id} className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h2 className="text-xl font-semibold">{project.title}</h2>
-                  <p className="text-gray-600">Client: {project.client}</p>
-                </div>
-                <div className="flex items-center">
-                  {[...Array(5)].map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-5 h-5 ${i < Math.floor(project.rating) ? "text-yellow-400" : "text-gray-300"}`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                  <span className="ml-1 text-sm text-gray-600">{project.rating}/5</span>
-                </div>
-              </div>
-
-              <p className="mt-4 text-gray-600">{project.description}</p>
-
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Completed Date</p>
-                  <p className="font-medium">{project.completedDate}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Budget</p>
-                  <p className="font-medium">{project.budget}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Status</p>
-                  <p className="font-medium text-green-600">Completed</p>
-                </div>
-              </div>
-
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                <h3 className="font-medium mb-2">Client Feedback</h3>
-                <p className="text-gray-600 italic">{project.feedback}</p>
-              </div>
-
-              <div className="mt-4 flex justify-end space-x-2">
-                <button className="btn-outline text-sm py-1">View Details</button>
-                <button className="btn-primary text-sm py-1">Request Testimonial</button>
-              </div>
+          {projectsLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
-          ))}
+          ) : projectsError ? (
+            <div className="text-center text-red-600 p-4">
+              <p>Error: {projectsError}</p>
+            </div>
+          ) : completedProjects.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <p className="text-gray-500">No completed projects found</p>
+            </div>
+          ) : (
+            completedProjects.map((project) => (
+              <div key={project._id} className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-xl font-semibold">{project.title}</h2>
+                    <p className="text-gray-600">Client: {project.client?.name || "Unknown Client"}</p>
+                  </div>
+                  <div className="flex items-center">
+                    {/* Rating display - Note: project.rating might not exist in real data yet */}
+                    {project.clientReview ? (
+                      <>
+                        {[...Array(5)].map((_, i) => (
+                          <svg
+                            key={i}
+                            className={`w-5 h-5 ${
+                              i < Math.floor(project.clientReview.rating || 0) ? "text-yellow-400" : "text-gray-300"
+                            }`}
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        ))}
+                        <span className="ml-1 text-sm text-gray-600">{project.clientReview.rating}/5</span>
+                      </>
+                    ) : (
+                      <span className="text-sm text-gray-500">No rating yet</span>
+                    )}
+                  </div>
+                </div>
+
+                <p className="mt-4 text-gray-600">{project.description}</p>
+
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Completed Date</p>
+                    <p className="font-medium">{formatDate(project.completedDate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Budget</p>
+                    <p className="font-medium">${project.budget?.toLocaleString() || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Status</p>
+                    <p className="font-medium text-green-600">Completed</p>
+                  </div>
+                </div>
+
+                {project.clientReview && (
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                    <h3 className="font-medium mb-2">Client Feedback</h3>
+                    <p className="text-gray-600 italic">{project.clientReview.comment || "No feedback provided"}</p>
+                  </div>
+                )}
+
+                <div className="mt-4 flex justify-end space-x-2">
+                  <button className="btn-outline text-sm py-1">View Details</button>
+                  <button className="btn-primary text-sm py-1">Request Testimonial</button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

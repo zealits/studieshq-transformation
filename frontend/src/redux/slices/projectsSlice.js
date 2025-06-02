@@ -2,16 +2,20 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../api/axios";
 
 // Fetch projects
-export const fetchProjects = createAsyncThunk("projects/fetchProjects", async ({ status }, { rejectWithValue }) => {
-  try {
-    console.log("status", status);
-    const response = await api.get(`/api/projects?status=${status}`);
-    console.log("response", response);
-    return response.data;
-  } catch (error) {
-    return rejectWithValue(error.response.data);
+export const fetchProjects = createAsyncThunk(
+  "projects/fetchProjects",
+  async ({ status } = {}, { rejectWithValue }) => {
+    try {
+      console.log("status", status);
+      const queryParam = status ? `?status=${status}` : "";
+      const response = await api.get(`/api/projects${queryParam}`);
+      console.log("response", response);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
   }
-});
+);
 
 // Create milestone
 export const createMilestone = createAsyncThunk(
