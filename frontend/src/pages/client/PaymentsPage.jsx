@@ -1,59 +1,40 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { getWalletInfo, getTransactions } from "../../redux/slices/paymentSlice";
+import AddFundsModal from "../../components/payments/AddFundsModal";
 
 const PaymentsPage = () => {
   const [activeTab, setActiveTab] = useState("transactions");
+  const [showAddFundsModal, setShowAddFundsModal] = useState(false);
 
-  // Mock data for transactions
-  const transactions = [
-    {
-      id: 1,
-      date: "May 5, 2023",
-      amount: "$1,500.00",
-      type: "Payment",
-      description: "Milestone payment: Website Design Implementation",
-      status: "Completed",
-      freelancer: "Alex Johnson",
-      project: "Corporate Website Redesign",
-    },
-    {
-      id: 2,
-      date: "April 28, 2023",
-      amount: "$800.00",
-      type: "Payment",
-      description: "Project completion: Brand Identity Design",
-      status: "Completed",
-      freelancer: "Emily Carter",
-      project: "Brand Identity Design",
-    },
-    {
-      id: 3,
-      date: "April 15, 2023",
-      amount: "$3,000.00",
-      type: "Deposit",
-      description: "Funds added to account",
-      status: "Processed",
-      reference: "DP78945612",
-    },
-    {
-      id: 4,
-      date: "April 10, 2023",
-      amount: "$1,000.00",
-      type: "Payment",
-      description: "Initial payment: Marketing Campaign",
-      status: "Pending",
-      freelancer: "Sarah Williams",
-      project: "Marketing Campaign for Product Launch",
-    },
-    {
-      id: 5,
-      date: "March 28, 2023",
-      amount: "$1,500.00",
-      type: "Deposit",
-      description: "Funds added to account",
-      status: "Processed",
-      reference: "DP78941234",
-    },
-  ];
+  const dispatch = useDispatch();
+  const { wallet, transactions, loading } = useSelector((state) => state.payment);
+
+  useEffect(() => {
+    dispatch(getWalletInfo());
+    dispatch(getTransactions());
+  }, [dispatch]);
+
+  // Format transaction data for display
+  const formatTransactionType = (type) => {
+    const typeMap = {
+      deposit: "Deposit",
+      withdrawal: "Withdrawal",
+      payment: "Payment",
+      milestone: "Milestone Payment",
+      platform_fee: "Platform Fee",
+      refund: "Refund",
+    };
+    return typeMap[type] || type;
+  };
+
+  const formatTransactionDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
 
   // Mock data for invoices
   const invoices = [
@@ -116,9 +97,13 @@ const PaymentsPage = () => {
         <div className="flex items-center">
           <div className="mr-4">
             <span className="block text-sm text-gray-500">Account Balance</span>
-            <span className="block text-xl font-bold">$4,750.00</span>
+            <span className="block text-xl font-bold">
+              {loading ? "Loading..." : `$${wallet?.balance?.toFixed(2) || "0.00"}`}
+            </span>
           </div>
-          <button className="btn-primary">Add Funds</button>
+          <button className="btn-primary" onClick={() => setShowAddFundsModal(true)}>
+            Add Funds
+          </button>
         </div>
       </div>
 
@@ -193,39 +178,67 @@ const PaymentsPage = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {transactions.map((transaction) => (
-                <tr key={transaction.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{transaction.date}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    <div>{transaction.description}</div>
-                    {transaction.freelancer && (
-                      <div className="text-xs text-gray-400">Freelancer: {transaction.freelancer}</div>
-                    )}
-                    {transaction.project && <div className="text-xs text-gray-400">Project: {transaction.project}</div>}
-                    {transaction.reference && <div className="text-xs text-gray-400">Ref: {transaction.reference}</div>}
+              {loading ? (
+                <tr>
+                  <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                    Loading transactions...
                   </td>
-                  <td
-                    className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                      transaction.type === "Payment" ? "text-red-600" : "text-green-600"
-                    }`}
-                  >
-                    {transaction.type === "Payment" ? "-" : "+"}
-                    {transaction.amount}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        transaction.status === "Completed" || transaction.status === "Processed"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
+                </tr>
+              ) : transactions && Array.isArray(transactions) && transactions.length > 0 ? (
+                transactions.map((transaction) => (
+                  <tr key={transaction._id || transaction.transactionId} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {formatTransactionDate(transaction.createdAt)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      <div>{transaction.description}</div>
+                      {transaction.relatedUser && (
+                        <div className="text-xs text-gray-400">User: {transaction.relatedUser.name}</div>
+                      )}
+                      {transaction.project && (
+                        <div className="text-xs text-gray-400">Project: {transaction.project.title}</div>
+                      )}
+                      {transaction.transactionId && (
+                        <div className="text-xs text-gray-400">Ref: {transaction.transactionId}</div>
+                      )}
+                    </td>
+                    <td
+                      className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                        transaction.type === "payment" || transaction.type === "withdrawal"
+                          ? "text-red-600"
+                          : "text-green-600"
                       }`}
                     >
-                      {transaction.status}
-                    </span>
+                      {transaction.type === "payment" || transaction.type === "withdrawal" ? "-" : "+"}$
+                      {transaction.amount.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          transaction.status === "completed"
+                            ? "bg-green-100 text-green-800"
+                            : transaction.status === "pending"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : transaction.status === "failed"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatTransactionType(transaction.type)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                    No transactions found. Add funds to see transaction history.
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{transaction.type}</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -380,6 +393,17 @@ const PaymentsPage = () => {
           </div>
         </div>
       )}
+
+      {/* Add Funds Modal */}
+      <AddFundsModal
+        isOpen={showAddFundsModal}
+        onClose={() => setShowAddFundsModal(false)}
+        onSuccess={(result) => {
+          // Refresh wallet and transactions data
+          dispatch(getWalletInfo());
+          dispatch(getTransactions());
+        }}
+      />
     </div>
   );
 };

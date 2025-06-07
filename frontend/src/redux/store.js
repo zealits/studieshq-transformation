@@ -13,6 +13,7 @@ import uploadReducer from "./slices/uploadSlice";
 import userManagementReducer from "./slices/userManagementSlice";
 import projectsReducer from "./slices/projectsSlice";
 import chatReducer from "./chatSlice";
+import paymentReducer from "./slices/paymentSlice";
 
 const persistConfig = {
   key: "root",
@@ -30,6 +31,7 @@ const rootReducer = combineReducers({
   userManagement: userManagementReducer,
   projects: projectsReducer,
   chat: chatReducer,
+  payment: paymentReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

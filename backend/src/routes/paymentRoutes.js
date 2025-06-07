@@ -496,7 +496,7 @@ router.post(
       check("accountHolderName", "Account holder name is required").if(check("type").equals("bank")).not().isEmpty(),
     ],
   ],
-  paymentController.createPaymentMethod
+  paymentController.addPaymentMethod
 );
 
 // @route   DELETE /api/payments/methods/:id
@@ -512,7 +512,7 @@ router.put("/methods/:id/default", auth, paymentController.setDefaultPaymentMeth
 // @route   GET /api/payments/wallet
 // @desc    Get user wallet/balance info
 // @access  Private
-router.get("/wallet", auth, paymentController.getWallet);
+router.get("/wallet", auth, paymentController.getWalletInfo);
 
 // @route   POST /api/payments/funds/add
 // @desc    Add funds to wallet
@@ -599,6 +599,17 @@ router.get("/transactions/:id", auth, paymentController.getTransaction);
 // @route   GET /api/payments/statistics
 // @desc    Get earnings/spending statistics
 // @access  Private
-router.get("/statistics", auth, paymentController.getStatistics);
+router.get("/statistics", auth, paymentController.getPaymentStatistics);
+
+// PayPal routes
+// @route   POST /api/payments/paypal/create-order
+// @desc    Create PayPal order for adding funds
+// @access  Private
+router.post("/paypal/create-order", auth, paymentController.createPayPalOrder);
+
+// @route   POST /api/payments/paypal/capture-payment
+// @desc    Capture PayPal payment
+// @access  Private
+router.post("/paypal/capture-payment", auth, paymentController.capturePayPalPayment);
 
 module.exports = router;

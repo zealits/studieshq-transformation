@@ -1,103 +1,272 @@
 const { v4: uuidv4 } = require("uuid");
 const { PaymentMethod, Transaction, Invoice, Wallet } = require("../models/Payment");
 const User = require("../models/User");
-const Project = require("../models/Project");
 const { validationResult } = require("express-validator");
 const mongoose = require("mongoose");
-const Milestone = require("../models/Milestone");
-const asyncHandler = require("../middleware/async");
-const ErrorResponse = require("../utils/errorResponse");
+const paypalService = require("../services/paypalService");
 
 // *** PAYMENT METHODS ***
 
 // Get all payment methods for current user
-exports.getPaymentMethods = asyncHandler(async (req, res, next) => {
-  const paymentMethods = await PaymentMethod.find({ user: req.user.id });
+exports.getPaymentMethods = async (req, res) => {
+  try {
+    const paymentMethods = await PaymentMethod.find({ user: req.user.id });
 
-  res.status(200).json({
-    success: true,
-    count: paymentMethods.length,
-    data: paymentMethods,
-  });
-});
+    res.status(200).json({
+      success: true,
+      count: paymentMethods.length,
+      data: paymentMethods,
+    });
+  } catch (error) {
+    console.error("Error fetching payment methods:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
 
 // Create new payment method
-exports.addPaymentMethod = asyncHandler(async (req, res, next) => {
-  req.body.user = req.user.id;
+exports.addPaymentMethod = async (req, res) => {
+  try {
+    req.body.user = req.user.id;
 
-  // If this is the first payment method, set it as default
-  const existingMethods = await PaymentMethod.countDocuments({ user: req.user.id });
-  if (existingMethods === 0) {
-    req.body.isDefault = true;
+    // If this is the first payment method, set it as default
+    const existingMethods = await PaymentMethod.countDocuments({ user: req.user.id });
+    if (existingMethods === 0) {
+      req.body.isDefault = true;
+    }
+
+    const paymentMethod = await PaymentMethod.create(req.body);
+
+    res.status(201).json({
+      success: true,
+      data: paymentMethod,
+    });
+  } catch (error) {
+    console.error("Error adding payment method:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
-
-  const paymentMethod = await PaymentMethod.create(req.body);
-
-  res.status(201).json({
-    success: true,
-    data: paymentMethod,
-  });
-});
+};
 
 // Delete payment method
-exports.deletePaymentMethod = asyncHandler(async (req, res, next) => {
-  const paymentMethod = await PaymentMethod.findById(req.params.id);
+exports.deletePaymentMethod = async (req, res) => {
+  try {
+    const paymentMethod = await PaymentMethod.findById(req.params.id);
 
-  if (!paymentMethod) {
-    return next(new ErrorResponse(`Payment method not found with id of ${req.params.id}`, 404));
-  }
-
-  // Make sure user owns the payment method
-  if (paymentMethod.user.toString() !== req.user.id) {
-    return next(new ErrorResponse("Not authorized to delete this payment method", 401));
-  }
-
-  // If deleting the default method, set another one as default if available
-  if (paymentMethod.isDefault) {
-    const anotherMethod = await PaymentMethod.findOne({
-      user: req.user.id,
-      _id: { $ne: req.params.id },
-    });
-
-    if (anotherMethod) {
-      anotherMethod.isDefault = true;
-      await anotherMethod.save();
+    if (!paymentMethod) {
+      return res.status(404).json({ success: false, message: `Payment method not found with id of ${req.params.id}` });
     }
+
+    // Make sure user owns the payment method
+    if (paymentMethod.user.toString() !== req.user.id) {
+      return res.status(401).json({ success: false, message: "Not authorized to delete this payment method" });
+    }
+
+    // If deleting the default method, set another one as default if available
+    if (paymentMethod.isDefault) {
+      const anotherMethod = await PaymentMethod.findOne({
+        user: req.user.id,
+        _id: { $ne: req.params.id },
+      });
+
+      if (anotherMethod) {
+        anotherMethod.isDefault = true;
+        await anotherMethod.save();
+      }
+    }
+
+    await PaymentMethod.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      data: {},
+    });
+  } catch (error) {
+    console.error("Error deleting payment method:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
-
-  await paymentMethod.remove();
-
-  res.status(200).json({
-    success: true,
-    data: {},
-  });
-});
+};
 
 // Set payment method as default
-exports.setDefaultPaymentMethod = asyncHandler(async (req, res, next) => {
-  const paymentMethod = await PaymentMethod.findById(req.params.id);
+exports.setDefaultPaymentMethod = async (req, res) => {
+  try {
+    const paymentMethod = await PaymentMethod.findById(req.params.id);
 
-  if (!paymentMethod) {
-    return next(new ErrorResponse(`Payment method not found with id of ${req.params.id}`, 404));
+    if (!paymentMethod) {
+      return res.status(404).json({ success: false, message: `Payment method not found with id of ${req.params.id}` });
+    }
+
+    // Make sure user owns the payment method
+    if (paymentMethod.user.toString() !== req.user.id) {
+      return res.status(401).json({ success: false, message: "Not authorized to update this payment method" });
+    }
+
+    // Clear default status from all user's methods
+    await PaymentMethod.updateMany({ user: req.user.id }, { isDefault: false });
+
+    // Set this method as default
+    paymentMethod.isDefault = true;
+    await paymentMethod.save();
+
+    res.status(200).json({
+      success: true,
+      data: paymentMethod,
+    });
+  } catch (error) {
+    console.error("Error setting default payment method:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
+};
 
-  // Make sure user owns the payment method
-  if (paymentMethod.user.toString() !== req.user.id) {
-    return next(new ErrorResponse("Not authorized to update this payment method", 401));
+// *** PAYPAL INTEGRATION ***
+
+// Create PayPal order for adding funds
+exports.createPayPalOrder = async (req, res) => {
+  try {
+    const { amount } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid amount. Amount must be greater than 0",
+      });
+    }
+
+    if (amount < 1 || amount > 10000) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount must be between $1 and $10,000",
+      });
+    }
+
+    // Create PayPal order
+    const paypalOrder = await paypalService.createOrder(amount);
+
+    if (!paypalOrder.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to create PayPal order",
+        error: paypalOrder.error,
+      });
+    }
+
+    // Store pending transaction
+    const transaction = new Transaction({
+      transactionId: `PPO-${uuidv4().substring(0, 8)}`,
+      user: req.user.id,
+      amount,
+      type: "deposit",
+      status: "pending",
+      description: "PayPal wallet deposit - pending",
+      metadata: {
+        paypalOrderId: paypalOrder.orderId,
+        paymentMethod: "paypal",
+      },
+    });
+
+    await transaction.save();
+
+    res.json({
+      success: true,
+      data: {
+        orderId: paypalOrder.orderId,
+        transactionId: transaction.transactionId,
+        approvalUrl: paypalOrder.links.find((link) => link.rel === "approve")?.href,
+      },
+    });
+  } catch (error) {
+    console.error("Error creating PayPal order:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
+};
 
-  // Clear default status from all user's methods
-  await PaymentMethod.updateMany({ user: req.user.id }, { isDefault: false });
+// Capture PayPal payment and add funds to wallet
+exports.capturePayPalPayment = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  // Set this method as default
-  paymentMethod.isDefault = true;
-  await paymentMethod.save();
+  try {
+    const { orderId } = req.body;
 
-  res.status(200).json({
-    success: true,
-    data: paymentMethod,
-  });
-});
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message: "PayPal order ID is required",
+      });
+    }
+
+    // Find the pending transaction
+    const transaction = await Transaction.findOne({
+      "metadata.paypalOrderId": orderId,
+      user: req.user.id,
+      status: "pending",
+    }).session(session);
+
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        message: "Transaction not found or already processed",
+      });
+    }
+
+    // Capture PayPal payment
+    const captureResult = await paypalService.captureOrder(orderId);
+
+    if (!captureResult.success) {
+      // Update transaction status to failed
+      transaction.status = "failed";
+      transaction.metadata.error = captureResult.error;
+      await transaction.save({ session });
+
+      await session.commitTransaction();
+      session.endSession();
+
+      return res.status(400).json({
+        success: false,
+        message: "Payment capture failed",
+        error: captureResult.error,
+      });
+    }
+
+    // Update wallet
+    let wallet = await Wallet.findOne({ user: req.user.id }).session(session);
+    if (!wallet) {
+      wallet = new Wallet({ user: req.user.id });
+    }
+
+    const capturedAmount = parseFloat(captureResult.amount.value);
+    wallet.balance += capturedAmount;
+    await wallet.save({ session });
+
+    // Update transaction
+    transaction.status = "completed";
+    transaction.description = "PayPal wallet deposit - completed";
+    transaction.metadata = {
+      ...transaction.metadata,
+      paypalCaptureId: captureResult.captureId,
+      paypalTransactionId: captureResult.transactionId,
+      payerInfo: captureResult.payerInfo,
+    };
+    await transaction.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({
+      success: true,
+      message: "Funds added successfully via PayPal",
+      data: {
+        wallet,
+        transaction,
+        captureId: captureResult.captureId,
+      },
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("Error capturing PayPal payment:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
 
 // *** FUNDS MANAGEMENT ***
 
@@ -717,6 +886,57 @@ exports.getTransaction = async (req, res) => {
       success: false,
       error: "Server error",
     });
+  }
+};
+
+// *** TRANSACTIONS ***
+
+// Get user transactions
+exports.getTransactions = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, type, status } = req.query;
+
+    // Build filter query
+    const filter = { user: req.user.id };
+
+    if (type) {
+      filter.type = type;
+    }
+
+    if (status) {
+      filter.status = status;
+    }
+
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+
+    // Get transactions with pagination
+    const transactions = await Transaction.find(filter)
+      .populate("relatedUser", "name email")
+      .populate("project", "title")
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(skip);
+
+    // Get total count for pagination
+    const total = await Transaction.countDocuments(filter);
+
+    res.json({
+      success: true,
+      data: {
+        transactions,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(total / limit),
+          totalTransactions: total,
+          hasNextPage: page * limit < total,
+          hasPrevPage: page > 1,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching transactions:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 

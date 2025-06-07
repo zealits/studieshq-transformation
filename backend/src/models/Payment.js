@@ -68,6 +68,9 @@ const TransactionSchema = new Schema({
     type: Number,
     default: 0,
   },
+  netAmount: {
+    type: Number,
+  },
   type: {
     type: String,
     enum: ["deposit", "withdrawal", "payment", "refund", "milestone", "platform_fee"],
@@ -95,6 +98,10 @@ const TransactionSchema = new Schema({
     ref: "Invoice",
   },
   recipient: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+  },
+  relatedUser: {
     type: Schema.Types.ObjectId,
     ref: "User",
   },
@@ -182,6 +189,14 @@ const WalletSchema = new Schema({
     unique: true,
   },
   balance: {
+    type: Number,
+    default: 0,
+  },
+  totalEarned: {
+    type: Number,
+    default: 0,
+  },
+  totalSpent: {
     type: Number,
     default: 0,
   },
