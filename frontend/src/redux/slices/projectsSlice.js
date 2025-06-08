@@ -73,10 +73,34 @@ export const approveMilestone = createAsyncThunk(
   }
 );
 
+export const fetchAllProjectsForAdmin = createAsyncThunk(
+  "projects/fetchAllProjectsForAdmin",
+  async (params = {}, { rejectWithValue }) => {
+    try {
+      const { status, category, search, page = 1, limit = 50 } = params;
+
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      if (status && status !== "all") queryParams.append("status", status);
+      if (category) queryParams.append("category", category);
+      if (search) queryParams.append("search", search);
+      queryParams.append("page", page.toString());
+      queryParams.append("limit", limit.toString());
+
+      const response = await api.get(`/api/projects/admin/all?${queryParams.toString()}`);
+      return response.data.data;
+    } catch (error) {
+      console.error("Error fetching admin projects:", error);
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch projects for admin");
+    }
+  }
+);
+
 const projectsSlice = createSlice({
   name: "projects",
   initialState: {
     projects: [],
+    adminProjects: [],
     loading: false,
     error: null,
   },
@@ -169,6 +193,19 @@ const projectsSlice = createSlice({
       .addCase(approveMilestone.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || "Failed to approve milestone";
+      })
+      // Fetch All Projects for Admin
+      .addCase(fetchAllProjectsForAdmin.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchAllProjectsForAdmin.fulfilled, (state, action) => {
+        state.loading = false;
+        state.adminProjects = action.payload.projects || [];
+      })
+      .addCase(fetchAllProjectsForAdmin.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || "Failed to fetch projects for admin";
       });
   },
 });

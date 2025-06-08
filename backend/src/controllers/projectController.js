@@ -140,6 +140,78 @@ exports.getProjects = async (req, res) => {
 };
 
 /**
+ * @desc    Get all projects for admin dashboard (all statuses)
+ * @route   GET /api/projects/admin/all
+ * @access  Private (Admin only)
+ */
+exports.getAllProjectsForAdmin = async (req, res) => {
+  try {
+    const { status, category, search, page = 1, limit = 50 } = req.query;
+
+    // Build the filter object
+    const filter = {};
+
+    // Add status filter if provided
+    if (status && status !== "all") {
+      filter.status = status;
+    }
+
+    // Add category filter if provided
+    if (category) {
+      filter.category = category;
+    }
+
+    // Add search functionality
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Get all projects with filters, sorting, and pagination
+    const projects = await Project.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("client", "name email avatar")
+      .populate("freelancer", "name email avatar")
+      .select("-__v")
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    // Get total count for pagination
+    const totalProjects = await Project.countDocuments(filter);
+
+    // Get unique categories for filter dropdown
+    const categories = await Project.distinct("category");
+
+    res.status(200).json({
+      success: true,
+      data: {
+        projects,
+        categories,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalProjects / parseInt(limit)),
+          totalProjects,
+          hasNext: skip + projects.length < totalProjects,
+          hasPrev: parseInt(page) > 1,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error in getAllProjectsForAdmin:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching projects for admin",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * @desc    Get a single project by ID
  * @route   GET /api/projects/:id
  * @access  Private

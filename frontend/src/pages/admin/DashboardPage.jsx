@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchUsers } from "../../redux/slices/userManagementSlice";
-import { fetchProjects } from "../../redux/slices/projectsSlice";
-import { fetchJobs } from "../../redux/slices/jobsSlice";
+import { fetchAllProjectsForAdmin } from "../../redux/slices/projectsSlice";
+import { fetchAllJobsForAdmin } from "../../redux/slices/jobsSlice";
 import { formatDate } from "../../utils/dateUtils";
 
 const DashboardPage = () => {
@@ -11,14 +11,14 @@ const DashboardPage = () => {
 
   // Redux state
   const { users, loading: usersLoading } = useSelector((state) => state.userManagement);
-  const { projects, loading: projectsLoading } = useSelector((state) => state.projects);
-  const { jobs, isLoading: jobsLoading } = useSelector((state) => state.jobs);
+  const { adminProjects, loading: projectsLoading } = useSelector((state) => state.projects);
+  const { adminJobs, isLoading: jobsLoading } = useSelector((state) => state.jobs);
 
   useEffect(() => {
     // Fetch all data for admin dashboard
     dispatch(fetchUsers({ page: 1, limit: 100 })); // Get more users for statistics
-    dispatch(fetchProjects({})); // Get all projects
-    dispatch(fetchJobs()); // Get all jobs
+    dispatch(fetchAllProjectsForAdmin()); // Get all projects for admin
+    dispatch(fetchAllJobsForAdmin()); // Get all jobs for admin
   }, [dispatch]);
 
   // Calculate real statistics
@@ -27,13 +27,13 @@ const DashboardPage = () => {
   const clients = users?.filter((user) => user.role === "client") || [];
   const activeUsers = users?.filter((user) => user.status === "active") || [];
 
-  const totalProjects = projects?.length || 0;
-  const activeProjects = projects?.filter((p) => p.status === "in_progress") || [];
-  const completedProjects = projects?.filter((p) => p.status === "completed") || [];
+  const totalProjects = adminProjects?.length || 0;
+  const activeProjects = adminProjects?.filter((p) => p.status === "in_progress") || [];
+  const completedProjects = adminProjects?.filter((p) => p.status === "completed") || [];
   const completionRate = totalProjects > 0 ? Math.round((completedProjects.length / totalProjects) * 100) : 0;
 
-  const totalJobs = jobs?.length || 0;
-  const activeJobs = jobs?.filter((job) => job.status === "open") || [];
+  const totalJobs = adminJobs?.length || 0;
+  const activeJobs = adminJobs?.filter((job) => job.status === "open") || [];
 
   // Calculate total revenue from completed projects
   const totalRevenue = completedProjects.reduce((sum, project) => sum + (project.budget || 0), 0);

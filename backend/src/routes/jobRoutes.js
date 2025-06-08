@@ -121,4 +121,14 @@ router.put(
 // @access  Private (Client only, must be job owner)
 router.put("/:id/publish", auth, checkRole(["client", "admin"]), jobController.publishJob);
 
+// @route   GET /api/jobs/admin/all
+// @desc    Get all jobs for admin dashboard (all statuses)
+// @access  Private (Admin only)
+router.get("/admin/all", auth, checkRole(["admin"]), jobController.getAllJobsForAdmin);
+
+// @route   GET /api/jobs/categories/counts
+// @desc    Get job counts by category for home page
+// @access  Public
+router.get("/categories/counts", jobController.getJobCountsByCategory);
+
 module.exports = router;

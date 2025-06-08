@@ -10,6 +10,8 @@ const initialState = {
     closed: [],
     draft: [],
   },
+  adminJobs: [],
+  jobCountsByCategory: [], // Add job counts by category
   proposals: [],
   myProposals: [],
   savedJobs: [],
@@ -203,6 +205,42 @@ export const publishDraftJob = createAsyncThunk("jobs/publishDraftJob", async (j
   }
 });
 
+export const fetchAllJobsForAdmin = createAsyncThunk(
+  "jobs/fetchAllJobsForAdmin",
+  async (params = {}, { rejectWithValue }) => {
+    try {
+      const { status, category, search, page = 1, limit = 50 } = params;
+
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      if (status && status !== "all") queryParams.append("status", status);
+      if (category) queryParams.append("category", category);
+      if (search) queryParams.append("search", search);
+      queryParams.append("page", page.toString());
+      queryParams.append("limit", limit.toString());
+
+      const response = await api.get(`/api/jobs/admin/all?${queryParams.toString()}`);
+      return response.data.data;
+    } catch (error) {
+      console.error("Error fetching admin jobs:", error);
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch jobs for admin");
+    }
+  }
+);
+
+export const fetchJobCountsByCategory = createAsyncThunk(
+  "jobs/fetchJobCountsByCategory",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get("/api/jobs/categories/counts");
+      return response.data.data;
+    } catch (error) {
+      console.error("Error fetching job counts by category:", error);
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch job counts by category");
+    }
+  }
+);
+
 const jobsSlice = createSlice({
   name: "jobs",
   initialState,
@@ -235,7 +273,7 @@ const jobsSlice = createSlice({
         filtered = filtered.filter((job) => {
           const [min, max] = filters.budget.split("-").map(Number);
           const jobBudget = job.budget.type === "fixed" ? job.budget.max : job.budget.max * 40; // Assuming 40 hours per week for hourly jobs
-          
+
           if (filters.budget === "10000+") {
             return jobBudget >= 10000;
           }
@@ -294,7 +332,7 @@ const jobsSlice = createSlice({
         state.jobs = action.payload.jobs || [];
         state.filteredJobs = action.payload.jobs || [];
         // Extract unique categories from jobs
-        state.categories = [...new Set(action.payload.jobs.map(job => job.category))].filter(Boolean);
+        state.categories = [...new Set(action.payload.jobs.map((job) => job.category))].filter(Boolean);
       })
       .addCase(fetchJobs.rejected, (state, action) => {
         state.isLoading = false;
@@ -515,6 +553,34 @@ const jobsSlice = createSlice({
         }
       })
       .addCase(publishDraftJob.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      })
+      // Fetch All Jobs for Admin
+      .addCase(fetchAllJobsForAdmin.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchAllJobsForAdmin.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.adminJobs = action.payload.jobs || [];
+        // Extract unique categories from admin jobs
+        state.categories = action.payload.categories || [];
+      })
+      .addCase(fetchAllJobsForAdmin.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || "Failed to fetch jobs for admin";
+      })
+      // Fetch Job Counts by Category
+      .addCase(fetchJobCountsByCategory.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchJobCountsByCategory.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.jobCountsByCategory = action.payload || [];
+      })
+      .addCase(fetchJobCountsByCategory.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
       });

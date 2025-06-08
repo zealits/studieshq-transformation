@@ -813,6 +813,124 @@ exports.publishJob = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Get all jobs for admin dashboard (all statuses)
+ * @route   GET /api/jobs/admin/all
+ * @access  Private (Admin only)
+ */
+exports.getAllJobsForAdmin = async (req, res) => {
+  try {
+    const { status, category, search, page = 1, limit = 50 } = req.query;
+
+    // Build the filter object
+    const filter = {};
+
+    // Add status filter if provided
+    if (status && status !== "all") {
+      filter.status = status;
+    }
+
+    // Add category filter if provided
+    if (category) {
+      filter.category = category;
+    }
+
+    // Add search functionality
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+        { skills: { $in: [new RegExp(search, "i")] } },
+      ];
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Get all jobs with filters, sorting, and pagination
+    const jobs = await Job.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("client", "name email avatar")
+      .select("-__v")
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    // Get proposal counts for each job
+    const jobsWithProposalCounts = await Promise.all(
+      jobs.map(async (job) => {
+        const proposalCount = await Proposal.countDocuments({ job: job._id });
+        const jobObj = job.toObject();
+        return {
+          ...jobObj,
+          applicationCount: proposalCount,
+        };
+      })
+    );
+
+    // Get total count for pagination
+    const totalJobs = await Job.countDocuments(filter);
+
+    // Get unique categories for filter dropdown
+    const categories = await Job.distinct("category");
+
+    res.status(200).json({
+      success: true,
+      data: {
+        jobs: jobsWithProposalCounts,
+        categories,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalJobs / parseInt(limit)),
+          totalJobs,
+          hasNext: skip + jobs.length < totalJobs,
+          hasPrev: parseInt(page) > 1,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error in getAllJobsForAdmin:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching jobs for admin",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Get job counts by category for home page
+ * @route   GET /api/jobs/categories/counts
+ * @access  Public
+ */
+exports.getJobCountsByCategory = async (req, res) => {
+  try {
+    // Get job counts by category for open jobs only
+    const categoryCounts = await Job.aggregate([
+      { $match: { status: "open" } },
+      { $group: { _id: "$category", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    // Format the response
+    const formattedCounts = categoryCounts.map((item) => ({
+      category: item._id,
+      count: item.count,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: formattedCounts,
+    });
+  } catch (error) {
+    console.error("Error in getJobCountsByCategory:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching job counts by category",
+      error: error.message,
+    });
+  }
+};
+
 const getAllJobs = async (req, res) => {
   try {
     const { query, category, budget, jobType, experience, sortBy = "newest" } = req.query;

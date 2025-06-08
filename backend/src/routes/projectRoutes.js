@@ -32,6 +32,11 @@ router.post(
 // @access  Private
 router.get("/", auth, projectController.getProjects);
 
+// @route   GET /api/projects/admin/all
+// @desc    Get all projects for admin dashboard (all statuses)
+// @access  Private (Admin only)
+router.get("/admin/all", auth, checkRole(["admin"]), projectController.getAllProjectsForAdmin);
+
 // @route   GET /api/projects/:id
 // @desc    Get project by ID
 // @access  Private
