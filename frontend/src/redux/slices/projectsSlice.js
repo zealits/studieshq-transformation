@@ -24,7 +24,7 @@ export const createMilestone = createAsyncThunk(
     try {
       console.log("milestone", milestone);
       const response = await api.post(`/api/projects/${projectId}/milestones`, milestone);
-      return response.data;
+      return { ...response.data, projectId }; // Include projectId in the response
     } catch (error) {
       return rejectWithValue(error.response.data);
     }
@@ -37,7 +37,7 @@ export const updateMilestone = createAsyncThunk(
   async ({ projectId, milestoneId, milestone }, { rejectWithValue }) => {
     try {
       const response = await api.put(`/api/projects/${projectId}/milestones/${milestoneId}`, milestone);
-      return response.data;
+      return { ...response.data, projectId }; // Include projectId in the response
     } catch (error) {
       return rejectWithValue(error.response.data);
     }
@@ -50,7 +50,7 @@ export const deleteMilestone = createAsyncThunk(
   async ({ projectId, milestoneId }, { rejectWithValue }) => {
     try {
       const response = await api.delete(`/api/projects/${projectId}/milestones/${milestoneId}`);
-      return response.data;
+      return { ...response.data, projectId, milestoneId }; // Include projectId and milestoneId in the response
     } catch (error) {
       return rejectWithValue(error.response.data);
     }
@@ -186,7 +186,7 @@ export const approveMilestone = createAsyncThunk(
         approvalStatus,
         approvalComment,
       });
-      return response.data;
+      return { ...response.data, projectId }; // Include projectId in the response
     } catch (error) {
       return rejectWithValue(error.response.data);
     }
@@ -251,8 +251,12 @@ const projectsSlice = createSlice({
       })
       .addCase(createMilestone.fulfilled, (state, action) => {
         state.loading = false;
-        const project = state.projects.find((p) => p._id === action.payload.data.milestone.project);
+        const project = state.projects.find((p) => p._id === action.payload.projectId);
         if (project) {
+          // Initialize milestones array if it doesn't exist
+          if (!project.milestones) {
+            project.milestones = [];
+          }
           project.milestones.push(action.payload.data.milestone);
         }
       })
@@ -267,8 +271,8 @@ const projectsSlice = createSlice({
       })
       .addCase(updateMilestone.fulfilled, (state, action) => {
         state.loading = false;
-        const project = state.projects.find((p) => p._id === action.payload.data.milestone.project);
-        if (project) {
+        const project = state.projects.find((p) => p._id === action.payload.projectId);
+        if (project && project.milestones) {
           const index = project.milestones.findIndex((m) => m._id === action.payload.data.milestone._id);
           if (index !== -1) {
             project.milestones[index] = action.payload.data.milestone;
@@ -286,9 +290,9 @@ const projectsSlice = createSlice({
       })
       .addCase(deleteMilestone.fulfilled, (state, action) => {
         state.loading = false;
-        const project = state.projects.find((p) => p._id === action.payload.data.project);
-        if (project) {
-          project.milestones = project.milestones.filter((m) => m._id !== action.payload.data.milestoneId);
+        const project = state.projects.find((p) => p._id === action.payload.projectId);
+        if (project && project.milestones) {
+          project.milestones = project.milestones.filter((m) => m._id !== action.payload.milestoneId);
         }
       })
       .addCase(deleteMilestone.rejected, (state, action) => {
@@ -302,8 +306,8 @@ const projectsSlice = createSlice({
       })
       .addCase(approveMilestone.fulfilled, (state, action) => {
         state.loading = false;
-        const project = state.projects.find((p) => p._id === action.payload.data.milestone.project);
-        if (project) {
+        const project = state.projects.find((p) => p._id === action.payload.projectId);
+        if (project && project.milestones) {
           const index = project.milestones.findIndex((m) => m._id === action.payload.data.milestone._id);
           if (index !== -1) {
             project.milestones[index] = action.payload.data.milestone;

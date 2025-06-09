@@ -186,6 +186,7 @@ const ProjectsPage = () => {
       }
     } catch (error) {
       console.error("Error creating milestone:", error);
+      alert(error.message || "Failed to create milestone. Please try again.");
     }
   };
 
@@ -233,6 +234,7 @@ const ProjectsPage = () => {
       }
     } catch (error) {
       console.error("Error updating milestone:", error);
+      alert(error.message || "Failed to update milestone. Please try again.");
     }
   };
 
@@ -254,6 +256,7 @@ const ProjectsPage = () => {
         }
       } catch (error) {
         console.error("Error deleting milestone:", error);
+        alert(error.message || "Failed to delete milestone. Please try again.");
       }
     }
   };
@@ -402,167 +405,179 @@ const ProjectsPage = () => {
               </div>
 
               {/* Milestones Section */}
-              {project.milestones && project.milestones.length > 0 && (
-                <div className="mt-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-lg font-medium text-gray-900">Milestones</h4>
-                    <div className="flex items-center space-x-4">
+              <div className="mt-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-lg font-medium text-gray-900">Milestones</h4>
+                  <div className="flex items-center space-x-4">
+                    {project.milestones && project.milestones.length > 0 && (
                       <span className="text-sm text-gray-500">
                         {project.milestones.filter((m) => m.status === "completed").length} of{" "}
                         {project.milestones.length} completed
                       </span>
-                      {user.role === "client" && (
-                        <button
-                          onClick={() => {
-                            setSelectedProject(project);
-                            setShowMilestoneModal(true);
-                          }}
-                          className="px-3 py-1 bg-primary text-white text-sm rounded hover:bg-primary-dark"
-                        >
-                          Add Milestone
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    {project.milestones.map((milestone) => (
-                      <div key={milestone._id} className="border rounded-lg p-4">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-medium">{milestone.title}</h4>
-                              <div className="flex items-center space-x-3">
-                                <span
-                                  className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                                    milestone.status
-                                  )}`}
-                                >
-                                  {formatStatus(milestone.status)}
-                                </span>
-                                {getMilestoneActions(project, milestone)}
-                              </div>
-                            </div>
-                            <p className="text-sm text-gray-600">{milestone.description}</p>
-
-                            {/* Show work submission details for review */}
-                            {milestone.status === "submitted_for_review" && milestone.submissionDetails && (
-                              <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded">
-                                <h5 className="font-medium text-purple-800 mb-1">Work Submitted for Review</h5>
-                                <p className="text-sm text-purple-700">
-                                  {milestone.submissionDetails.length > 100
-                                    ? `${milestone.submissionDetails.substring(0, 100)}...`
-                                    : milestone.submissionDetails}
-                                </p>
-                                <p className="text-xs text-purple-600 mt-1">
-                                  Submitted: {format(new Date(milestone.submissionDate), "MMM d, yyyy 'at' h:mm a")}
-                                </p>
-                              </div>
-                            )}
-
-                            {/* Show revision feedback */}
-                            {milestone.status === "revision_requested" && milestone.feedback && (
-                              <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded">
-                                <h5 className="font-medium text-orange-800 mb-1">Revision Requested</h5>
-                                <p className="text-sm text-orange-700">{milestone.feedback}</p>
-                                {milestone.revisionCount && (
-                                  <p className="text-xs text-orange-600 mt-1">Revision #{milestone.revisionCount}</p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="mt-2 grid grid-cols-3 gap-4">
-                          <div>
-                            <p className="text-sm text-gray-500">Due Date</p>
-                            <p className="font-medium">{format(new Date(milestone.dueDate), "MMM d, yyyy")}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Percentage</p>
-                            <p className="font-medium">{milestone.percentage}%</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Amount</p>
-                            <p className="font-medium">${((project.budget * milestone.percentage) / 100).toFixed(2)}</p>
-                          </div>
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div className="mt-3">
-                          <div className="flex justify-between text-xs mb-1">
-                            <span>Progress</span>
-                            <span>{getProgressPercentage(milestone.status)}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(
-                                milestone.status
-                              )}`}
-                              style={{ width: `${getProgressPercentage(milestone.status)}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Milestone metadata */}
-                        {(milestone.workStartedDate || milestone.submissionDate || milestone.completedAt) && (
-                          <div className="mt-3 grid grid-cols-3 gap-4 text-xs text-gray-500">
-                            {milestone.workStartedDate && (
-                              <div>
-                                <span>Started: </span>
-                                <span>{format(new Date(milestone.workStartedDate), "MMM d")}</span>
-                              </div>
-                            )}
-                            {milestone.submissionDate && (
-                              <div>
-                                <span>Submitted: </span>
-                                <span>{format(new Date(milestone.submissionDate), "MMM d")}</span>
-                              </div>
-                            )}
-                            {milestone.completedAt && (
-                              <div>
-                                <span>Completed: </span>
-                                <span>{format(new Date(milestone.completedAt), "MMM d")}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Milestone Summary */}
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-500">Total Milestones:</span>
-                        <div className="font-medium">{project.milestones.length}</div>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Completed:</span>
-                        <div className="font-medium text-green-600">
-                          {project.milestones.filter((m) => m.status === "completed").length}
-                        </div>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Pending Review:</span>
-                        <div className="font-medium text-purple-600">
-                          {project.milestones.filter((m) => m.status === "submitted_for_review").length}
-                        </div>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Total Paid:</span>
-                        <div className="font-medium text-primary">
-                          $
-                          {project.milestones
-                            .filter((m) => m.status === "completed")
-                            .reduce((sum, m) => sum + (m.percentage / 100) * (project.budget || 0), 0)
-                            .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </div>
-                      </div>
-                    </div>
+                    )}
+                    {user.role === "client" && (
+                      <button
+                        onClick={() => {
+                          setSelectedProject(project);
+                          setShowMilestoneModal(true);
+                        }}
+                        className="px-3 py-1 bg-primary text-white text-sm rounded hover:bg-primary-dark"
+                      >
+                        Add Milestone
+                      </button>
+                    )}
                   </div>
                 </div>
-              )}
+
+                {project.milestones && project.milestones.length > 0 ? (
+                  <>
+                    <div className="space-y-4">
+                      {project.milestones.map((milestone) => (
+                        <div key={milestone._id} className="border rounded-lg p-4">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-medium">{milestone.title}</h4>
+                                <div className="flex items-center space-x-3">
+                                  <span
+                                    className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
+                                      milestone.status
+                                    )}`}
+                                  >
+                                    {formatStatus(milestone.status)}
+                                  </span>
+                                  {getMilestoneActions(project, milestone)}
+                                </div>
+                              </div>
+                              <p className="text-sm text-gray-600">{milestone.description}</p>
+
+                              {/* Show work submission details for review */}
+                              {milestone.status === "submitted_for_review" && milestone.submissionDetails && (
+                                <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded">
+                                  <h5 className="font-medium text-purple-800 mb-1">Work Submitted for Review</h5>
+                                  <p className="text-sm text-purple-700">
+                                    {milestone.submissionDetails.length > 100
+                                      ? `${milestone.submissionDetails.substring(0, 100)}...`
+                                      : milestone.submissionDetails}
+                                  </p>
+                                  <p className="text-xs text-purple-600 mt-1">
+                                    Submitted: {format(new Date(milestone.submissionDate), "MMM d, yyyy 'at' h:mm a")}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Show revision feedback */}
+                              {milestone.status === "revision_requested" && milestone.feedback && (
+                                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded">
+                                  <h5 className="font-medium text-orange-800 mb-1">Revision Requested</h5>
+                                  <p className="text-sm text-orange-700">{milestone.feedback}</p>
+                                  {milestone.revisionCount && (
+                                    <p className="text-xs text-orange-600 mt-1">Revision #{milestone.revisionCount}</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="mt-2 grid grid-cols-3 gap-4">
+                            <div>
+                              <p className="text-sm text-gray-500">Due Date</p>
+                              <p className="font-medium">{format(new Date(milestone.dueDate), "MMM d, yyyy")}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">Percentage</p>
+                              <p className="font-medium">{milestone.percentage}%</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">Amount</p>
+                              <p className="font-medium">
+                                ${((project.budget * milestone.percentage) / 100).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div className="mt-3">
+                            <div className="flex justify-between text-xs mb-1">
+                              <span>Progress</span>
+                              <span>{getProgressPercentage(milestone.status)}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(
+                                  milestone.status
+                                )}`}
+                                style={{ width: `${getProgressPercentage(milestone.status)}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Milestone metadata */}
+                          {(milestone.workStartedDate || milestone.submissionDate || milestone.completedAt) && (
+                            <div className="mt-3 grid grid-cols-3 gap-4 text-xs text-gray-500">
+                              {milestone.workStartedDate && (
+                                <div>
+                                  <span>Started: </span>
+                                  <span>{format(new Date(milestone.workStartedDate), "MMM d")}</span>
+                                </div>
+                              )}
+                              {milestone.submissionDate && (
+                                <div>
+                                  <span>Submitted: </span>
+                                  <span>{format(new Date(milestone.submissionDate), "MMM d")}</span>
+                                </div>
+                              )}
+                              {milestone.completedAt && (
+                                <div>
+                                  <span>Completed: </span>
+                                  <span>{format(new Date(milestone.completedAt), "MMM d")}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Milestone Summary */}
+                    <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Total Milestones:</span>
+                          <div className="font-medium">{project.milestones.length}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Completed:</span>
+                          <div className="font-medium text-green-600">
+                            {project.milestones.filter((m) => m.status === "completed").length}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Pending Review:</span>
+                          <div className="font-medium text-purple-600">
+                            {project.milestones.filter((m) => m.status === "submitted_for_review").length}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Total Paid:</span>
+                          <div className="font-medium text-primary">
+                            $
+                            {project.milestones
+                              .filter((m) => m.status === "completed")
+                              .reduce((sum, m) => sum + (m.percentage / 100) * (project.budget || 0), 0)
+                              .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No milestones created yet.</p>
+                    <p className="text-sm mt-1">Click "Add Milestone" to create your first milestone.</p>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
