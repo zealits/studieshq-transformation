@@ -24,7 +24,7 @@ const MilestoneSchema = new Schema({
   },
   status: {
     type: String,
-    enum: ["pending", "in_progress", "completed"],
+    enum: ["pending", "in_progress", "submitted_for_review", "completed", "revision_requested"],
     default: "pending",
   },
   approvalStatus: {
@@ -71,6 +71,32 @@ const MilestoneSchema = new Schema({
     default: Date.now,
   },
   completedAt: Date,
+  revisionCount: {
+    type: Number,
+    default: 0,
+  },
+  estimatedCompletionDate: {
+    type: Date,
+  },
+  actualCompletionDate: {
+    type: Date,
+  },
+  workStartedDate: {
+    type: Date,
+  },
+  revisionHistory: [
+    {
+      date: {
+        type: Date,
+        default: Date.now,
+      },
+      feedback: String,
+      requestedBy: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    },
+  ],
 });
 
 // Attachment Schema
@@ -210,7 +236,7 @@ MilestoneSchema.pre("save", function (next) {
 });
 
 // Create models
-const Attachment = mongoose.model("Attachment", AttachmentSchema);
 const Project = mongoose.model("Project", ProjectSchema);
+const Attachment = mongoose.model("Attachment", AttachmentSchema);
 
 module.exports = { Project, Attachment };

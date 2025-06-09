@@ -57,6 +57,126 @@ export const deleteMilestone = createAsyncThunk(
   }
 );
 
+// Start milestone work (freelancer)
+export const startMilestone = createAsyncThunk(
+  "projects/startMilestone",
+  async ({ projectId, milestoneId, estimatedCompletionDate }, { rejectWithValue }) => {
+    try {
+      const response = await api.put(`/api/projects/${projectId}/milestones/${milestoneId}/start`, {
+        estimatedCompletionDate,
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+
+// Submit milestone work (freelancer)
+export const submitMilestoneWork = createAsyncThunk(
+  "projects/submitMilestoneWork",
+  async ({ projectId, milestoneId, submissionDetails, attachmentUrls }, { rejectWithValue }) => {
+    try {
+      const response = await api.put(`/api/projects/${projectId}/milestones/${milestoneId}/submit`, {
+        submissionDetails,
+        attachmentUrls,
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+
+// Review milestone work (client)
+export const reviewMilestoneWork = createAsyncThunk(
+  "projects/reviewMilestoneWork",
+  async ({ projectId, milestoneId, action, feedback }, { rejectWithValue }) => {
+    try {
+      const response = await api.put(`/api/projects/${projectId}/milestones/${milestoneId}/review`, {
+        action,
+        feedback,
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+
+// Resubmit milestone work (freelancer)
+export const resubmitMilestoneWork = createAsyncThunk(
+  "projects/resubmitMilestoneWork",
+  async ({ projectId, milestoneId, submissionDetails, attachmentUrls }, { rejectWithValue }) => {
+    try {
+      const response = await api.put(`/api/projects/${projectId}/milestones/${milestoneId}/resubmit`, {
+        submissionDetails,
+        attachmentUrls,
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+
+// Get milestone attachments
+export const getMilestoneAttachments = createAsyncThunk(
+  "projects/getMilestoneAttachments",
+  async ({ projectId, milestoneId }, { rejectWithValue }) => {
+    try {
+      const response = await api.get(`/api/projects/${projectId}/milestones/${milestoneId}/attachments`);
+      return response.data;
+    } catch (error) {
+      console.error("API Error in getMilestoneAttachments:", error);
+
+      // Handle different error scenarios
+      if (error.response) {
+        // Server responded with error status
+        return rejectWithValue({
+          message: error.response.data?.message || "Server error",
+          status: error.response.status,
+          data: error.response.data,
+        });
+      } else if (error.request) {
+        // Request was made but no response received
+        return rejectWithValue({
+          message: "No response from server",
+          status: 0,
+        });
+      } else {
+        // Something else happened
+        return rejectWithValue({
+          message: error.message || "Unknown error",
+          status: 0,
+        });
+      }
+    }
+  }
+);
+
+// Upload milestone deliverables
+export const uploadMilestoneDeliverables = createAsyncThunk(
+  "projects/uploadMilestoneDeliverables",
+  async (files, { rejectWithValue }) => {
+    try {
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append("files", file);
+      });
+
+      const response = await api.post("/api/upload/milestone-deliverable", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+
 // Approve milestone
 export const approveMilestone = createAsyncThunk(
   "projects/approveMilestone",
@@ -193,6 +313,105 @@ const projectsSlice = createSlice({
       .addCase(approveMilestone.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || "Failed to approve milestone";
+      })
+      // Start milestone
+      .addCase(startMilestone.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(startMilestone.fulfilled, (state, action) => {
+        state.loading = false;
+        // Update milestone in state
+        state.projects.forEach((project) => {
+          const milestone = project.milestones.find((m) => m._id === action.payload.data.milestone._id);
+          if (milestone) {
+            Object.assign(milestone, action.payload.data.milestone);
+          }
+        });
+      })
+      .addCase(startMilestone.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Failed to start milestone";
+      })
+      // Submit milestone work
+      .addCase(submitMilestoneWork.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(submitMilestoneWork.fulfilled, (state, action) => {
+        state.loading = false;
+        state.projects.forEach((project) => {
+          const milestone = project.milestones.find((m) => m._id === action.payload.data.milestone._id);
+          if (milestone) {
+            Object.assign(milestone, action.payload.data.milestone);
+          }
+        });
+      })
+      .addCase(submitMilestoneWork.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Failed to submit milestone work";
+      })
+      // Review milestone work
+      .addCase(reviewMilestoneWork.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(reviewMilestoneWork.fulfilled, (state, action) => {
+        state.loading = false;
+        state.projects.forEach((project) => {
+          const milestone = project.milestones.find((m) => m._id === action.payload.data.milestone._id);
+          if (milestone) {
+            Object.assign(milestone, action.payload.data.milestone);
+          }
+        });
+      })
+      .addCase(reviewMilestoneWork.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Failed to review milestone work";
+      })
+      // Resubmit milestone work
+      .addCase(resubmitMilestoneWork.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(resubmitMilestoneWork.fulfilled, (state, action) => {
+        state.loading = false;
+        state.projects.forEach((project) => {
+          const milestone = project.milestones.find((m) => m._id === action.payload.data.milestone._id);
+          if (milestone) {
+            Object.assign(milestone, action.payload.data.milestone);
+          }
+        });
+      })
+      .addCase(resubmitMilestoneWork.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Failed to resubmit milestone work";
+      })
+      // Upload milestone deliverables
+      .addCase(uploadMilestoneDeliverables.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(uploadMilestoneDeliverables.fulfilled, (state, action) => {
+        state.loading = false;
+        // File upload successful - don't need to update project state here
+      })
+      .addCase(uploadMilestoneDeliverables.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Failed to upload deliverables";
+      })
+      // Get milestone attachments
+      .addCase(getMilestoneAttachments.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getMilestoneAttachments.fulfilled, (state, action) => {
+        state.loading = false;
+        // Attachments loaded - handled in component
+      })
+      .addCase(getMilestoneAttachments.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Failed to load attachments";
       })
       // Fetch All Projects for Admin
       .addCase(fetchAllProjectsForAdmin.pending, (state) => {

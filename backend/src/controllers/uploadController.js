@@ -1,14 +1,26 @@
 const cloudinary = require("cloudinary").v2;
 const { cloudinaryConfig } = require("../config/config");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 const User = require("../models/User");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const multer = require("multer");
 
 // Configure Cloudinary
 cloudinary.config(cloudinaryConfig);
 
-// Configure storage
-const storage = new CloudinaryStorage({
+// Cloudinary storage for profile images
+const profileImageStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "profile_images",
+    allowed_formats: ["jpg", "jpeg", "png"],
+    resource_type: "image",
+  },
+});
+
+// Cloudinary storage for verification documents
+const verificationStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: "verification_documents",
@@ -17,9 +29,53 @@ const storage = new CloudinaryStorage({
   },
 });
 
-// Configure multer upload
+// LOCAL STORAGE for milestone deliverables only
+const ensureDirectoryExists = (dirPath) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+};
+
+// Create upload directory for milestone deliverables
+const uploadsDir = path.join(__dirname, "../uploads");
+const milestoneDeliverablesDir = path.join(uploadsDir, "milestone-deliverables");
+
+// Ensure milestone deliverables directory exists
+ensureDirectoryExists(uploadsDir);
+ensureDirectoryExists(milestoneDeliverablesDir);
+
+// Local storage for milestone deliverables
+const milestoneStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, milestoneDeliverablesDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const fileExtension = path.extname(file.originalname);
+    cb(null, `milestone-${req.user.id}-${uniqueSuffix}${fileExtension}`);
+  },
+});
+
+// Configure multer upload for profile images (Cloudinary)
 const upload = multer({
-  storage: storage,
+  storage: profileImageStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept only specific file types
+    const allowedTypes = ["image/jpeg", "image/png"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only JPEG, PNG files are allowed."), false);
+    }
+  },
+});
+
+// Configure multer upload for verification documents (Cloudinary)
+const verificationUpload = multer({
+  storage: verificationStorage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
@@ -34,8 +90,36 @@ const upload = multer({
   },
 });
 
+// Configure multer upload for milestone deliverables (Local Storage)
+const milestoneUpload = multer({
+  storage: milestoneStorage,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit for deliverables
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept deliverable file types
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/jpg",
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/zip",
+      "application/x-rar-compressed",
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Please upload valid deliverable files."), false);
+    }
+  },
+});
+
 /**
- * @desc    Upload profile image
+ * @desc    Upload profile image (Cloudinary)
  * @route   POST /api/upload/profile-image
  * @access  Private
  */
@@ -51,7 +135,7 @@ const uploadProfileImage = async (req, res) => {
       return res.status(400).json({ success: false, message: "No image file provided" });
     }
 
-    // Update user's avatar in database
+    // Update user's avatar in database with Cloudinary URL
     const user = await User.findByIdAndUpdate(req.user.id, { avatar: req.file.path }, { new: true }).select(
       "-password"
     );
@@ -74,7 +158,7 @@ const uploadProfileImage = async (req, res) => {
 };
 
 /**
- * @desc    Upload verification document
+ * @desc    Upload verification document (Cloudinary)
  * @route   POST /api/upload/verification-document
  * @access  Private
  */
@@ -105,8 +189,76 @@ const uploadVerificationDocument = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Upload milestone deliverable files (Local Storage)
+ * @route   POST /api/upload/milestone-deliverable
+ * @access  Private
+ */
+const uploadMilestoneDeliverable = async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No files uploaded",
+      });
+    }
+
+    // Return the uploaded files information with local URLs
+    const uploadedFiles = req.files.map((file) => ({
+      filename: file.filename,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      url: `/api/upload/files/milestone-deliverables/${file.filename}`,
+      uploadedAt: new Date(),
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        files: uploadedFiles,
+      },
+    });
+  } catch (error) {
+    console.error("Error uploading milestone deliverable:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error uploading files",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Serve milestone deliverable files (Local Storage only)
+ * @route   GET /api/upload/files/milestone-deliverables/:filename
+ * @access  Public (files are protected by being stored with unique names)
+ */
+const serveFile = async (req, res) => {
+  try {
+    const { filename } = req.params;
+
+    const filePath = path.join(milestoneDeliverablesDir, filename);
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: "File not found" });
+    }
+
+    // Serve the file
+    res.sendFile(filePath);
+  } catch (error) {
+    console.error("Error serving file:", error);
+    res.status(500).json({ success: false, message: "Error serving file" });
+  }
+};
+
 module.exports = {
   upload,
+  verificationUpload,
+  milestoneUpload,
   uploadProfileImage,
   uploadVerificationDocument,
+  uploadMilestoneDeliverable,
+  serveFile,
 };

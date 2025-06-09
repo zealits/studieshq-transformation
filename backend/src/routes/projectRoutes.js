@@ -124,4 +124,11 @@ router.put("/:projectId/milestones/:milestoneId", auth, projectController.update
 router.delete("/:projectId/milestones/:milestoneId", auth, projectController.deleteMilestone);
 router.put("/:projectId/milestones/:milestoneId/approve", auth, projectController.approveMilestone);
 
+// New milestone workflow routes
+router.put("/:id/milestones/:milestoneId/start", auth, projectController.startMilestone);
+router.put("/:id/milestones/:milestoneId/submit", auth, projectController.submitMilestoneWork);
+router.put("/:id/milestones/:milestoneId/review", auth, projectController.reviewMilestoneWork);
+router.put("/:id/milestones/:milestoneId/resubmit", auth, projectController.resubmitMilestoneWork);
+router.get("/:id/milestones/:milestoneId/attachments", auth, projectController.getMilestoneAttachments);
+
 module.exports = router;

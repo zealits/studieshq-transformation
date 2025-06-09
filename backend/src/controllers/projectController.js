@@ -163,10 +163,7 @@ exports.getAllProjectsForAdmin = async (req, res) => {
 
     // Add search functionality
     if (search) {
-      filter.$or = [
-        { title: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-      ];
+      filter.$or = [{ title: { $regex: search, $options: "i" } }, { description: { $regex: search, $options: "i" } }];
     }
 
     // Calculate pagination
@@ -576,6 +573,355 @@ exports.approveMilestone = async (req, res) => {
     });
   } catch (err) {
     console.error("Error in approveMilestone:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * @desc    Start working on a milestone (freelancer)
+ * @route   PUT /api/projects/:id/milestones/:milestoneId/start
+ * @access  Private (Freelancer only)
+ */
+exports.startMilestone = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    // Check if user is the freelancer for this project
+    if (project.freelancer.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not authorized to start this milestone" });
+    }
+
+    const milestone = project.milestones.id(req.params.milestoneId);
+    if (!milestone) {
+      return res.status(404).json({ success: false, message: "Milestone not found" });
+    }
+
+    // Check if milestone is in pending status
+    if (milestone.status !== "pending") {
+      return res.status(400).json({ success: false, message: "Milestone is already started or completed" });
+    }
+
+    const { estimatedCompletionDate } = req.body;
+
+    // Update milestone status
+    milestone.status = "in_progress";
+    milestone.workStartedDate = new Date();
+    if (estimatedCompletionDate) {
+      milestone.estimatedCompletionDate = estimatedCompletionDate;
+    }
+
+    await project.save();
+
+    res.json({
+      success: true,
+      data: { milestone },
+    });
+  } catch (err) {
+    console.error("Error in startMilestone:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * @desc    Submit work for a milestone (freelancer)
+ * @route   PUT /api/projects/:id/milestones/:milestoneId/submit
+ * @access  Private (Freelancer only)
+ */
+exports.submitMilestoneWork = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    // Check if user is the freelancer for this project
+    if (project.freelancer.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not authorized to submit work for this milestone" });
+    }
+
+    const milestone = project.milestones.id(req.params.milestoneId);
+    if (!milestone) {
+      return res.status(404).json({ success: false, message: "Milestone not found" });
+    }
+
+    // Check if milestone is in progress
+    if (milestone.status !== "in_progress") {
+      return res.status(400).json({ success: false, message: "Milestone must be in progress to submit work" });
+    }
+
+    const { submissionDetails, attachmentUrls } = req.body;
+
+    if (!submissionDetails || submissionDetails.trim() === "") {
+      return res.status(400).json({ success: false, message: "Submission details are required" });
+    }
+
+    // Create attachment records if files were uploaded
+    const attachmentIds = [];
+    if (attachmentUrls && attachmentUrls.length > 0) {
+      for (const fileData of attachmentUrls) {
+        const attachment = new Attachment({
+          filename: fileData.filename,
+          originalname: fileData.originalname,
+          mimetype: fileData.mimetype,
+          size: fileData.size,
+          url: fileData.url,
+          uploadedBy: req.user.id,
+        });
+        await attachment.save();
+        attachmentIds.push(attachment._id);
+      }
+    }
+
+    // Update milestone
+    milestone.status = "submitted_for_review";
+    milestone.submissionDetails = submissionDetails;
+    milestone.submissionDate = new Date();
+    milestone.attachments = attachmentIds;
+
+    await project.save();
+
+    // Populate the updated milestone with attachments
+    await project.populate({
+      path: "milestones.attachments",
+      model: "Attachment",
+    });
+
+    res.json({
+      success: true,
+      data: { milestone },
+    });
+  } catch (err) {
+    console.error("Error in submitMilestoneWork:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * @desc    Review and approve/reject submitted milestone work (client)
+ * @route   PUT /api/projects/:id/milestones/:milestoneId/review
+ * @access  Private (Client only)
+ */
+exports.reviewMilestoneWork = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    // Check if user is the client for this project
+    if (project.client.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not authorized to review this milestone" });
+    }
+
+    const milestone = project.milestones.id(req.params.milestoneId);
+    if (!milestone) {
+      return res.status(404).json({ success: false, message: "Milestone not found" });
+    }
+
+    // Check if milestone is submitted for review
+    if (milestone.status !== "submitted_for_review") {
+      return res.status(400).json({ success: false, message: "Milestone is not submitted for review" });
+    }
+
+    const { action, feedback } = req.body; // action: 'approve' or 'request_revision'
+
+    if (!action || !["approve", "request_revision"].includes(action)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid action. Must be 'approve' or 'request_revision'" });
+    }
+
+    if (action === "approve") {
+      // Approve the milestone
+      milestone.status = "completed";
+      milestone.approvalStatus = "approved";
+      milestone.approvedBy = req.user.id;
+      milestone.approvalDate = new Date();
+      milestone.actualCompletionDate = new Date();
+      milestone.completedAt = new Date();
+      if (feedback) {
+        milestone.feedback = feedback;
+      }
+    } else if (action === "request_revision") {
+      // Request revision
+      if (!feedback || feedback.trim() === "") {
+        return res.status(400).json({ success: false, message: "Feedback is required when requesting revision" });
+      }
+
+      milestone.status = "revision_requested";
+      milestone.revisionCount += 1;
+      milestone.feedback = feedback;
+
+      // Add to revision history
+      milestone.revisionHistory.push({
+        feedback: feedback,
+        requestedBy: req.user.id,
+      });
+    }
+
+    await project.save();
+
+    res.json({
+      success: true,
+      data: { milestone },
+    });
+  } catch (err) {
+    console.error("Error in reviewMilestoneWork:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * @desc    Resubmit work after revision request (freelancer)
+ * @route   PUT /api/projects/:id/milestones/:milestoneId/resubmit
+ * @access  Private (Freelancer only)
+ */
+exports.resubmitMilestoneWork = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    // Check if user is the freelancer for this project
+    if (project.freelancer.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not authorized to resubmit work for this milestone" });
+    }
+
+    const milestone = project.milestones.id(req.params.milestoneId);
+    if (!milestone) {
+      return res.status(404).json({ success: false, message: "Milestone not found" });
+    }
+
+    // Check if milestone needs revision
+    if (milestone.status !== "revision_requested") {
+      return res.status(400).json({ success: false, message: "Milestone is not requesting revision" });
+    }
+
+    const { submissionDetails, attachmentUrls } = req.body;
+
+    if (!submissionDetails || submissionDetails.trim() === "") {
+      return res.status(400).json({ success: false, message: "Submission details are required" });
+    }
+
+    // Handle new attachments if provided
+    const attachmentIds = [...milestone.attachments]; // Keep existing attachments
+    if (attachmentUrls && attachmentUrls.length > 0) {
+      for (const fileData of attachmentUrls) {
+        const attachment = new Attachment({
+          filename: fileData.filename,
+          originalname: fileData.originalname,
+          mimetype: fileData.mimetype,
+          size: fileData.size,
+          url: fileData.url,
+          uploadedBy: req.user.id,
+        });
+        await attachment.save();
+        attachmentIds.push(attachment._id);
+      }
+    }
+
+    // Update milestone
+    milestone.status = "submitted_for_review";
+    milestone.submissionDetails = submissionDetails;
+    milestone.submissionDate = new Date();
+    milestone.attachments = attachmentIds;
+
+    await project.save();
+
+    // Populate the updated milestone with attachments
+    await project.populate({
+      path: "milestones.attachments",
+      model: "Attachment",
+    });
+
+    res.json({
+      success: true,
+      data: { milestone },
+    });
+  } catch (err) {
+    console.error("Error in resubmitMilestoneWork:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * @desc    Get milestone attachments/deliverables
+ * @route   GET /api/projects/:id/milestones/:milestoneId/attachments
+ * @access  Private (Client and Freelancer of the project)
+ */
+exports.getMilestoneAttachments = async (req, res) => {
+  try {
+    console.log("getMilestoneAttachments called with:", {
+      projectId: req.params.id,
+      milestoneId: req.params.milestoneId,
+      userId: req.user.id,
+      userRole: req.user.role,
+    });
+
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      console.log("Project not found:", req.params.id);
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    // Check if user is authorized (client or freelancer of this project)
+    if (project.client.toString() !== req.user.id && project.freelancer.toString() !== req.user.id) {
+      console.log("Authorization failed:", {
+        projectClient: project.client.toString(),
+        projectFreelancer: project.freelancer.toString(),
+        currentUser: req.user.id,
+      });
+      return res.status(403).json({ success: false, message: "Not authorized to view milestone attachments" });
+    }
+
+    const milestone = project.milestones.id(req.params.milestoneId);
+    if (!milestone) {
+      console.log("Milestone not found:", req.params.milestoneId);
+      return res.status(404).json({ success: false, message: "Milestone not found" });
+    }
+
+    console.log("Milestone found:", {
+      milestoneId: milestone._id,
+      status: milestone.status,
+      attachmentCount: milestone.attachments?.length || 0,
+    });
+
+    // Populate attachments
+    await project.populate({
+      path: "milestones.attachments",
+      model: "Attachment",
+      populate: {
+        path: "uploadedBy",
+        select: "name avatar",
+      },
+    });
+
+    const populatedMilestone = project.milestones.id(req.params.milestoneId);
+
+    console.log("Populated attachments:", {
+      attachmentCount: populatedMilestone.attachments?.length || 0,
+      attachments: populatedMilestone.attachments?.map((att) => ({
+        id: att._id,
+        filename: att.filename,
+        originalname: att.originalname,
+      })),
+    });
+
+    res.json({
+      success: true,
+      data: {
+        attachments: populatedMilestone.attachments,
+        milestoneTitle: populatedMilestone.title,
+        submissionDetails: populatedMilestone.submissionDetails,
+      },
+    });
+  } catch (err) {
+    console.error("Error in getMilestoneAttachments:", err.message);
+    console.error("Full error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

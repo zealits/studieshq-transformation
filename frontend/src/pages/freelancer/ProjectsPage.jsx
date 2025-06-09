@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchProposals, withdrawProposal } from "../../redux/actions/proposalActions";
-import { fetchProjects } from "../../redux/slices/projectsSlice";
+import { fetchProjects, startMilestone } from "../../redux/slices/projectsSlice";
 import { formatDate } from "../../utils/dateUtils";
 import ChatButton from "../../components/common/ChatButton";
+import MilestoneWorkSubmission from "../../components/milestone/MilestoneWorkSubmission";
+import { toast } from "react-toastify";
 
 const ProjectsPage = () => {
   const [activeTab, setActiveTab] = useState("active");
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [showSubmissionModal, setShowSubmissionModal] = useState(false);
+  const [selectedMilestone, setSelectedMilestone] = useState(null);
+  const [isResubmission, setIsResubmission] = useState(false);
+
   const dispatch = useDispatch();
   const { proposals, loading: proposalsLoading, error: proposalsError } = useSelector((state) => state.proposals);
   const { projects, loading: projectsLoading, error: projectsError } = useSelector((state) => state.projects);
+  const { user } = useSelector((state) => state.auth);
 
   console.log(proposals);
   console.log(projects);
@@ -48,13 +56,26 @@ const ProjectsPage = () => {
         return "bg-blue-100 text-blue-800";
       case "completed":
         return "bg-green-100 text-green-800";
+      case "submitted_for_review":
+        return "bg-purple-100 text-purple-800";
+      case "revision_requested":
+        return "bg-orange-100 text-orange-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
   };
 
   const formatStatus = (status) => {
-    return status?.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase()) || "Unknown";
+    switch (status) {
+      case "submitted_for_review":
+        return "Under Review";
+      case "revision_requested":
+        return "Revision Requested";
+      case "in_progress":
+        return "In Progress";
+      default:
+        return status?.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase()) || "Unknown";
+    }
   };
 
   const getProjectStatusColor = (status) => {
@@ -65,8 +86,112 @@ const ProjectsPage = () => {
         return "bg-green-100 text-green-800";
       case "pending":
         return "bg-yellow-100 text-yellow-800";
+      case "submitted_for_review":
+        return "bg-purple-100 text-purple-800";
+      case "revision_requested":
+        return "bg-orange-100 text-orange-800";
       default:
         return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const handleStartMilestone = async (projectId, milestone) => {
+    try {
+      await dispatch(
+        startMilestone({
+          projectId,
+          milestoneId: milestone._id,
+          estimatedCompletionDate: milestone.dueDate, // Use due date as estimate for now
+        })
+      ).unwrap();
+
+      toast.success("Milestone started successfully!");
+      // Refresh projects
+      dispatch(fetchProjects({ status: activeTab === "active" ? "in_progress" : "completed" }));
+    } catch (error) {
+      toast.error(error.message || "Failed to start milestone");
+    }
+  };
+
+  const handleSubmitWork = (project, milestone, isResubmit = false) => {
+    setSelectedProject(project);
+    setSelectedMilestone(milestone);
+    setIsResubmission(isResubmit);
+    setShowSubmissionModal(true);
+  };
+
+  const handleSubmissionSuccess = () => {
+    // Refresh projects after successful submission
+    dispatch(fetchProjects({ status: activeTab === "active" ? "in_progress" : "completed" }));
+  };
+
+  const getMilestoneActions = (project, milestone) => {
+    switch (milestone.status) {
+      case "pending":
+        return (
+          <button
+            onClick={() => handleStartMilestone(project._id, milestone)}
+            className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          >
+            Start Work
+          </button>
+        );
+      case "in_progress":
+        return (
+          <button
+            onClick={() => handleSubmitWork(project, milestone)}
+            className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+          >
+            Submit Work
+          </button>
+        );
+      case "submitted_for_review":
+        return <span className="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded">Awaiting Review</span>;
+      case "revision_requested":
+        return (
+          <button
+            onClick={() => handleSubmitWork(project, milestone, true)}
+            className="px-3 py-1 bg-orange-600 text-white text-sm rounded hover:bg-orange-700"
+          >
+            Resubmit Work
+          </button>
+        );
+      case "completed":
+        return <span className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded">Completed</span>;
+      default:
+        return null;
+    }
+  };
+
+  const getProgressPercentage = (status) => {
+    switch (status) {
+      case "pending":
+        return 0;
+      case "in_progress":
+        return 33;
+      case "submitted_for_review":
+        return 66;
+      case "revision_requested":
+        return 50;
+      case "completed":
+        return 100;
+      default:
+        return 0;
+    }
+  };
+
+  const getProgressColor = (status) => {
+    switch (status) {
+      case "completed":
+        return "bg-green-500";
+      case "submitted_for_review":
+        return "bg-purple-500";
+      case "revision_requested":
+        return "bg-orange-500";
+      case "in_progress":
+        return "bg-blue-500";
+      default:
+        return "bg-gray-300";
     }
   };
 
@@ -204,7 +329,19 @@ const ProjectsPage = () => {
                             <div key={milestone._id} className="border rounded-lg p-4">
                               <div className="flex justify-between items-start">
                                 <div className="flex-1">
-                                  <h4 className="font-medium">{milestone.title}</h4>
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="font-medium">{milestone.title}</h4>
+                                    <div className="flex items-center space-x-3">
+                                      <span
+                                        className={`px-2 py-1 text-xs font-medium rounded ${getStatusColor(
+                                          milestone.status
+                                        )}`}
+                                      >
+                                        {formatStatus(milestone.status)}
+                                      </span>
+                                      {getMilestoneActions(project, milestone)}
+                                    </div>
+                                  </div>
                                   <p className="text-sm text-gray-600 mt-1">{milestone.description}</p>
                                   <div className="flex items-center text-sm text-gray-500 mt-2">
                                     <span>Due: {formatDate(milestone.dueDate)}</span>
@@ -253,23 +390,14 @@ const ProjectsPage = () => {
                                   </div>
                                 </div>
                                 <div className="ml-4 text-right">
-                                  <span
-                                    className={`px-2 py-1 text-xs font-medium rounded ${getStatusColor(
-                                      milestone.status
-                                    )}`}
-                                  >
-                                    {formatStatus(milestone.status)}
-                                  </span>
-                                  {milestone.approvalStatus && milestone.approvalStatus !== "pending" && (
+                                  {milestone.status === "revision_requested" && milestone.feedback && (
                                     <div className="mt-1">
                                       <span
-                                        className={`px-2 py-1 text-xs font-medium rounded ${
-                                          milestone.approvalStatus === "approved"
-                                            ? "bg-green-100 text-green-800"
-                                            : "bg-red-100 text-red-800"
-                                        }`}
+                                        className={`px-2 py-1 text-xs font-medium rounded ${getStatusColor(
+                                          milestone.status
+                                        )}`}
                                       >
-                                        {milestone.approvalStatus}
+                                        <strong>Revision needed:</strong> {milestone.feedback}
                                       </span>
                                     </div>
                                   )}
@@ -519,6 +647,22 @@ const ProjectsPage = () => {
             ))
           )}
         </div>
+      )}
+
+      {/* Work Submission Modal */}
+      {showSubmissionModal && selectedMilestone && selectedProject && (
+        <MilestoneWorkSubmission
+          milestone={selectedMilestone}
+          projectId={selectedProject._id}
+          isResubmission={isResubmission}
+          onClose={() => {
+            setShowSubmissionModal(false);
+            setSelectedMilestone(null);
+            setSelectedProject(null);
+            setIsResubmission(false);
+          }}
+          onSuccess={handleSubmissionSuccess}
+        />
       )}
     </div>
   );

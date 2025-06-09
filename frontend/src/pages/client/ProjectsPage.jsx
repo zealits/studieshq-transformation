@@ -9,12 +9,15 @@ import {
   approveMilestone,
   deleteMilestone,
 } from "../../redux/slices/projectsSlice";
+import MilestoneReviewModal from "../../components/milestone/MilestoneReviewModal";
 
 const ProjectsPage = () => {
   const [activeTab, setActiveTab] = useState("active");
   const [selectedProject, setSelectedProject] = useState(null);
   const [showMilestoneModal, setShowMilestoneModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState(null);
+  const [reviewingMilestone, setReviewingMilestone] = useState(null);
   const [milestoneForm, setMilestoneForm] = useState({
     title: "",
     description: "",
@@ -29,6 +32,117 @@ const ProjectsPage = () => {
   useEffect(() => {
     dispatch(fetchProjects({ status: activeTab === "active" ? "in_progress" : "completed" }));
   }, [dispatch, activeTab]);
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "in_progress":
+        return "bg-blue-100 text-blue-800";
+      case "submitted_for_review":
+        return "bg-purple-100 text-purple-800";
+      case "revision_requested":
+        return "bg-orange-100 text-orange-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const formatStatus = (status) => {
+    switch (status) {
+      case "submitted_for_review":
+        return "Under Review";
+      case "revision_requested":
+        return "Revision Requested";
+      case "in_progress":
+        return "In Progress";
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+  };
+
+  const handleReviewWork = (project, milestone) => {
+    console.log("Opening review modal for:", { projectId: project._id, milestoneId: milestone._id });
+    setSelectedProject(project);
+    setReviewingMilestone(milestone);
+    setShowReviewModal(true);
+  };
+
+  const handleReviewSuccess = () => {
+    console.log("Review completed successfully");
+    // Close modal first to prevent re-renders
+    setShowReviewModal(false);
+    setReviewingMilestone(null);
+    setSelectedProject(null);
+
+    // Then refresh projects after a small delay
+    setTimeout(() => {
+      dispatch(fetchProjects({ status: activeTab === "active" ? "in_progress" : "completed" }));
+    }, 100);
+  };
+
+  const getMilestoneActions = (project, milestone) => {
+    if (milestone.status === "submitted_for_review") {
+      return (
+        <button
+          onClick={() => handleReviewWork(project, milestone)}
+          className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700"
+        >
+          Review Work
+        </button>
+      );
+    }
+
+    if (user.role === "client" && ["pending", "in_progress", "revision_requested"].includes(milestone.status)) {
+      return (
+        <div className="flex space-x-2">
+          <button
+            onClick={() => handleEditMilestone(milestone, project)}
+            className="text-sm text-primary hover:underline"
+          >
+            Edit
+          </button>
+          <button onClick={() => handleDeleteMilestone(milestone._id)} className="text-sm text-red-600 hover:underline">
+            Delete
+          </button>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const getProgressPercentage = (status) => {
+    switch (status) {
+      case "pending":
+        return 0;
+      case "in_progress":
+        return 33;
+      case "submitted_for_review":
+        return 66;
+      case "revision_requested":
+        return 50;
+      case "completed":
+        return 100;
+      default:
+        return 0;
+    }
+  };
+
+  const getProgressColor = (status) => {
+    switch (status) {
+      case "completed":
+        return "bg-green-500";
+      case "submitted_for_review":
+        return "bg-purple-500";
+      case "revision_requested":
+        return "bg-orange-500";
+      case "in_progress":
+        return "bg-blue-500";
+      default:
+        return "bg-gray-300";
+    }
+  };
 
   const handleCreateMilestone = async (e) => {
     e.preventDefault();
@@ -201,416 +315,348 @@ const ProjectsPage = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="flex justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center text-red-600 p-4">
-        <p>{error}</p>
-        <button
-          onClick={() => dispatch(fetchProjects(activeTab === "active" ? "in_progress" : "completed"))}
-          className="mt-2 text-primary hover:underline"
-        >
-          Try Again
-        </button>
+      <div className="text-center py-8">
+        <p className="text-red-600">{error}</p>
       </div>
     );
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Projects</h1>
-        <button className="btn-primary">Create New Project</button>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">My Projects</h1>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b mb-6">
+      {/* Tab Navigation */}
+      <div className="flex space-x-1 mb-6">
         <button
-          className={`pb-2 px-4 font-medium ${
-            activeTab === "active" ? "border-b-2 border-primary text-primary" : "text-gray-500 hover:text-gray-700"
-          }`}
           onClick={() => setActiveTab("active")}
+          className={`px-4 py-2 text-sm font-medium rounded-md ${
+            activeTab === "active" ? "bg-primary text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+          }`}
         >
           Active Projects
         </button>
         <button
-          className={`pb-2 px-4 font-medium ${
-            activeTab === "completed" ? "border-b-2 border-primary text-primary" : "text-gray-500 hover:text-gray-700"
-          }`}
           onClick={() => setActiveTab("completed")}
+          className={`px-4 py-2 text-sm font-medium rounded-md ${
+            activeTab === "completed" ? "bg-primary text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+          }`}
         >
           Completed Projects
         </button>
       </div>
 
-      {/* Active Projects */}
-      {activeTab === "active" && (
-        <div className="space-y-6">
-          {projects && projects.length > 0 ? (
-            projects.map((project) => (
-              <div key={project._id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h2 className="text-xl font-semibold">{project.title}</h2>
-                      <p className="text-gray-600">Freelancer: {project.freelancer.name}</p>
-                    </div>
-                    <span
-                      className={`px-3 py-1 text-sm font-medium rounded-full ${
-                        project.status === "in_progress"
-                          ? "bg-green-100 text-green-800"
-                          : project.status === "pending"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {project.status.replace("_", " ")}
-                    </span>
+      {projects.length === 0 ? (
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
+          <p className="text-gray-500">
+            {activeTab === "active"
+              ? "You don't have any active projects yet."
+              : "You haven't completed any projects yet."}
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-6">
+          {projects.map((project) => (
+            <div key={project._id} className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{project.title}</h3>
+                  <p className="text-gray-600 mb-2">{project.description}</p>
+                  <div className="flex items-center space-x-4 text-sm text-gray-500">
+                    <span>Freelancer: {project.freelancer?.name}</span>
+                    <span>•</span>
+                    <span>Budget: ${project.budget?.toLocaleString()}</span>
+                    <span>•</span>
+                    <span>Due: {format(new Date(project.deadline), "MMM d, yyyy")}</span>
                   </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <span
+                    className={`px-3 py-1 text-xs font-medium rounded-full ${
+                      project.status === "completed"
+                        ? "bg-green-100 text-green-800"
+                        : project.status === "in_progress"
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {project.status.replace("_", " ")}
+                  </span>
+                  <ChatButton recipientId={project.freelancer?._id} recipientName={project.freelancer?.name} />
+                </div>
+              </div>
 
-                  <p className="text-gray-600 mb-4">{project.description}</p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Start Date</p>
-                      <p className="font-medium">{format(new Date(project.startDate), "MMM d, yyyy")}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Due Date</p>
-                      <p className="font-medium">{format(new Date(project.deadline), "MMM d, yyyy")}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Budget</p>
-                      <p className="font-medium">${project.budget}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Completion</p>
-                      <p className="font-medium">{project.completionPercentage}%</p>
-                    </div>
-                  </div>
-
-                  <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
-                    <div
-                      className="bg-primary h-2.5 rounded-full"
-                      style={{ width: `${project.completionPercentage}%` }}
-                    ></div>
-                  </div>
-
-                  {/* Milestones Section */}
-                  <div className="mt-6">
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-medium">Project Milestones</h3>
+              {/* Milestones Section */}
+              {project.milestones && project.milestones.length > 0 && (
+                <div className="mt-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-lg font-medium text-gray-900">Milestones</h4>
+                    <div className="flex items-center space-x-4">
+                      <span className="text-sm text-gray-500">
+                        {project.milestones.filter((m) => m.status === "completed").length} of{" "}
+                        {project.milestones.length} completed
+                      </span>
                       {user.role === "client" && (
                         <button
                           onClick={() => {
                             setSelectedProject(project);
-                            setEditingMilestone(null);
-                            setMilestoneForm({
-                              title: "",
-                              description: "",
-                              percentage: "",
-                              dueDate: "",
-                            });
                             setShowMilestoneModal(true);
                           }}
-                          className="btn-outline text-sm py-1"
+                          className="px-3 py-1 bg-primary text-white text-sm rounded hover:bg-primary-dark"
                         >
                           Add Milestone
                         </button>
                       )}
                     </div>
-                    <div className="space-y-4">
-                      {project.milestones.map((milestone) => (
-                        <div key={milestone._id} className="border rounded-lg p-4">
-                          <div className="flex justify-between items-start">
-                            <div>
+                  </div>
+                  <div className="space-y-4">
+                    {project.milestones.map((milestone) => (
+                      <div key={milestone._id} className="border rounded-lg p-4">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
                               <h4 className="font-medium">{milestone.title}</h4>
-                              <p className="text-sm text-gray-600">{milestone.description}</p>
+                              <div className="flex items-center space-x-3">
+                                <span
+                                  className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
+                                    milestone.status
+                                  )}`}
+                                >
+                                  {formatStatus(milestone.status)}
+                                </span>
+                                {getMilestoneActions(project, milestone)}
+                              </div>
                             </div>
-                            <div className="flex flex-col items-end">
-                              <span
-                                className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                  milestone.status === "completed"
-                                    ? "bg-green-100 text-green-800"
-                                    : milestone.status === "in_progress"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {milestone.status.replace("_", " ")}
-                              </span>
-                              {user.role === "client" && (
-                                <div className="mt-2 flex space-x-2">
-                                  <button
-                                    onClick={() => handleEditMilestone(milestone, project)}
-                                    className="text-sm text-primary hover:underline"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteMilestone(milestone._id)}
-                                    className="text-sm text-red-600 hover:underline"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className="mt-2 grid grid-cols-3 gap-4">
-                            <div>
-                              <p className="text-sm text-gray-500">Due Date</p>
-                              <p className="font-medium">{format(new Date(milestone.dueDate), "MMM d, yyyy")}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-500">Percentage</p>
-                              <p className="font-medium">{milestone.percentage}%</p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-500">Amount</p>
-                              <p className="font-medium">
-                                ${((project.budget * milestone.percentage) / 100).toFixed(2)}
-                              </p>
-                            </div>
-                          </div>
+                            <p className="text-sm text-gray-600">{milestone.description}</p>
 
-                          {/* Milestone Approval Actions */}
-                          {user.role === "client" && milestone.status === "pending_approval" && (
-                            <div className="mt-4 flex space-x-2">
-                              <button
-                                onClick={() => {
-                                  setSelectedProject(project);
-                                  handleApproveMilestone(milestone._id, "approved");
-                                }}
-                                className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedProject(project);
-                                  handleApproveMilestone(milestone._id, "rejected");
-                                }}
-                                className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
-                              >
-                                Reject
-                              </button>
-                            </div>
-                          )}
+                            {/* Show work submission details for review */}
+                            {milestone.status === "submitted_for_review" && milestone.submissionDetails && (
+                              <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded">
+                                <h5 className="font-medium text-purple-800 mb-1">Work Submitted for Review</h5>
+                                <p className="text-sm text-purple-700">
+                                  {milestone.submissionDetails.length > 100
+                                    ? `${milestone.submissionDetails.substring(0, 100)}...`
+                                    : milestone.submissionDetails}
+                                </p>
+                                <p className="text-xs text-purple-600 mt-1">
+                                  Submitted: {format(new Date(milestone.submissionDate), "MMM d, yyyy 'at' h:mm a")}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Show revision feedback */}
+                            {milestone.status === "revision_requested" && milestone.feedback && (
+                              <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded">
+                                <h5 className="font-medium text-orange-800 mb-1">Revision Requested</h5>
+                                <p className="text-sm text-orange-700">{milestone.feedback}</p>
+                                {milestone.revisionCount && (
+                                  <p className="text-xs text-orange-600 mt-1">Revision #{milestone.revisionCount}</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      ))}
-                    </div>
+
+                        <div className="mt-2 grid grid-cols-3 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-500">Due Date</p>
+                            <p className="font-medium">{format(new Date(milestone.dueDate), "MMM d, yyyy")}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Percentage</p>
+                            <p className="font-medium">{milestone.percentage}%</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Amount</p>
+                            <p className="font-medium">${((project.budget * milestone.percentage) / 100).toFixed(2)}</p>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="mt-3">
+                          <div className="flex justify-between text-xs mb-1">
+                            <span>Progress</span>
+                            <span>{getProgressPercentage(milestone.status)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(
+                                milestone.status
+                              )}`}
+                              style={{ width: `${getProgressPercentage(milestone.status)}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Milestone metadata */}
+                        {(milestone.workStartedDate || milestone.submissionDate || milestone.completedAt) && (
+                          <div className="mt-3 grid grid-cols-3 gap-4 text-xs text-gray-500">
+                            {milestone.workStartedDate && (
+                              <div>
+                                <span>Started: </span>
+                                <span>{format(new Date(milestone.workStartedDate), "MMM d")}</span>
+                              </div>
+                            )}
+                            {milestone.submissionDate && (
+                              <div>
+                                <span>Submitted: </span>
+                                <span>{format(new Date(milestone.submissionDate), "MMM d")}</span>
+                              </div>
+                            )}
+                            {milestone.completedAt && (
+                              <div>
+                                <span>Completed: </span>
+                                <span>{format(new Date(milestone.completedAt), "MMM d")}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
 
-                  <div className="mt-6 flex justify-between items-center">
-                    <div>
-                      <h3 className="font-medium">Next Milestone</h3>
-                      <p className="text-sm text-gray-500">
-                        {project.milestones.find((m) => m.status === "pending")?.title || "All milestones completed"}
-                      </p>
-                    </div>
-                    <div className="flex space-x-2">
-                      <ChatButton
-                        recipientId={project.freelancer._id}
-                        recipientName={project.freelancer.name}
-                        size="sm"
-                        className="text-sm py-1"
-                      />
-                      <button className="btn-primary text-sm py-1">View Details</button>
+                  {/* Milestone Summary */}
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-500">Total Milestones:</span>
+                        <div className="font-medium">{project.milestones.length}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Completed:</span>
+                        <div className="font-medium text-green-600">
+                          {project.milestones.filter((m) => m.status === "completed").length}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Pending Review:</span>
+                        <div className="font-medium text-purple-600">
+                          {project.milestones.filter((m) => m.status === "submitted_for_review").length}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Total Paid:</span>
+                        <div className="font-medium text-primary">
+                          $
+                          {project.milestones
+                            .filter((m) => m.status === "completed")
+                            .reduce((sum, m) => sum + (m.percentage / 100) * (project.budget || 0), 0)
+                            .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center text-gray-500 py-8">
-              <p>No active projects found.</p>
+              )}
             </div>
-          )}
+          ))}
         </div>
       )}
 
-      {/* Completed Projects */}
-      {activeTab === "completed" && (
-        <div className="space-y-6">
-          {projects && projects.length > 0 ? (
-            projects.map((project) => (
-              <div key={project._id} className="bg-white rounded-lg shadow-md p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h2 className="text-xl font-semibold">{project.title}</h2>
-                    <p className="text-gray-600">Freelancer: {project.freelancer.name}</p>
-                  </div>
-                  {project.clientReview && (
-                    <div className="flex items-center">
-                      {[...Array(5)].map((_, i) => (
-                        <svg
-                          key={i}
-                          className={`w-5 h-5 ${
-                            i < Math.floor(project.clientReview.rating) ? "text-yellow-400" : "text-gray-300"
-                          }`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                      <span className="ml-1 text-sm text-gray-600">{project.clientReview.rating}/5</span>
-                    </div>
-                  )}
-                </div>
-
-                <p className="text-gray-600 mb-4">{project.description}</p>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Completed Date</p>
-                    <p className="font-medium">{format(new Date(project.completedDate), "MMM d, yyyy")}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Budget</p>
-                    <p className="font-medium">${project.budget}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Status</p>
-                    <p className="font-medium text-green-600">Completed</p>
-                  </div>
-                </div>
-
-                {project.clientReview && (
-                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-100 mb-4">
-                    <h3 className="font-medium mb-2">Your Feedback</h3>
-                    <p className="text-gray-600 italic">{project.clientReview.comment}</p>
-                  </div>
-                )}
-
-                <div className="flex justify-end space-x-2">
-                  <ChatButton
-                    recipientId={project.freelancer._id}
-                    recipientName={project.freelancer.name}
-                    size="sm"
-                    className="text-sm py-1"
-                  />
-                  <button className="btn-primary text-sm py-1">Rehire Freelancer</button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center text-gray-500 py-8">
-              <p>No completed projects found.</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Milestone Modal */}
-      {showMilestoneModal && selectedProject && (
+      {/* Milestone Creation/Edit Modal */}
+      {showMilestoneModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-semibold">{editingMilestone ? "Edit Milestone" : "Create Milestone"}</h3>
-              <button
-                onClick={() => {
-                  setShowMilestoneModal(false);
-                  setEditingMilestone(null);
-                  setSelectedProject(null);
-                  setMilestoneForm({
-                    title: "",
-                    description: "",
-                    percentage: "",
-                    dueDate: "",
-                  });
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+            <h3 className="text-lg font-semibold mb-4">
+              {editingMilestone ? "Edit Milestone" : "Create New Milestone"}
+            </h3>
             <form onSubmit={editingMilestone ? handleUpdateMilestone : handleCreateMilestone}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Title</label>
-                <input
-                  type="text"
-                  value={milestoneForm.title}
-                  onChange={(e) => setMilestoneForm({ ...milestoneForm, title: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  required
-                />
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <input
+                    type="text"
+                    value={milestoneForm.title}
+                    onChange={(e) => setMilestoneForm({ ...milestoneForm, title: e.target.value })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    value={milestoneForm.description}
+                    onChange={(e) => setMilestoneForm({ ...milestoneForm, description: e.target.value })}
+                    rows="3"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Percentage (Remaining: {calculateRemainingPercentage()}%)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={calculateRemainingPercentage()}
+                    value={milestoneForm.percentage}
+                    onChange={(e) => setMilestoneForm({ ...milestoneForm, percentage: e.target.value })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                  {milestoneForm.percentage && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      Amount: ${calculateMilestoneAmount(milestoneForm.percentage)}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                  <input
+                    type="date"
+                    value={milestoneForm.dueDate}
+                    onChange={(e) => setMilestoneForm({ ...milestoneForm, dueDate: e.target.value })}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
               </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Description</label>
-                <textarea
-                  value={milestoneForm.description}
-                  onChange={(e) => setMilestoneForm({ ...milestoneForm, description: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  rows="3"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Percentage</label>
-                <input
-                  type="number"
-                  min="1"
-                  max={editingMilestone ? 100 : calculateRemainingPercentage()}
-                  value={milestoneForm.percentage}
-                  onChange={(e) => setMilestoneForm({ ...milestoneForm, percentage: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  required
-                />
-                <p className="mt-1 text-sm text-gray-500">
-                  Amount: ${calculateMilestoneAmount(milestoneForm.percentage)}
-                </p>
-                {!editingMilestone && (
-                  <p className="mt-1 text-sm text-gray-500">Remaining percentage: {calculateRemainingPercentage()}%</p>
-                )}
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Due Date</label>
-                <input
-                  type="date"
-                  value={milestoneForm.dueDate}
-                  onChange={(e) => setMilestoneForm({ ...milestoneForm, dueDate: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div className="flex justify-end space-x-3">
+              <div className="flex justify-end space-x-3 mt-6">
                 <button
                   type="button"
                   onClick={() => {
                     setShowMilestoneModal(false);
                     setEditingMilestone(null);
-                    setSelectedProject(null);
-                    setMilestoneForm({
-                      title: "",
-                      description: "",
-                      percentage: "",
-                      dueDate: "",
-                    });
+                    setMilestoneForm({ title: "", description: "", percentage: "", dueDate: "" });
                   }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                >
+                <button type="submit" className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark">
                   {editingMilestone ? "Update" : "Create"} Milestone
                 </button>
               </div>
             </form>
           </div>
         </div>
+      )}
+
+      {/* Milestone Review Modal */}
+      {showReviewModal && reviewingMilestone && selectedProject && (
+        <MilestoneReviewModal
+          key={`review-${selectedProject._id}-${reviewingMilestone._id}`}
+          milestone={reviewingMilestone}
+          projectId={selectedProject._id}
+          onClose={() => {
+            console.log("Closing review modal");
+            setShowReviewModal(false);
+            setReviewingMilestone(null);
+            setSelectedProject(null);
+          }}
+          onSuccess={handleReviewSuccess}
+        />
       )}
     </div>
   );

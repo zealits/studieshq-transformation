@@ -1,4 +1,5 @@
 require("dotenv").config();
+const path = require("path");
 
 // Cloudinary Configuration
 const cloudinaryConfig = {
@@ -32,23 +33,40 @@ module.exports = {
     service: process.env.SMPT_SERVICE,
   },
 
-  // File upload configuration
+  // Hybrid file upload configuration
   uploads: {
-    profileImage: {
-      maxSize: 1024 * 1024 * 2, // 2MB
-      allowedTypes: ["image/jpeg", "image/png"],
+    // Cloudinary settings for profile images and verification documents
+    cloudinary: {
+      profileImages: {
+        maxSize: 5 * 1024 * 1024, // 5MB
+        allowedTypes: ["image/jpeg", "image/png"],
+        folder: "profile_images",
+      },
+      verificationDocuments: {
+        maxSize: 5 * 1024 * 1024, // 5MB
+        allowedTypes: ["image/jpeg", "image/png", "application/pdf"],
+        folder: "verification_documents",
+      },
     },
-    projectFiles: {
-      maxSize: 1024 * 1024 * 10, // 10MB
-      allowedTypes: [
-        "image/jpeg",
-        "image/png",
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      ],
+    // Local storage settings for milestone deliverables
+    local: {
+      baseDir: path.join(__dirname, "../uploads"),
+      milestoneDeliverables: {
+        maxSize: 50 * 1024 * 1024, // 50MB
+        allowedTypes: [
+          "image/jpeg",
+          "image/png",
+          "image/jpg",
+          "application/pdf",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "application/zip",
+          "application/x-rar-compressed",
+        ],
+        directory: "milestone-deliverables",
+      },
     },
   },
 
