@@ -390,8 +390,13 @@ const ProjectsPage = () => {
                         : "bg-gray-100 text-gray-800"
                     }`}
                   >
-                    {project.status.replace("_", " ")}
+                    {project.status === "completed" ? "🎉 Completed" : project.status.replace("_", " ")}
                   </span>
+                  {project.status === "completed" && project.completedDate && (
+                    <span className="text-xs text-gray-500">
+                      Completed on {format(new Date(project.completedDate), "MMM d, yyyy")}
+                    </span>
+                  )}
                   <ChatButton recipientId={project.freelancer?._id} recipientName={project.freelancer?.name} />
                 </div>
               </div>

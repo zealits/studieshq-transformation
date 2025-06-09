@@ -5,6 +5,21 @@ const User = require("../models/User");
 const { Job, Proposal } = require("../models/Job");
 
 /**
+ * Helper function to check if project should be marked as completed
+ * @param {Object} project - The project document
+ * @returns {boolean} - Whether the project should be completed
+ */
+const checkProjectCompletion = (project) => {
+  // Only check for projects that have milestones
+  if (!project.milestones || project.milestones.length === 0) {
+    return false;
+  }
+
+  // Check if all milestones are completed
+  return project.milestones.every((milestone) => milestone.status === "completed");
+};
+
+/**
  * @desc    Create a new project
  * @route   POST /api/projects
  * @access  Private (Client only)
@@ -563,6 +578,12 @@ exports.approveMilestone = async (req, res) => {
     if (approvalStatus === "approved") {
       milestone.status = "completed";
       milestone.completedAt = new Date();
+
+      // Check if all milestones are completed and update project status
+      if (checkProjectCompletion(project) && project.status !== "completed") {
+        project.status = "completed";
+        project.completedDate = new Date();
+      }
     }
 
     await project.save();
@@ -745,6 +766,12 @@ exports.reviewMilestoneWork = async (req, res) => {
       if (feedback) {
         milestone.feedback = feedback;
       }
+
+      // Check if all milestones are completed and update project status
+      if (checkProjectCompletion(project) && project.status !== "completed") {
+        project.status = "completed";
+        project.completedDate = new Date();
+      }
     } else if (action === "request_revision") {
       // Request revision
       if (!feedback || feedback.trim() === "") {
@@ -764,9 +791,23 @@ exports.reviewMilestoneWork = async (req, res) => {
 
     await project.save();
 
+    // Check if project was just completed
+    const isProjectCompleted = project.status === "completed";
+
     res.json({
       success: true,
-      data: { milestone },
+      data: {
+        milestone,
+        projectCompleted: isProjectCompleted,
+        project: isProjectCompleted
+          ? {
+              _id: project._id,
+              title: project.title,
+              status: project.status,
+              completedDate: project.completedDate,
+            }
+          : undefined,
+      },
     });
   } catch (err) {
     console.error("Error in reviewMilestoneWork:", err.message);

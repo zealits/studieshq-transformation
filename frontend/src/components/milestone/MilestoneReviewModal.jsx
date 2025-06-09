@@ -111,7 +111,7 @@ const MilestoneReviewModal = ({ milestone, projectId, onClose, onSuccess }) => {
     setSubmitting(true);
 
     try {
-      await dispatch(
+      const result = await dispatch(
         reviewMilestoneWork({
           projectId,
           milestoneId: milestone._id,
@@ -120,9 +120,19 @@ const MilestoneReviewModal = ({ milestone, projectId, onClose, onSuccess }) => {
         })
       ).unwrap();
 
-      toast.success(
-        reviewData.action === "approve" ? "Milestone approved successfully!" : "Revision requested successfully!"
-      );
+      // Show different success messages based on action and project completion
+      if (reviewData.action === "approve") {
+        if (result.data?.projectCompleted) {
+          toast.success("🎉 Milestone approved and project completed! Congratulations!", {
+            autoClose: 5000,
+          });
+        } else {
+          toast.success("Milestone approved successfully!");
+        }
+      } else {
+        toast.success("Revision requested successfully!");
+      }
+
       onSuccess && onSuccess();
       onClose();
     } catch (error) {

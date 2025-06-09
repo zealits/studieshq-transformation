@@ -251,11 +251,20 @@ const ProjectsPage = () => {
                       <h2 className="text-xl font-semibold">{project.title}</h2>
                       <p className="text-gray-600">Client: {project.client?.name || "Unknown Client"}</p>
                     </div>
-                    <span
-                      className={`px-3 py-1 text-sm font-medium rounded-full ${getProjectStatusColor(project.status)}`}
-                    >
-                      {formatStatus(project.status)}
-                    </span>
+                    <div className="flex flex-col items-end">
+                      <span
+                        className={`px-3 py-1 text-sm font-medium rounded-full ${getProjectStatusColor(
+                          project.status
+                        )}`}
+                      >
+                        {project.status === "completed" ? "🎉 Completed" : formatStatus(project.status)}
+                      </span>
+                      {project.status === "completed" && project.completedDate && (
+                        <span className="text-xs text-gray-500 mt-1">
+                          Completed on {formatDate(project.completedDate)}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <p className="mt-4 text-gray-600">{project.description}</p>
