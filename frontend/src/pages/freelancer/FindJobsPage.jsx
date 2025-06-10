@@ -144,12 +144,12 @@ const FindJobsPage = () => {
 
           <div>
             <label htmlFor="jobType" className="block text-sm font-medium text-gray-700 mb-1">
-              Job Type
+              Payment Type
             </label>
             <select id="jobType" name="jobType" className="input" value={filters.jobType} onChange={handleFilterChange}>
               <option value="">All Types</option>
-              <option value="fixed">Fixed Price</option>
-              <option value="hourly">Hourly</option>
+              <option value="milestone">Milestone Based</option>
+              <option value="completion">After Completion</option>
             </select>
           </div>
 
@@ -292,12 +292,10 @@ const FindJobsPage = () => {
                     <h2 className="text-xl font-semibold hover:text-primary">{job.title}</h2>
                     <div className="flex items-center text-sm text-gray-500 mt-1">
                       <span>
-                        {job.budget.type === "fixed"
-                          ? `$${job.budget.min} - $${job.budget.max}`
-                          : `$${job.budget.min} - $${job.budget.max}/hr`}
+                        ${job.budget.min} - ${job.budget.max}
                       </span>
                       <span className="mx-2">•</span>
-                      <span>{job.budget.type === "fixed" ? "Fixed Price" : "Hourly"}</span>
+                      <span>{job.budget.type === "milestone" ? "Milestone Based" : "After Completion"}</span>
                       <span className="mx-2">•</span>
                       <span>Posted {formatPostedDate(job.createdAt)}</span>
                       <span className="mx-2">•</span>

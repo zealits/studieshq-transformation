@@ -72,11 +72,9 @@ const ApplyJobModal = ({ job, onClose }) => {
             </div>
             <div className="mt-3 text-sm text-gray-600">
               <p>
-                Budget:{" "}
-                {job.budget.type === "fixed"
-                  ? `$${job.budget.min} - $${job.budget.max}`
-                  : `$${job.budget.min} - $${job.budget.max}/hr`}
+                Budget: ${job.budget.min} - ${job.budget.max}
               </p>
+              <p>Payment Type: {job.budget.type === "milestone" ? "Milestone Based" : "After Completion"}</p>
             </div>
           </div>
 
@@ -100,7 +98,6 @@ const ApplyJobModal = ({ job, onClose }) => {
               {job.budget && (
                 <p className="text-xs text-gray-500 mt-1">
                   Suggested budget: ${job.budget.min} - ${job.budget.max}
-                  {job.budget.type === "hourly" ? "/hr" : ""}
                 </p>
               )}
             </div>

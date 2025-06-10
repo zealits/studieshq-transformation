@@ -17,7 +17,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
     budget: {
       min: "",
       max: "",
-      type: "fixed",
+      type: "milestone",
     },
     experience: "intermediate",
     duration: "less_than_1_month",
@@ -72,7 +72,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    if (name === "budget.min" || name === "budget.max") {
+    if (name === "budget.min" || name === "budget.max" || name === "budget.type") {
       const [parent, child] = name.split(".");
       setFormData((prev) => ({
         ...prev,
@@ -272,7 +272,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label htmlFor="budget.type" className="block text-sm font-medium text-gray-700 mb-1">
-              Budget Type
+              Payment Type
             </label>
             <select
               id="budget.type"
@@ -281,9 +281,10 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="fixed">Fixed Price</option>
-              <option value="hourly">Hourly</option>
+              <option value="milestone">Milestone Based Payment</option>
+              <option value="completion">After Completion of Project</option>
             </select>
+            <p className="text-xs text-gray-500 mt-1">Choose payment method</p>
           </div>
 
           <div>
@@ -301,6 +302,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
               <option value="intermediate">Intermediate</option>
               <option value="expert">Expert</option>
             </select>
+            <p className="text-xs text-gray-500 mt-1">Required skill level</p>
           </div>
         </div>
 

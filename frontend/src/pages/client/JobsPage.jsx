@@ -210,15 +210,13 @@ const JobsPage = () => {
               <div>
                 <span className="block text-sm text-gray-500">Budget</span>
                 <span className="font-medium">
-                  {(job.budget.budgetType || job.budget.type) === "fixed"
-                    ? `$${job.budget.min} - $${job.budget.max}`
-                    : `$${job.budget.min} - $${job.budget.max}/hr`}
+                  ${job.budget.min} - ${job.budget.max}
                 </span>
               </div>
               <div>
-                <span className="block text-sm text-gray-500">Type</span>
+                <span className="block text-sm text-gray-500">Payment Type</span>
                 <span className="font-medium">
-                  {(job.budget.budgetType || job.budget.type) === "fixed" ? "Fixed Price" : "Hourly"}
+                  {(job.budget.budgetType || job.budget.type) === "milestone" ? "Milestone Based" : "After Completion"}
                 </span>
               </div>
               <div>

@@ -17,7 +17,7 @@ const JobDetailPage = () => {
 
   // Check if user is a client and verify job ownership
   const isClient = user?.role === "client";
-  
+
   useEffect(() => {
     const fetchJobDetails = async () => {
       try {
@@ -26,7 +26,7 @@ const JobDetailPage = () => {
       } catch (error) {
         // Handle authorization errors
         console.error("Error fetching job:", error);
-        
+
         if (error === "You don't have permission to view this job") {
           toast.error("You don't have permission to view this job");
           // Redirect to jobs page
@@ -36,7 +36,7 @@ const JobDetailPage = () => {
         }
       }
     };
-    
+
     fetchJobDetails();
   }, [jobId, dispatch, navigate]);
 
@@ -83,7 +83,7 @@ const JobDetailPage = () => {
 
   // Verify the job belongs to the client
   const isOwner = isClient && (job.client._id === user.id || job.client === user.id);
-  
+
   // If not owner and client, redirect back to jobs
   if (isClient && !isOwner) {
     // This is a backup check in case the backend authorization fails
@@ -146,15 +146,13 @@ const JobDetailPage = () => {
           <div>
             <span className="block text-sm text-gray-500">Budget</span>
             <span className="font-medium">
-              {(job.budget.budgetType || job.budget.type) === "fixed"
-                ? `$${job.budget.min} - $${job.budget.max}`
-                : `$${job.budget.min} - $${job.budget.max}/hr`}
+              ${job.budget.min} - ${job.budget.max}
             </span>
           </div>
           <div>
-            <span className="block text-sm text-gray-500">Type</span>
+            <span className="block text-sm text-gray-500">Payment Type</span>
             <span className="font-medium">
-              {(job.budget.budgetType || job.budget.type) === "fixed" ? "Fixed Price" : "Hourly"}
+              {(job.budget.budgetType || job.budget.type) === "milestone" ? "Milestone Based" : "After Completion"}
             </span>
           </div>
           <div>
@@ -178,11 +176,12 @@ const JobDetailPage = () => {
         <div className="mb-6">
           <span className="block text-sm text-gray-500 mb-1">Skills</span>
           <div className="flex flex-wrap gap-2">
-            {job.skills && job.skills.map((skill, index) => (
-              <span key={index} className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                {skill}
-              </span>
-            ))}
+            {job.skills &&
+              job.skills.map((skill, index) => (
+                <span key={index} className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                  {skill}
+                </span>
+              ))}
           </div>
         </div>
 
@@ -192,17 +191,11 @@ const JobDetailPage = () => {
 
         <div className="flex space-x-2">
           {job.status !== "draft" && (
-            <button 
-              className="btn-primary"
-              onClick={handleToggleProposals}
-            >
+            <button className="btn-primary" onClick={handleToggleProposals}>
               {showProposals ? "Hide Proposals" : `View Proposals (${job.proposals ? job.proposals.length : 0})`}
             </button>
           )}
-          <button
-            className="btn-outline"
-            onClick={() => navigate(`/client/jobs`)}
-          >
+          <button className="btn-outline" onClick={() => navigate(`/client/jobs`)}>
             Back to Jobs
           </button>
         </div>
@@ -218,4 +211,4 @@ const JobDetailPage = () => {
   );
 };
 
-export default JobDetailPage; 
+export default JobDetailPage;

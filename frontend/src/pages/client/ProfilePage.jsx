@@ -26,6 +26,7 @@ const ProfilePage = () => {
     companyWebsite: "",
     industry: "",
     companySize: "",
+    itinEin: "",
     bio: "",
     verificationDocuments: {
       addressProof: {
@@ -75,6 +76,7 @@ const ProfilePage = () => {
         companyWebsite: profile.companyWebsite || "",
         industry: profile.industry || "",
         companySize: profile.companySize || "",
+        itinEin: profile.itinEin || "",
         bio: profile.bio || "",
         verificationDocuments: {
           addressProof: {
@@ -235,6 +237,7 @@ const ProfilePage = () => {
           companyWebsite: formData.companyWebsite,
           industry: formData.industry,
           companySize: formData.companySize,
+          itinEin: formData.itinEin,
           social: formData.socialLinks,
           verificationDocuments: formData.verificationDocuments,
           skills: ["Client"], // Adding default skills for the client to meet validation
@@ -462,20 +465,43 @@ const ProfilePage = () => {
                 <label className="block text-gray-700 mb-2" htmlFor="phone">
                   Phone Number
                 </label>
-                <div className="flex gap-2">
-                  <select
-                    id="phone.countryCode"
-                    name="phone.countryCode"
-                    value={formData.phone.countryCode}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    className="w-24 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="+91">+91 (IN)</option>
-                    <option value="+1">+1 (US)</option>
-                    <option value="+44">+44 (UK)</option>
-                    <option value="+61">+61 (AU)</option>
-                  </select>
+                <div className="flex">
+                  <div className="relative">
+                    <select
+                      id="phone.countryCode"
+                      name="phone.countryCode"
+                      value={formData.phone.countryCode}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      className="appearance-none bg-white border border-gray-300 rounded-l-md px-3 py-3 pr-8 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+                    >
+                      <option value="+1">🇺🇸 +1</option>
+                      <option value="+91">🇮🇳 +91</option>
+                      <option value="+44">🇬🇧 +44</option>
+                      <option value="+61">🇦🇺 +61</option>
+                      <option value="+33">🇫🇷 +33</option>
+                      <option value="+49">🇩🇪 +49</option>
+                      <option value="+81">🇯🇵 +81</option>
+                      <option value="+86">🇨🇳 +86</option>
+                      <option value="+7">🇷🇺 +7</option>
+                      <option value="+55">🇧🇷 +55</option>
+                      <option value="+34">🇪🇸 +34</option>
+                      <option value="+39">🇮🇹 +39</option>
+                      <option value="+31">🇳🇱 +31</option>
+                      <option value="+46">🇸🇪 +46</option>
+                      <option value="+47">🇳🇴 +47</option>
+                      <option value="+45">🇩🇰 +45</option>
+                      <option value="+358">🇫🇮 +358</option>
+                      <option value="+41">🇨🇭 +41</option>
+                      <option value="+43">🇦🇹 +43</option>
+                      <option value="+32">🇧🇪 +32</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                      <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                      </svg>
+                    </div>
+                  </div>
                   <input
                     type="tel"
                     id="phone.number"
@@ -483,10 +509,13 @@ const ProfilePage = () => {
                     value={formData.phone.number}
                     onChange={handleChange}
                     disabled={!isEditing}
-                    className="flex-1 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Phone number"
+                    className="flex-1 p-3 border border-gray-300 border-l-0 rounded-r-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100"
+                    placeholder="Enter phone number"
                   />
                 </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Your business contact number for professional communication
+                </p>
               </div>
 
               <div>
@@ -641,12 +670,32 @@ const ProfilePage = () => {
                   disabled={!isEditing}
                   className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 >
+                  <option value="">Select company size</option>
                   <option value="1-10">1-10 employees</option>
                   <option value="11-50">11-50 employees</option>
                   <option value="50-100">50-100 employees</option>
                   <option value="101-500">101-500 employees</option>
                   <option value="500+">500+ employees</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 mb-2" htmlFor="itinEin">
+                  ITIN/EIN Number
+                </label>
+                <input
+                  type="text"
+                  id="itinEin"
+                  name="itinEin"
+                  value={formData.itinEin}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Enter your ITIN or EIN number"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Individual Taxpayer Identification Number (ITIN) or Employer Identification Number (EIN)
+                </p>
               </div>
             </div>
           </div>

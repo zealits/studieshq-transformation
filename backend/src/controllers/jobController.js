@@ -90,7 +90,7 @@ exports.createJob = async (req, res) => {
     const normalizedBudget = {
       min: budget.min,
       max: budget.max,
-      type: budget.budgetType || budget.type || "fixed", // Support both budgetType and type
+      type: budget.budgetType || budget.type || "milestone", // Support both budgetType and type
     };
 
     // Create new job

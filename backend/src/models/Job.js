@@ -39,8 +39,8 @@ const JobSchema = new Schema({
     },
     budgetType: {
       type: String,
-      enum: ["fixed", "hourly"],
-      default: "fixed",
+      enum: ["milestone", "completion"],
+      default: "milestone",
     },
   },
   freelancersNeeded: {

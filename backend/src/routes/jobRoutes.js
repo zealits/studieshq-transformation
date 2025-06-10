@@ -23,7 +23,7 @@ router.post(
       check("budget", "Budget information is required").isObject(),
       check("budget.min", "Minimum budget is required").isNumeric(),
       check("budget.max", "Maximum budget is required").isNumeric(),
-      check("budget.budgetType", "Budget type is required").optional().isIn(["fixed", "hourly"]),
+      check("budget.budgetType", "Budget type is required").optional().isIn(["milestone", "completion"]),
       check("duration", "Duration is required").isIn([
         "less_than_1_month",
         "1_to_3_months",

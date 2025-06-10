@@ -60,6 +60,7 @@ exports.createOrUpdateProfile = async (req, res) => {
     industry,
     companySize,
     companyWebsite,
+    itinEin,
     // Verification documents
     verificationDocuments,
   } = req.body;
@@ -119,6 +120,7 @@ exports.createOrUpdateProfile = async (req, res) => {
     profileFields.industry = industry;
     profileFields.companySize = companySize;
     profileFields.companyWebsite = companyWebsite;
+    profileFields.itinEin = itinEin;
   }
 
   let session;

@@ -204,6 +204,9 @@ const ProfileSchema = new Schema({
   companyWebsite: {
     type: String,
   },
+  itinEin: {
+    type: String,
+  },
 
   // Verification status
   isVerified: {
