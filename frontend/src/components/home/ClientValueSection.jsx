@@ -1,4 +1,5 @@
 import React from "react";
+import ClientValue from "../../assets/images/ClientValue.jpg";
 
 const ClientValueSection = () => {
   return (
@@ -11,7 +12,7 @@ const ClientValueSection = () => {
               <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-[#0d81c8] rounded-lg opacity-10"></div>
 
               <img
-                src="/images/client-value.svg"
+                src={ClientValue}
                 alt="Work with quality clients"
                 className="w-full rounded-lg shadow-xl"
               />

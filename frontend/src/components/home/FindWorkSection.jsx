@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { fetchJobCountsByCategory } from "../../redux/slices/jobsSlice";
+import FindWork from "../../assets/images/FindWork.jpg";
 
 const FindWorkSection = () => {
   const dispatch = useDispatch();
@@ -201,7 +202,7 @@ const FindWorkSection = () => {
           </div>
 
           <div className="hidden lg:block">
-            <img src="/images/find-work.svg" alt="Find freelance work" className="w-full rounded-lg shadow-xl" />
+            <img src={FindWork} alt="Find freelance work" className="w-full rounded-lg shadow-xl" />
           </div>
         </div>
       </div>

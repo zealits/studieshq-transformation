@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import HeroImage from "../../assets/images/HeroImage.jpg";
 
 const HeroSection = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -102,7 +103,7 @@ const HeroSection = () => {
 
           <div className="hidden lg:block">
             <img
-              src="/images/hero-image.svg"
+              src={HeroImage}
               alt="StudiesHQ Freelancing Platform"
               className="w-full h-auto max-w-lg mx-auto"
             />
