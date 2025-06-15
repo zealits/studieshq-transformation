@@ -35,7 +35,7 @@ const HeroSection = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[#3884b8] mb-6 leading-tight">
-              Connect with Top Freelancers & Find Quality
+              Connect with Top Freelancers & Find Quality Projects
             </h1>
 
             <p className="text-xl text-gray-700 mb-8">
