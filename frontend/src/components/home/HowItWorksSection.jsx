@@ -89,7 +89,7 @@ const HowItWorksSection = () => {
   ];
 
   return (
-    <section className="py-20 bg-white">
+    <section id="how-it-works" className="py-20 bg-white">
       <div className="container-custom">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 text-[#3884b8]">How StudiesHQ Works</h2>

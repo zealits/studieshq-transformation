@@ -28,6 +28,15 @@ const HeroSection = () => {
     }
   };
 
+  // Handle learn more click to scroll to how it works section
+  const handleLearnMoreClick = (e) => {
+    e.preventDefault();
+    const howItWorksElement = document.getElementById("how-it-works");
+    if (howItWorksElement) {
+      howItWorksElement.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <section className="relative bg-gray-50">
       <div className="absolute inset-0 bg-gradient-to-r from-[#3884b8]/10 to-[#0d81c8]/10"></div>
@@ -95,6 +104,7 @@ const HeroSection = () => {
               <Link
                 to="/how-it-works"
                 className="px-8 py-3 text-lg border-2 border-[#3884b8] text-[#3884b8] rounded-lg hover:bg-[#3884b8] hover:text-white transition-colors"
+                onClick={handleLearnMoreClick}
               >
                 Learn More
               </Link>
@@ -102,11 +112,7 @@ const HeroSection = () => {
           </div>
 
           <div className="hidden lg:block">
-            <img
-              src={HeroImage}
-              alt="StudiesHQ Freelancing Platform"
-              className="w-full h-auto max-w-lg mx-auto"
-            />
+            <img src={HeroImage} alt="StudiesHQ Freelancing Platform" className="w-full h-auto max-w-lg mx-auto" />
           </div>
         </div>
       </div>
