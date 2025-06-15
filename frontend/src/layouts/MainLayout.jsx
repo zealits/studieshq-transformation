@@ -32,6 +32,9 @@ const MainLayout = () => {
             <Link to="/about" className="text-gray-600 hover:text-[#3884b8] transition-colors">
               About
             </Link>
+            <Link to="/contact" className="text-gray-600 hover:text-[#3884b8] transition-colors">
+              Contact Us
+            </Link>
             <Link to="client/freelancers" className="text-gray-600 hover:text-[#3884b8] transition-colors">
               Find Freelancers
             </Link>

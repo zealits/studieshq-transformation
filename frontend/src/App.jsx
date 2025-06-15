@@ -20,6 +20,7 @@ import { fetchConversations } from "./redux/chatSlice";
 // Pages
 import HomePage from "./pages/HomePage";
 import AboutPage from "./pages/AboutPage";
+import ContactUsPage from "./pages/ContactUsPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import NotFoundPage from "./pages/NotFoundPage";
@@ -59,6 +60,7 @@ import AdminSupport from "./pages/admin/SupportPage";
 import AdminProjects from "./pages/admin/ProjectsPage";
 import AdminPayments from "./pages/admin/PaymentsPage";
 import AdminSettings from "./pages/admin/SettingsPage";
+import AdminContactManagement from "./pages/admin/ContactManagementPage";
 
 // Protected Routes
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -117,6 +119,7 @@ function App() {
         <Route path="/" element={<MainLayout />}>
           <Route index element={<HomePage />} />
           <Route path="about" element={<AboutPage />} />
+          <Route path="contact" element={<ContactUsPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="verify-email" element={<EmailVerificationPage />} />
@@ -196,6 +199,7 @@ function App() {
           <Route path="users" element={<AdminUserManagement />} />
           <Route path="jobs" element={<AdminJobManagement />} />
           <Route path="projects" element={<AdminProjects />} />
+          <Route path="contacts" element={<AdminContactManagement />} />
           <Route path="reports" element={<AdminReports />} />
           <Route path="payments" element={<AdminPayments />} />
           <Route path="settings" element={<AdminSettings />} />
