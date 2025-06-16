@@ -20,8 +20,20 @@ exports.sendOTPVerification = async (req, res) => {
     const { countryCode, phoneNumber } = req.body;
     const userId = req.user.id;
 
+    console.log("📞 OTP Send Request:", { userId, countryCode, phoneNumber });
+
+    // Check if Twilio is configured
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_VERIFY_SERVICE_SID) {
+      console.error("❌ Twilio credentials missing");
+      return res.status(500).json({
+        success: false,
+        error: "SMS service is not configured. Please contact administrator.",
+      });
+    }
+
     // Format phone number to E.164 format
     const formattedPhoneNumber = otpService.formatPhoneNumber(countryCode, phoneNumber);
+    console.log("📱 Formatted phone number:", formattedPhoneNumber);
 
     // Validate phone number format
     const phoneRegex = /^\+[1-9]\d{1,14}$/;
