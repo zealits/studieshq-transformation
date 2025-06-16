@@ -32,6 +32,11 @@ const ProposalsList = ({ jobId, onClose }) => {
     // If we already have proposals in the selected job, use them
     if (selectedJob?.proposals && selectedJob.proposals.length > 0) {
       setLocalProposals(selectedJob.proposals);
+      setLoadingError(null);
+    } else if (selectedJob?.applicationCount === 0) {
+      // If we know there are zero proposals, don't make the API call
+      setLocalProposals([]);
+      setLoadingError(null);
     } else {
       // Otherwise fetch them from API
       const loadProposals = async () => {
@@ -41,6 +46,9 @@ const ProposalsList = ({ jobId, onClose }) => {
             const result = await dispatch(fetchJobProposals(jobId)).unwrap();
             if (result?.data?.proposals) {
               setLocalProposals(result.data.proposals);
+            } else {
+              // Ensure we set an empty array if no proposals are returned
+              setLocalProposals([]);
             }
           } catch (err) {
             console.error("Failed to load proposals:", err);
@@ -96,12 +104,25 @@ const ProposalsList = ({ jobId, onClose }) => {
         `Proposal ${status === "accepted" ? "accepted" : status === "rejected" ? "rejected" : "updated"} successfully`
       );
 
-      // If accepting a proposal and no more slots are available, offer to close the modal
-      if (status === "accepted" && remainingSlots <= 1) {
-        toast.success("All freelancer slots have been filled! The job is now in progress.");
-        // Automatically close the modal after a brief delay
+      // If accepting a proposal
+      if (status === "accepted") {
+        // Calculate the new count of accepted proposals after this acceptance
+        const newAcceptedCount = localProposals.filter(p => 
+          p.status === "accepted" || (p._id === proposalId && status === "accepted")
+        ).length;
+        
+        // Check if we've reached the required number of freelancers
+        const allFreelancersHired = newAcceptedCount >= (selectedJob?.freelancersNeeded || 1);
+        
+        if (allFreelancersHired) {
+          toast.success("All freelancer slots have been filled! The job is now in progress.");
+        }
+        
+        // Close the modal and switch to closed listings tab
         setTimeout(() => {
-          onClose();
+          // Pass true to onClose to indicate we should switch to the closed tab
+          // We always switch to closed tab when a proposal is accepted
+          onClose(true);
         }, 2000);
       }
     } catch (err) {
@@ -114,8 +135,6 @@ const ProposalsList = ({ jobId, onClose }) => {
 
   // Filter proposals based on selected tab
   const filteredProposals = localProposals.filter((proposal) => {
-    console.log(proposal);
-
     if (selectedTab === "all") return true;
     return proposal.status === selectedTab;
   });
@@ -130,7 +149,7 @@ const ProposalsList = ({ jobId, onClose }) => {
               {remainingSlots} freelancer{remainingSlots === 1 ? "" : "s"} needed
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 focus:outline-none" aria-label="Close">
+          <button onClick={() => onClose(false)} className="text-gray-500 hover:text-gray-700 focus:outline-none" aria-label="Close">
             <svg
               className="w-6 h-6"
               fill="none"
@@ -194,7 +213,7 @@ const ProposalsList = ({ jobId, onClose }) => {
         </div>
 
         <div className="p-6">
-          {isLoading && !updatingProposalId ? (
+          {isLoading && localProposals.length === 0 && !loadingError ? (
             <div className="flex justify-center items-center py-12">
               <Spinner size="large" />
             </div>

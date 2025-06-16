@@ -98,7 +98,7 @@ const ChatList = ({ onSelectConversation, selectedConversation }) => {
       </div>
 
       {/* Create Conversation Button (for testing) */}
-      <CreateConversationButton />
+      {/* <CreateConversationButton /> */}
 
       {/* Conversations List */}
       <div className="flex-1 overflow-y-auto">

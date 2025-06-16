@@ -109,7 +109,7 @@ const DashboardPage = () => {
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-sm font-medium text-gray-500 mb-1">Open Jobs</h3>
+          <h3 className="text-sm font-medium text-gray-500 mb-1">Open Projects</h3>
           <p className="text-3xl font-bold text-primary">{openJobs.length}</p>
           <p className="text-xs text-gray-500 mt-1">Accepting proposals</p>
         </div>
@@ -164,7 +164,7 @@ const DashboardPage = () => {
             <p>
               No active projects found.{" "}
               <a href="/client/jobs" className="text-primary hover:underline">
-                Post a job
+                Post a Project
               </a>{" "}
               to get started!
             </p>

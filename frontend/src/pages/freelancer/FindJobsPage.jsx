@@ -63,18 +63,19 @@ const FindJobsPage = () => {
 
   // Check if a job has been applied to
   const hasAppliedToJob = (jobId) => {
-    return proposals.some((proposal) => proposal.job._id === jobId);
+    return proposals.some((proposal) => proposal.job?._id === jobId);
   };
 
   // Get proposal status for a job
   const getProposalStatus = (jobId) => {
-    const proposal = proposals.find((proposal) => proposal.job._id === jobId);
+    const proposal = proposals.find((proposal) => proposal.job?._id === jobId);
     return proposal ? proposal.status : null;
   };
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Find Jobs</h1>
+      <h1 className="text-2xl font-bold mb-6">Find Projects</h1>
+
 
       {/* Search and Filters */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -83,7 +84,7 @@ const FindJobsPage = () => {
             <input
               type="text"
               className="input pl-10 pr-4 py-2 w-full"
-              placeholder="Search jobs by title, description, or skills..."
+              placeholder="Search projects by title, description, or skills..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />

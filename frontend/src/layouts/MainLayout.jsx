@@ -60,7 +60,7 @@ const MainLayout = () => {
               Find Freelancers
             </Link>
             <Link to="freelancer/find-jobs" className="text-gray-600 hover:text-[#3884b8] transition-colors">
-              Find Jobs
+              Find Projects
             </Link>
           </nav>
 
@@ -206,7 +206,7 @@ const MainLayout = () => {
                     to={handleNavigation("/client/jobs")}
                     className="text-gray-600 hover:text-[#3884b8] transition-colors"
                   >
-                    Post a Job
+                    Post a Project
                   </Link>
                 </li>
               </ul>

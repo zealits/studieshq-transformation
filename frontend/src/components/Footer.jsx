@@ -86,7 +86,7 @@ const Footer = () => {
             <ul className="space-y-3">
               <li>
                 <Link to="/post-job" className="text-gray-300 hover:text-white transition-colors">
-                  Post a Job
+                  Post a Project
                 </Link>
               </li>
               <li>

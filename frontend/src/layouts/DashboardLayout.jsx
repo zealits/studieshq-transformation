@@ -38,7 +38,7 @@ const DashboardLayout = ({ role }) => {
       case "freelancer":
         return [
           { path: "/freelancer", label: "Dashboard", icon: "home" },
-          { path: "/freelancer/find-jobs", label: "Find Jobs", icon: "search" },
+          { path: "/freelancer/find-jobs", label: "Find Projects", icon: "search" },
           { path: "/freelancer/projects", label: "My Projects", icon: "folder" },
           { path: "/freelancer/messages", label: "Messages", icon: "chat", showUnreadBadge: true },
           { path: "/freelancer/payments", label: "Payments", icon: "dollar" },
@@ -48,9 +48,9 @@ const DashboardLayout = ({ role }) => {
       case "client":
         return [
           { path: "/client", label: "Dashboard", icon: "home" },
-          { path: "/client/jobs", label: "My Jobs", icon: "briefcase" },
+          { path: "/client/jobs", label: "Project listing", icon: "briefcase" },
           { path: "/client/freelancers", label: "Find Freelancers", icon: "search" },
-          { path: "/client/projects", label: "Projects", icon: "folder" },
+          { path: "/client/projects", label: "Ongoing Work", icon: "folder" },
           { path: "/client/messages", label: "Messages", icon: "chat", showUnreadBadge: true },
           { path: "/client/payments", label: "Payments", icon: "dollar" },
           { path: "/client/profile", label: "My Profile", icon: "user" },

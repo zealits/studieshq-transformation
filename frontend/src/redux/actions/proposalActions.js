@@ -33,7 +33,7 @@ export const withdrawProposal = (proposalId) => async (dispatch) => {
   dispatch({ type: WITHDRAW_PROPOSAL_START });
 
   try {
-    await api.delete(`/proposals/${proposalId}`);
+    await api.delete(`/api/proposals/${proposalId}`);
 
     dispatch({
       type: WITHDRAW_PROPOSAL_SUCCESS,

@@ -35,12 +35,12 @@ const JobsPage = () => {
         console.log(`Loaded ${result?.data?.jobs?.length || 0} jobs for the client`);
 
         // Log each job's client ID to verify ownership
-        if (result?.data?.jobs?.length > 0) {
-          console.log("Verifying job ownership:");
-          result.data.jobs.forEach((job) => {
-            console.log(`Job ID: ${job._id}, Client ID: ${job.client._id || job.client}`);
-          });
-        }
+        // if (result?.data?.jobs?.length > 0) {
+        //   console.log("Verifying job ownership:");
+        //   result.data.jobs.forEach((job) => {
+        //     console.log(`Job ID: ${job._id}, Client ID: ${job.client._id || job.client}`);
+        //   });
+        // }
       } catch (error) {
         console.error("Error fetching client jobs:", error);
         // Show error toast if there's an issue fetching jobs
@@ -85,7 +85,7 @@ const JobsPage = () => {
       await dispatch(publishDraftJob(jobId)).unwrap();
       toast.success("Job published successfully!");
     } catch (err) {
-      toast.error(err || "Failed to publish job");
+      toast.error(err || "Failed to publish project");
     }
   };
 
@@ -118,28 +118,33 @@ const JobsPage = () => {
     setShowProposals(true);
   };
 
-  const closeProposalsModal = () => {
+  const closeProposalsModal = (switchToClosedTab = false) => {
     setShowProposals(false);
     setSelectedJobId(null);
 
     // Refresh jobs list when modal closes as a proposal might have been accepted
     dispatch(fetchClientJobs());
+    
+    // If a proposal was accepted, switch to the closed listings tab
+    if (switchToClosedTab) {
+      setActiveTab("closed");
+    }
   };
 
   const renderJobsForTab = (jobs) => {
     if (!jobs || jobs.length === 0) {
       const messages = {
         active: {
-          title: "No active jobs found",
-          description: "Start posting your first job to find talented freelancers",
+          title: "No active projects found",
+          description: "Start posting your first project to find talented freelancers",
         },
         closed: {
-          title: "No closed jobs yet",
-          description: "You don't have any completed or cancelled jobs",
+          title: "No closed projects yet",
+          description: "You don't have any completed or cancelled projects",
         },
         draft: {
-          title: "No draft jobs",
-          description: "Save jobs as drafts to complete them later",
+          title: "No draft projects",
+          description: "Save projects as drafts to complete them later",
         },
       };
 
@@ -167,7 +172,7 @@ const JobsPage = () => {
             onClick={() => setShowPostJobForm(true)}
             className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
           >
-            Post a Job
+            Post a Project
           </button>
         </div>
       );
@@ -263,11 +268,11 @@ const JobsPage = () => {
                 </button>
               )}
               <button className="btn-outline text-sm py-1" onClick={() => handleEditJob(job)}>
-                Edit Job
+                Edit Project
               </button>
               {job.status === "draft" ? (
                 <button className="btn-primary text-sm py-1" onClick={() => handlePublishJob(job._id)}>
-                  Publish Job
+                  Publish Project
                 </button>
               ) : job.status === "open" ? (
                 <button className="text-red-600 hover:text-red-800 text-sm py-1 px-3">Close Job</button>
@@ -283,7 +288,7 @@ const JobsPage = () => {
     return (
       <div className="h-screen flex flex-col">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Jobs</h1>
+          <h1 className="text-2xl font-bold">Project listing</h1>
           <button
             className="btn-primary"
             onClick={() => {
@@ -304,7 +309,7 @@ const JobsPage = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Jobs</h1>
+        <h1 className="text-2xl font-bold">Project listing</h1>
         <button
           className="btn-primary"
           onClick={() => {
@@ -312,7 +317,7 @@ const JobsPage = () => {
             setShowPostJobForm(true);
           }}
         >
-          Post a New Job
+          Post a New Project
         </button>
       </div>
 
@@ -336,7 +341,7 @@ const JobsPage = () => {
               }`}
               onClick={() => setActiveTab("active")}
             >
-              Active Jobs
+              Open for Proposals
             </button>
             <button
               className={`pb-2 px-4 font-medium ${
@@ -344,7 +349,7 @@ const JobsPage = () => {
               }`}
               onClick={() => setActiveTab("closed")}
             >
-              Closed Jobs
+              Closed Listings
             </button>
             <button
               className={`pb-2 px-4 font-medium ${
@@ -352,7 +357,7 @@ const JobsPage = () => {
               }`}
               onClick={() => setActiveTab("draft")}
             >
-              Draft Jobs
+              Draft Listings
             </button>
           </div>
 

@@ -348,8 +348,8 @@ const jobsSlice = createSlice({
         // Categorize jobs by status
         const jobs = action.payload?.data?.jobs || [];
         state.clientJobs = {
-          active: jobs.filter((job) => job.status === "open" || job.status === "in_progress"),
-          closed: jobs.filter((job) => job.status === "completed" || job.status === "cancelled"),
+          active: jobs.filter((job) => job.status === "open"),
+          closed: jobs.filter((job) => job.status === "in_progress" || job.status === "completed" || job.status === "cancelled"),
           draft: jobs.filter((job) => job.status === "draft"),
         };
       })

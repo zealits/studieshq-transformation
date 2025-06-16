@@ -6,6 +6,7 @@ import { formatDate } from "../../utils/dateUtils";
 import ChatButton from "../../components/common/ChatButton";
 import MilestoneWorkSubmission from "../../components/milestone/MilestoneWorkSubmission";
 import { toast } from "react-toastify";
+import ConfirmationModal from "../../components/common/ConfirmationModal";
 
 const ProjectsPage = () => {
   const [activeTab, setActiveTab] = useState("active");
@@ -13,6 +14,8 @@ const ProjectsPage = () => {
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState(null);
   const [isResubmission, setIsResubmission] = useState(false);
+  const [showWithdrawConfirmation, setShowWithdrawConfirmation] = useState(false);
+  const [proposalToWithdraw, setProposalToWithdraw] = useState(null);
 
   const dispatch = useDispatch();
   const { proposals, loading: proposalsLoading, error: proposalsError } = useSelector((state) => state.proposals);
@@ -33,8 +36,14 @@ const ProjectsPage = () => {
   }, [activeTab, dispatch]);
 
   const handleWithdrawProposal = (proposalId) => {
-    if (window.confirm("Are you sure you want to withdraw this proposal?")) {
-      dispatch(withdrawProposal(proposalId));
+    setProposalToWithdraw(proposalId);
+    setShowWithdrawConfirmation(true);
+  };
+
+  const confirmWithdrawProposal = () => {
+    if (proposalToWithdraw) {
+      dispatch(withdrawProposal(proposalToWithdraw));
+      toast.success("Proposal withdrawn successfully");
     }
   };
 
@@ -501,8 +510,8 @@ const ProjectsPage = () => {
               <div key={proposal._id} className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h2 className="text-xl font-semibold">{proposal.job.title}</h2>
-                    <p className="text-gray-600">Client: {proposal.job.client.name}</p>
+                    <h2 className="text-xl font-semibold">{proposal.job?.title}</h2>
+                    <p className="text-gray-600">Client: {proposal.job?.client?.name}</p>
                   </div>
                   <div className="flex flex-col items-end">
                     <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(proposal.status)}`}>
@@ -512,22 +521,22 @@ const ProjectsPage = () => {
                   </div>
                 </div>
 
-                <p className="mt-4 text-gray-600">{proposal.job.description}</p>
+                <p className="mt-4 text-gray-600">{proposal?.job?.description}</p>
 
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Client's Budget</p>
                     <p className="font-medium">
-                      ${proposal.job.budget.min} - ${proposal.job.budget.max}
+                      ${proposal?.job?.budget.min} - ${proposal?.job?.budget.max}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Your Bid</p>
-                    <p className="font-medium">${proposal.bidPrice}</p>
+                    <p className="font-medium">${proposal?.bidPrice}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Duration</p>
-                    <p className="font-medium">{proposal.estimatedDuration}</p>
+                    <p className="font-medium">{proposal?.estimatedDuration}</p>
                   </div>
                 </div>
 
@@ -536,7 +545,7 @@ const ProjectsPage = () => {
                   <div className="space-y-3">
                     <div>
                       <p className="text-sm text-gray-500 mb-1">Cover Letter</p>
-                      <p className="text-gray-700 whitespace-pre-wrap">{proposal.coverLetter}</p>
+                      <p className="text-gray-700 whitespace-pre-wrap">{proposal?.coverLetter}</p>
                     </div>
                     {proposal.status === "shortlisted" && (
                       <div className="mt-3 p-3 bg-blue-50 rounded-md">
@@ -565,7 +574,7 @@ const ProjectsPage = () => {
                 </div>
 
                 <div className="mt-4 flex justify-end space-x-2">
-                  <button className="btn-outline text-sm py-1">View Job Details</button>
+                  {/* <button className="btn-outline text-sm py-1">View Project Details</button> */}
                   {proposal.status === "pending" && (
                     <button onClick={() => handleWithdrawProposal(proposal._id)} className="btn-danger text-sm py-1">
                       Withdraw Proposal
@@ -673,6 +682,17 @@ const ProjectsPage = () => {
           onSuccess={handleSubmissionSuccess}
         />
       )}
+
+      {/* Withdraw Proposal Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showWithdrawConfirmation}
+        onClose={() => setShowWithdrawConfirmation(false)}
+        onConfirm={confirmWithdrawProposal}
+        title="Withdraw Proposal"
+        message="Are you sure you want to withdraw this proposal? This action cannot be undone."
+        confirmText="Withdraw"
+        cancelText="Cancel"
+      />
     </div>
   );
 };
