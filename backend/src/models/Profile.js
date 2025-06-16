@@ -119,6 +119,13 @@ const ProfileSchema = new Schema({
     number: {
       type: String,
     },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verifiedAt: {
+      type: Date,
+    },
   },
   location: {
     type: String,

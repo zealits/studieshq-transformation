@@ -15,6 +15,7 @@ const projectRoutes = require("./routes/projectRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const contactRoutes = require("./routes/contactRoutes");
+const otpRoutes = require("./routes/otpRoutes");
 
 // Load environment variables
 dotenv.config();
@@ -46,6 +47,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/contact", contactRoutes);
+app.use("/api/otp", otpRoutes);
 
 // Serve static files from the frontend/dist directory
 app.use(

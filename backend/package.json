@@ -29,6 +29,7 @@
     "path": "^0.12.7",
     "react-hot-toast": "^2.5.2",
     "socket.io": "^4.8.1",
+    "twilio": "^5.7.1",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

@@ -4,6 +4,8 @@ import { fetchMyProfile, updateProfile } from "../../redux/slices/profileSlice";
 import { uploadProfileImage } from "../../redux/slices/uploadSlice";
 import { toast } from "react-toastify";
 import VerificationBadge from "../../components/VerificationBadge";
+import OTPVerification from "../../components/OTPVerification";
+import api from "../../api/axios";
 
 const ProfilePage = () => {
   const dispatch = useDispatch();
@@ -12,6 +14,13 @@ const ProfilePage = () => {
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showImageConfirm, setShowImageConfirm] = useState(false);
+
+  // OTP verification states
+  const [showOTPModal, setShowOTPModal] = useState(false);
+  const [phoneVerificationStatus, setPhoneVerificationStatus] = useState({
+    isVerified: false,
+    verifiedAt: null,
+  });
 
   // State for form data
   const [formData, setFormData] = useState({
@@ -70,6 +79,8 @@ const ProfilePage = () => {
         phone: {
           countryCode: profile.phone?.countryCode || "+91",
           number: profile.phone?.number || "",
+          isVerified: profile.phone?.isVerified || false,
+          verifiedAt: profile.phone?.verifiedAt || null,
         },
         location: profile.location || "",
         companyName: profile.company || "",
@@ -97,6 +108,12 @@ const ProfilePage = () => {
           twitter: profile.social?.twitter || "",
           facebook: profile.social?.facebook || "",
         },
+      });
+
+      // Update phone verification status
+      setPhoneVerificationStatus({
+        isVerified: profile.phone?.isVerified || false,
+        verifiedAt: profile.phone?.verifiedAt || null,
       });
 
       // Show success message if this was an update operation
@@ -253,6 +270,47 @@ const ProfilePage = () => {
     } catch (err) {
       toast.error(err.message || "Failed to update profile");
     }
+  };
+
+  // OTP verification handlers
+  const handleVerifyPhone = () => {
+    if (!formData.phone.countryCode || !formData.phone.number) {
+      toast.error("Please enter a valid phone number first");
+      return;
+    }
+    setShowOTPModal(true);
+  };
+
+  const handleOTPVerificationSuccess = async (data) => {
+    try {
+      // Update local state
+      setPhoneVerificationStatus({
+        isVerified: true,
+        verifiedAt: data.data.verifiedAt,
+      });
+
+      // Update form data
+      setFormData((prev) => ({
+        ...prev,
+        phone: {
+          ...prev.phone,
+          isVerified: true,
+          verifiedAt: data.data.verifiedAt,
+        },
+      }));
+
+      // Refresh profile data to get the updated verification status
+      dispatch(fetchMyProfile());
+
+      setShowOTPModal(false);
+      toast.success("Phone number verified successfully!");
+    } catch (error) {
+      console.error("OTP verification success handler error:", error);
+    }
+  };
+
+  const handleOTPCancel = () => {
+    setShowOTPModal(false);
   };
 
   return (
@@ -513,6 +571,51 @@ const ProfilePage = () => {
                     placeholder="Enter phone number"
                   />
                 </div>
+
+                {/* Phone verification status and button */}
+                <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center">
+                    {phoneVerificationStatus.isVerified ? (
+                      <div className="flex items-center text-green-600">
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span className="text-xs">Verified</span>
+                        {phoneVerificationStatus.verifiedAt && (
+                          <span className="text-xs text-gray-500 ml-1">
+                            on {new Date(phoneVerificationStatus.verifiedAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center text-yellow-600">
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path
+                            fillRule="evenodd"
+                            d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span className="text-xs">Not verified</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {!phoneVerificationStatus.isVerified && formData.phone.number && (
+                    <button
+                      type="button"
+                      onClick={handleVerifyPhone}
+                      className="text-xs bg-primary text-white px-3 py-1 rounded-md hover:bg-primary-dark transition-colors"
+                    >
+                      Verify Phone
+                    </button>
+                  )}
+                </div>
+
                 <p className="text-xs text-gray-500 mt-1">
                   Your business contact number for professional communication
                 </p>
@@ -889,6 +992,15 @@ const ProfilePage = () => {
           </div>
         )}
       </form>
+
+      {/* OTP Verification Modal */}
+      <OTPVerification
+        isOpen={showOTPModal}
+        countryCode={formData.phone.countryCode}
+        phoneNumber={formData.phone.number}
+        onVerificationSuccess={handleOTPVerificationSuccess}
+        onCancel={handleOTPCancel}
+      />
     </div>
   );
 };
