@@ -1289,22 +1289,50 @@ exports.getGiftCardCampaigns = async (req, res) => {
 
 // Withdraw funds as gift card
 exports.withdrawAsGiftCard = async (req, res) => {
+  console.log("🎁 WITHDRAWAL CONTROLLER: === STARTING GIFT CARD WITHDRAWAL ===");
+  console.log("🎁 WITHDRAWAL CONTROLLER: Request method:", req.method);
+  console.log("🎁 WITHDRAWAL CONTROLLER: Request URL:", req.url);
+  console.log("🎁 WITHDRAWAL CONTROLLER: Request headers:", JSON.stringify(req.headers, null, 2));
+  console.log(
+    "🎁 WITHDRAWAL CONTROLLER: User from token:",
+    req.user ? { id: req.user.id, email: req.user.email, role: req.user.role } : "null"
+  );
+  console.log("🎁 WITHDRAWAL CONTROLLER: Request body:", JSON.stringify(req.body, null, 2));
+  console.log("🎁 WITHDRAWAL CONTROLLER: Request query:", req.query);
+
   const session = await mongoose.startSession();
   session.startTransaction();
+  console.log("🎁 WITHDRAWAL CONTROLLER: Database session started and transaction begun");
 
   try {
     const { campaignId, amount, recipientEmail, recipientName, message } = req.body;
     const userId = req.user.id;
 
-    console.log("🎁 PAYMENT CONTROLLER: Processing gift card withdrawal", {
-      userId,
-      campaignId,
-      amount,
-      recipientEmail,
-    });
+    console.log("🎁 WITHDRAWAL CONTROLLER: === EXTRACTED REQUEST DATA ===");
+    console.log("🎁 WITHDRAWAL CONTROLLER: User ID:", userId);
+    console.log("🎁 WITHDRAWAL CONTROLLER: Campaign ID:", campaignId);
+    console.log("🎁 WITHDRAWAL CONTROLLER: Amount:", amount, typeof amount);
+    console.log("🎁 WITHDRAWAL CONTROLLER: Recipient Email:", recipientEmail);
+    console.log("🎁 WITHDRAWAL CONTROLLER: Recipient Name:", recipientName);
+    console.log("🎁 WITHDRAWAL CONTROLLER: Message:", message);
+
+    console.log("🎁 WITHDRAWAL CONTROLLER: === VALIDATING REQUEST DATA ===");
 
     // Validation
+    const validationResults = {
+      hasCampaignId: !!campaignId,
+      hasAmount: !!amount,
+      hasRecipientEmail: !!recipientEmail,
+      hasRecipientName: !!recipientName,
+      amountIsPositive: amount > 0,
+    };
+
+    console.log("🎁 WITHDRAWAL CONTROLLER: Validation results:", validationResults);
+
     if (!campaignId || !amount || !recipientEmail || !recipientName) {
+      console.error("🎁 WITHDRAWAL CONTROLLER: ❌ Missing required fields");
+      console.error("🎁 WITHDRAWAL CONTROLLER: Validation details:", validationResults);
+      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message: "Missing required fields: campaignId, amount, recipientEmail, recipientName",
@@ -1312,21 +1340,56 @@ exports.withdrawAsGiftCard = async (req, res) => {
     }
 
     if (amount <= 0) {
+      console.error("🎁 WITHDRAWAL CONTROLLER: ❌ Invalid amount");
+      console.error("🎁 WITHDRAWAL CONTROLLER: Amount value:", amount);
+      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message: "Amount must be greater than 0",
       });
     }
 
+    console.log("🎁 WITHDRAWAL CONTROLLER: ✅ Basic validation passed");
+
     // Check user's wallet balance
+    console.log("🎁 WITHDRAWAL CONTROLLER: === CHECKING WALLET BALANCE ===");
+    console.log("🎁 WITHDRAWAL CONTROLLER: Looking up wallet for user:", userId);
+
     const wallet = await Wallet.findOne({ user: userId }).session(session);
-    if (!wallet || wallet.balance < amount) {
+
+    console.log("🎁 WITHDRAWAL CONTROLLER: Wallet lookup result:", {
+      walletFound: !!wallet,
+      walletBalance: wallet ? wallet.balance : "N/A",
+      requestedAmount: amount,
+      hasSufficientBalance: wallet ? wallet.balance >= amount : false,
+    });
+
+    if (!wallet) {
+      console.error("🎁 WITHDRAWAL CONTROLLER: ❌ No wallet found for user");
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Wallet not found for user",
+      });
+    }
+
+    if (wallet.balance < amount) {
+      console.error("🎁 WITHDRAWAL CONTROLLER: ❌ Insufficient balance");
+      console.error("🎁 WITHDRAWAL CONTROLLER: Wallet balance:", wallet.balance);
+      console.error("🎁 WITHDRAWAL CONTROLLER: Requested amount:", amount);
       await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message: "Insufficient balance for gift card withdrawal",
+        data: {
+          availableBalance: wallet.balance,
+          requestedAmount: amount,
+          shortfall: amount - wallet.balance,
+        },
       });
     }
+
+    console.log("🎁 WITHDRAWAL CONTROLLER: ✅ Wallet balance check passed");
 
     // Get user details for sender information
     const user = await User.findById(userId).session(session);
@@ -1348,7 +1411,7 @@ exports.withdrawAsGiftCard = async (req, res) => {
       recipientEmail,
       recipientName,
       senderEmail: user.email,
-      senderName: `${user.firstName} ${user.lastName}`,
+      senderName: user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
       message: message || "Congratulations on your earnings! Enjoy your gift card.",
       externalId: transactionId,
     };
@@ -1364,9 +1427,25 @@ exports.withdrawAsGiftCard = async (req, res) => {
     }
 
     // Create gift card order with Giftogram
+    console.log("🎁 WITHDRAWAL CONTROLLER: === CALLING GIFTOGRAM SERVICE ===");
+    console.log("🎁 WITHDRAWAL CONTROLLER: Order data for Giftogram:", JSON.stringify(orderData, null, 2));
+    console.log("🎁 WITHDRAWAL CONTROLLER: Calling giftogramService.createGiftCardOrder()...");
+
     const giftCardResult = await giftogramService.createGiftCardOrder(orderData);
 
+    console.log("🎁 WITHDRAWAL CONTROLLER: === GIFTOGRAM SERVICE RESPONSE ===");
+    console.log("🎁 WITHDRAWAL CONTROLLER: Result:", JSON.stringify(giftCardResult, null, 2));
+    console.log("🎁 WITHDRAWAL CONTROLLER: Success:", giftCardResult.success);
+
+    if (giftCardResult.success && giftCardResult.order) {
+      console.log("🎁 WITHDRAWAL CONTROLLER: ✅ Giftogram order created successfully");
+      console.log("🎁 WITHDRAWAL CONTROLLER: Order ID:", giftCardResult.order.order_id);
+      console.log("🎁 WITHDRAWAL CONTROLLER: Order status:", giftCardResult.order.status);
+    }
+
     if (!giftCardResult.success) {
+      console.error("🎁 WITHDRAWAL CONTROLLER: ❌ Giftogram service failed");
+      console.error("🎁 WITHDRAWAL CONTROLLER: Error:", giftCardResult.error);
       await session.abortTransaction();
       return res.status(500).json({
         success: false,
@@ -1397,15 +1476,17 @@ exports.withdrawAsGiftCard = async (req, res) => {
 
     await transaction.save({ session });
 
+    console.log("🎁 WITHDRAWAL CONTROLLER: === COMMITTING TRANSACTION ===");
     await session.commitTransaction();
+    console.log("🎁 WITHDRAWAL CONTROLLER: ✅ Database transaction committed");
 
-    console.log("🎁 PAYMENT CONTROLLER: Gift card withdrawal successful", {
-      transactionId,
-      giftogramOrderId: giftCardResult.order.order_id,
-      status: giftCardResult.order.status,
-    });
+    console.log("🎁 WITHDRAWAL CONTROLLER: === WITHDRAWAL SUCCESSFUL ===");
+    console.log("🎁 WITHDRAWAL CONTROLLER: Transaction ID:", transactionId);
+    console.log("🎁 WITHDRAWAL CONTROLLER: Giftogram Order ID:", giftCardResult.order.order_id);
+    console.log("🎁 WITHDRAWAL CONTROLLER: Order Status:", giftCardResult.order.status);
+    console.log("🎁 WITHDRAWAL CONTROLLER: New wallet balance:", wallet.balance);
 
-    res.json({
+    const responseData = {
       success: true,
       data: {
         transaction: {
@@ -1424,16 +1505,39 @@ exports.withdrawAsGiftCard = async (req, res) => {
         },
         newBalance: wallet.balance,
       },
-    });
+    };
+
+    console.log("🎁 WITHDRAWAL CONTROLLER: === SENDING SUCCESS RESPONSE ===");
+    console.log("🎁 WITHDRAWAL CONTROLLER: Response data:", JSON.stringify(responseData, null, 2));
+
+    res.json(responseData);
+
+    console.log("🎁 WITHDRAWAL CONTROLLER: === WITHDRAWAL PROCESS COMPLETED ===");
   } catch (error) {
+    console.error("🎁 WITHDRAWAL CONTROLLER: === ERROR PROCESSING WITHDRAWAL ===");
+    console.error("🎁 WITHDRAWAL CONTROLLER: Error type:", error.constructor.name);
+    console.error("🎁 WITHDRAWAL CONTROLLER: Error message:", error.message);
+    console.error("🎁 WITHDRAWAL CONTROLLER: Error stack:", error.stack);
+    console.error("🎁 WITHDRAWAL CONTROLLER: Full error object:", error);
+
+    console.log("🎁 WITHDRAWAL CONTROLLER: Aborting database transaction...");
     await session.abortTransaction();
-    console.error("🎁 PAYMENT CONTROLLER: Error processing gift card withdrawal:", error);
-    res.status(500).json({
+    console.log("🎁 WITHDRAWAL CONTROLLER: Database transaction aborted");
+
+    const errorResponse = {
       success: false,
       message: "Failed to process gift card withdrawal",
-    });
+      error: process.env.NODE_ENV === "development" ? error.message : "Internal server error",
+    };
+
+    console.error("🎁 WITHDRAWAL CONTROLLER: === SENDING ERROR RESPONSE ===");
+    console.error("🎁 WITHDRAWAL CONTROLLER: Error response:", JSON.stringify(errorResponse, null, 2));
+
+    res.status(500).json(errorResponse);
   } finally {
+    console.log("🎁 WITHDRAWAL CONTROLLER: Ending database session...");
     session.endSession();
+    console.log("🎁 WITHDRAWAL CONTROLLER: === WITHDRAWAL ENDPOINT FINISHED ===");
   }
 };
 

@@ -73,7 +73,16 @@ const TransactionSchema = new Schema({
   },
   type: {
     type: String,
-    enum: ["deposit", "withdrawal", "payment", "refund", "milestone", "platform_fee", "escrow_completion"],
+    enum: [
+      "deposit",
+      "withdrawal",
+      "payment",
+      "refund",
+      "milestone",
+      "platform_fee",
+      "escrow_completion",
+      "gift_card_withdrawal",
+    ],
     required: true,
   },
   status: {

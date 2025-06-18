@@ -224,11 +224,20 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    console.log("🎁 MODAL SUBMIT: === GIFT CARD WITHDRAWAL STARTED ===");
+    console.log("🎁 MODAL SUBMIT: Form data:", formData);
+    console.log("🎁 MODAL SUBMIT: Selected campaign:", selectedCampaign);
+    console.log("🎁 MODAL SUBMIT: Available balance:", availableBalance);
+
     if (!validateForm()) {
+      console.warn("🎁 MODAL SUBMIT: ❌ Form validation failed");
       return;
     }
 
+    console.log("🎁 MODAL SUBMIT: ✅ Form validation passed");
+
     try {
+      console.log("🎁 MODAL SUBMIT: Setting loading state to true");
       setLoading(true);
 
       const withdrawalData = {
@@ -239,16 +248,53 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
         message: formData.message.trim() || undefined,
       };
 
+      console.log("🎁 MODAL SUBMIT: === PREPARED WITHDRAWAL DATA ===");
+      console.log("🎁 MODAL SUBMIT: Withdrawal data:", JSON.stringify(withdrawalData, null, 2));
+      console.log("🎁 MODAL SUBMIT: Campaign ID:", withdrawalData.campaignId);
+      console.log("🎁 MODAL SUBMIT: Amount:", withdrawalData.amount);
+      console.log("🎁 MODAL SUBMIT: Recipient email:", withdrawalData.recipientEmail);
+      console.log("🎁 MODAL SUBMIT: Recipient name:", withdrawalData.recipientName);
+      console.log("🎁 MODAL SUBMIT: Message:", withdrawalData.message);
+
+      console.log("🎁 MODAL SUBMIT: Calling giftCardService.withdrawAsGiftCard()...");
       const response = await giftCardService.withdrawAsGiftCard(withdrawalData);
 
+      console.log("🎁 MODAL SUBMIT: === WITHDRAWAL RESPONSE RECEIVED ===");
+      console.log("🎁 MODAL SUBMIT: Response:", response);
+      console.log("🎁 MODAL SUBMIT: Response type:", typeof response);
+      console.log("🎁 MODAL SUBMIT: Response keys:", response ? Object.keys(response) : "null");
+      console.log("🎁 MODAL SUBMIT: Full response JSON:", JSON.stringify(response, null, 2));
+
+      console.log("🎁 MODAL SUBMIT: ✅ Withdrawal successful!");
       toast.success("Gift card withdrawal processed successfully!");
+
+      console.log("🎁 MODAL SUBMIT: Calling onSuccess callback...");
       onSuccess(response.data);
+
+      console.log("🎁 MODAL SUBMIT: Closing modal...");
       onClose();
+
+      console.log("🎁 MODAL SUBMIT: === WITHDRAWAL PROCESS COMPLETED ===");
     } catch (error) {
-      console.error("Error processing gift card withdrawal:", error);
+      console.error("🎁 MODAL SUBMIT: === ERROR PROCESSING WITHDRAWAL ===");
+      console.error("🎁 MODAL SUBMIT: Error type:", error.constructor.name);
+      console.error("🎁 MODAL SUBMIT: Error message:", error.message);
+      console.error("🎁 MODAL SUBMIT: Error stack:", error.stack);
+      console.error("🎁 MODAL SUBMIT: Full error object:", error);
+
+      if (error.response) {
+        console.error("🎁 MODAL SUBMIT: Error response status:", error.response.status);
+        console.error("🎁 MODAL SUBMIT: Error response data:", error.response.data);
+        console.error("🎁 MODAL SUBMIT: Error response headers:", error.response.headers);
+      }
+
+      console.error("🎁 MODAL SUBMIT: === END ERROR DETAILS ===");
+
       toast.error(error.message || "Failed to process gift card withdrawal");
     } finally {
+      console.log("🎁 MODAL SUBMIT: Setting loading state to false");
       setLoading(false);
+      console.log("🎁 MODAL SUBMIT: === WITHDRAWAL ATTEMPT FINISHED ===");
     }
   };
 

@@ -122,21 +122,99 @@ class GiftCardService {
   // Withdraw funds as gift card
   async withdrawAsGiftCard(withdrawalData) {
     try {
-      console.log("🎁 GIFT CARD SERVICE: === STARTING withdrawAsGiftCard ===");
-      console.log("🎁 GIFT CARD SERVICE: Withdrawal data:", withdrawalData);
+      console.log("🎁 WITHDRAWAL SERVICE: === STARTING withdrawAsGiftCard ===");
+      console.log("🎁 WITHDRAWAL SERVICE: Input data:", JSON.stringify(withdrawalData, null, 2));
+      console.log("🎁 WITHDRAWAL SERVICE: Data validation:", {
+        hasCampaignId: !!withdrawalData.campaignId,
+        hasAmount: !!withdrawalData.amount,
+        hasRecipientEmail: !!withdrawalData.recipientEmail,
+        hasRecipientName: !!withdrawalData.recipientName,
+        amountType: typeof withdrawalData.amount,
+        amountValue: withdrawalData.amount,
+      });
 
-      const response = await axios.post("/payments/gift-cards/withdraw", withdrawalData);
+      // Check authentication
+      const token = localStorage.getItem("token");
+      console.log("🎁 WITHDRAWAL SERVICE: Auth check:", {
+        hasToken: !!token,
+        tokenLength: token ? token.length : 0,
+        tokenPreview: token ? `${token.substring(0, 20)}...` : "null",
+      });
 
-      console.log("🎁 GIFT CARD SERVICE: Withdrawal response:", response.data);
-      console.log("🎁 GIFT CARD SERVICE: === ENDING withdrawAsGiftCard (SUCCESS) ===");
+      if (!token) {
+        console.error("🎁 WITHDRAWAL SERVICE: ❌ No authentication token found");
+        throw new Error("Authentication required");
+      }
 
+      console.log("🎁 WITHDRAWAL SERVICE: Making API request to /api/payments/gift-cards/withdraw");
+      console.log("🎁 WITHDRAWAL SERVICE: Request headers:", {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token.substring(0, 20)}...`,
+      });
+      console.log("🎁 WITHDRAWAL SERVICE: Request payload:", JSON.stringify(withdrawalData, null, 2));
+
+      const response = await axios.post("/api/payments/gift-cards/withdraw", withdrawalData);
+
+      console.log("🎁 WITHDRAWAL SERVICE: === WITHDRAWAL RESPONSE RECEIVED ===");
+      console.log("🎁 WITHDRAWAL SERVICE: Response status:", response.status);
+      console.log("🎁 WITHDRAWAL SERVICE: Response statusText:", response.statusText);
+      console.log("🎁 WITHDRAWAL SERVICE: Response headers:", response.headers);
+      console.log("🎁 WITHDRAWAL SERVICE: Response data:", response.data);
+      console.log("🎁 WITHDRAWAL SERVICE: Response data type:", typeof response.data);
+      console.log("🎁 WITHDRAWAL SERVICE: Response keys:", response.data ? Object.keys(response.data) : "null");
+      console.log("🎁 WITHDRAWAL SERVICE: Full response JSON:", JSON.stringify(response.data, null, 2));
+
+      if (response.data && response.data.success) {
+        console.log("🎁 WITHDRAWAL SERVICE: ✅ Withdrawal successful");
+        console.log("🎁 WITHDRAWAL SERVICE: Success data:", response.data.data);
+      } else {
+        console.warn("🎁 WITHDRAWAL SERVICE: ⚠️ Response indicates failure");
+        console.warn("🎁 WITHDRAWAL SERVICE: Error message:", response.data?.message);
+      }
+
+      console.log("🎁 WITHDRAWAL SERVICE: === ENDING withdrawAsGiftCard (SUCCESS) ===");
       return response.data;
     } catch (error) {
-      console.error("🎁 GIFT CARD SERVICE: === ERROR in withdrawAsGiftCard ===");
-      console.error("🎁 GIFT CARD SERVICE: Error:", error.response?.data || error.message);
-      console.error("🎁 GIFT CARD SERVICE: === ENDING withdrawAsGiftCard (ERROR) ===");
+      console.error("🎁 WITHDRAWAL SERVICE: === ERROR in withdrawAsGiftCard ===");
+      console.error("🎁 WITHDRAWAL SERVICE: Error type:", error.constructor.name);
+      console.error("🎁 WITHDRAWAL SERVICE: Error message:", error.message);
+      console.error("🎁 WITHDRAWAL SERVICE: Error stack:", error.stack);
+      console.error("🎁 WITHDRAWAL SERVICE: Full error object:", error);
 
-      throw error.response?.data || { message: "Failed to process gift card withdrawal" };
+      if (error.response) {
+        console.error("🎁 WITHDRAWAL SERVICE: === API ERROR RESPONSE ===");
+        console.error("🎁 WITHDRAWAL SERVICE: Status:", error.response.status);
+        console.error("🎁 WITHDRAWAL SERVICE: Status text:", error.response.statusText);
+        console.error("🎁 WITHDRAWAL SERVICE: Headers:", error.response.headers);
+        console.error("🎁 WITHDRAWAL SERVICE: Data:", error.response.data);
+        console.error("🎁 WITHDRAWAL SERVICE: Full error response:", JSON.stringify(error.response.data, null, 2));
+
+        if (error.response.status === 401) {
+          console.error("🎁 WITHDRAWAL SERVICE: ❌ Authentication failed (401)");
+          throw new Error("Authentication failed. Please login again.");
+        } else if (error.response.status === 403) {
+          console.error("🎁 WITHDRAWAL SERVICE: ❌ Access forbidden (403)");
+          throw new Error("Access denied. Insufficient permissions.");
+        } else if (error.response.status === 404) {
+          console.error("🎁 WITHDRAWAL SERVICE: ❌ Endpoint not found (404)");
+          throw new Error("Gift card withdrawal service not available.");
+        } else if (error.response.status === 422) {
+          console.error("🎁 WITHDRAWAL SERVICE: ❌ Validation error (422)");
+          throw new Error(error.response.data?.message || "Invalid withdrawal data.");
+        } else {
+          console.error("🎁 WITHDRAWAL SERVICE: ❌ Server error:", error.response.status);
+          throw new Error(error.response.data?.message || `Server error: ${error.response.status}`);
+        }
+      } else if (error.request) {
+        console.error("🎁 WITHDRAWAL SERVICE: === NETWORK ERROR ===");
+        console.error("🎁 WITHDRAWAL SERVICE: Request made but no response received");
+        console.error("🎁 WITHDRAWAL SERVICE: Request:", error.request);
+        throw new Error("Network error. Please check your connection.");
+      } else {
+        console.error("🎁 WITHDRAWAL SERVICE: === UNKNOWN ERROR ===");
+        console.error("🎁 WITHDRAWAL SERVICE: Error setting up request:", error.message);
+        throw new Error(error.message || "Unknown error occurred");
+      }
     }
   }
 
