@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import { toast } from "react-hot-toast";
 import { createPayPalOrder, capturePayPalPayment, clearError, clearPayPalOrder } from "../../redux/slices/paymentSlice";
 
 const AddFundsModal = ({ isOpen, onClose, onSuccess }) => {
@@ -16,7 +17,7 @@ const AddFundsModal = ({ isOpen, onClose, onSuccess }) => {
 
   useEffect(() => {
     if (error) {
-      alert(error);
+      toast.error(error);
       dispatch(clearError());
     }
   }, [error, dispatch]);
@@ -41,17 +42,17 @@ const AddFundsModal = ({ isOpen, onClose, onSuccess }) => {
     const numAmount = parseFloat(amount);
 
     if (!amount || numAmount <= 0) {
-      alert("Please enter a valid amount");
+      toast.error("Please enter a valid amount");
       return;
     }
 
     if (numAmount < 1) {
-      alert("Minimum amount is $1.00");
+      toast.error("Minimum amount is $1.00");
       return;
     }
 
     if (numAmount > 10000) {
-      alert("Maximum amount is $10,000.00");
+      toast.error("Maximum amount is $10,000.00");
       return;
     }
 
@@ -84,16 +85,23 @@ const AddFundsModal = ({ isOpen, onClose, onSuccess }) => {
         onSuccess(result);
       }
 
-      alert("Funds added successfully!");
+      toast.success("💰 Funds added successfully via PayPal!", {
+        duration: 4000,
+        icon: "🎉",
+      });
     } catch (error) {
       console.error("Error capturing PayPal payment:", error);
-      alert("Payment failed. Please try again.");
+      toast.error("❌ Payment failed. Please try again.", {
+        duration: 4000,
+      });
     }
   };
 
   const onError = (err) => {
     console.error("PayPal error:", err);
-    alert("PayPal payment error. Please try again.");
+    toast.error("❌ PayPal payment error. Please try again.", {
+      duration: 4000,
+    });
   };
 
   const onCancel = () => {

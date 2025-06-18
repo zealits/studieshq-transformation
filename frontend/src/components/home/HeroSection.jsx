@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import HeroImage from "../../assets/images/HeroImage.jpg";
+import HeroImage from "../../assets/images/HeroImage.png";
 
 const HeroSection = () => {
   const [searchQuery, setSearchQuery] = useState("");

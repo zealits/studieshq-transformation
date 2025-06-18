@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import escrowService from "../../services/escrowService";
 import { useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
+import AddFundsModal from "../../components/payments/AddFundsModal";
 
 const PaymentsPage = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -21,7 +22,9 @@ const PaymentsPage = () => {
         setEscrowData(response.data);
       } catch (error) {
         console.error("🖥️ CLIENT PAYMENTS PAGE: Error loading payment data:", error);
-        toast.error("Failed to load payment data");
+        toast.error("❌ Failed to load payment data", {
+          duration: 4000,
+        });
         // Set default empty data on error
         setEscrowData({
           availableBalance: 0,
@@ -42,16 +45,20 @@ const PaymentsPage = () => {
     }
   }, [user]);
 
-  const handleAddFunds = async (amount) => {
+  const handleAddFundsSuccess = async (result) => {
     try {
-      // Implement add funds logic here
-      toast.success("Funds added successfully");
-      setShowAddFundsModal(false);
+      toast.success("💰 Funds added successfully via PayPal!", {
+        duration: 4000,
+        icon: "🎉",
+      });
       // Reload data after adding funds
       const response = await escrowService.getClientEscrowData();
       setEscrowData(response.data);
     } catch (error) {
-      toast.error("Failed to add funds");
+      console.error("Error reloading data after fund addition:", error);
+      toast.error("⚠️ Funds added but failed to refresh data", {
+        duration: 4000,
+      });
     }
   };
 
@@ -312,47 +319,12 @@ const PaymentsPage = () => {
         </div>
       )}
 
-      {/* Add Funds Modal */}
-      {showAddFundsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Add Funds to Wallet</h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Current Balance: {formatCurrency(escrowData?.availableBalance)}
-              </label>
-              <input
-                type="number"
-                placeholder="Enter amount to add"
-                min="10"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-              />
-            </div>
-            <div className="mb-4">
-              <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary">
-                <option value="">Select Payment Method</option>
-                <option value="card">Credit/Debit Card</option>
-                <option value="paypal">PayPal</option>
-                <option value="bank">Bank Transfer</option>
-              </select>
-            </div>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowAddFundsModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleAddFunds(100)} // Pass the actual amount
-                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-              >
-                Add Funds
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Add Funds Modal with PayPal Integration */}
+      <AddFundsModal
+        isOpen={showAddFundsModal}
+        onClose={() => setShowAddFundsModal(false)}
+        onSuccess={handleAddFundsSuccess}
+      />
     </div>
   );
 };

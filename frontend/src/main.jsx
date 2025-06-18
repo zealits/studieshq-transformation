@@ -13,7 +13,30 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
         <BrowserRouter>
-          <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 3000,
+              style: {
+                borderRadius: "8px",
+                boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                fontSize: "14px",
+                fontWeight: "500",
+              },
+              success: {
+                style: {
+                  background: "#10b981",
+                  color: "#ffffff",
+                },
+              },
+              error: {
+                style: {
+                  background: "#ef4444",
+                  color: "#ffffff",
+                },
+              },
+            }}
+          />
           <App />
         </BrowserRouter>
       </PersistGate>
