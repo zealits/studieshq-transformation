@@ -10,9 +10,11 @@ const AdminRegisterPage = () => {
     password: "",
     confirmPassword: "",
     role: "admin",
+    agreeToTerms: false,
   });
 
   const [passwordError, setPasswordError] = useState("");
+  const [termsError, setTermsError] = useState("");
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -25,10 +27,10 @@ const AdminRegisterPage = () => {
   }, [dispatch]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     });
 
     if (error) {
@@ -38,6 +40,10 @@ const AdminRegisterPage = () => {
     if (name === "password" || name === "confirmPassword") {
       setPasswordError("");
     }
+
+    if (name === "agreeToTerms") {
+      setTermsError("");
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -45,6 +51,11 @@ const AdminRegisterPage = () => {
 
     if (formData.password !== formData.confirmPassword) {
       setPasswordError("Passwords do not match");
+      return;
+    }
+
+    if (!formData.agreeToTerms) {
+      setTermsError("You must agree to the terms and conditions to proceed");
       return;
     }
 
@@ -162,10 +173,49 @@ const AdminRegisterPage = () => {
             {passwordError && <p className="text-red-500 text-xs mt-1">{passwordError}</p>}
           </div>
 
+          {/* Terms and Conditions Disclaimer */}
+          <div className="mb-6">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+              <h3 className="text-sm font-semibold text-gray-800 mb-2">Disclaimer & Liability Waiver</h3>
+              <p className="text-xs text-gray-600 leading-relaxed mb-3">
+                StudiesHQ acts solely as a facilitator and is not responsible for the performance, quality, or outcome
+                of any project between clients and freelancers. All agreements, deliverables, and payments are strictly
+                between the respective parties.
+              </p>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                By agreeing to these terms, you indemnify StudiesHQ and AgileLabs.ai from any disputes, claims, or legal
+                matters arising from transactions or interactions between users.
+              </p>
+            </div>
+
+            <label className="flex items-start">
+              <input
+                type="checkbox"
+                name="agreeToTerms"
+                checked={formData.agreeToTerms}
+                onChange={handleChange}
+                className={`mt-1 mr-3 ${termsError ? "border-red-500" : ""}`}
+                required
+              />
+              <span className="text-sm text-gray-700 leading-relaxed">
+                I acknowledge that I have read and agree to the{" "}
+                <Link to="/terms" className="text-primary hover:underline" target="_blank">
+                  Terms and Conditions
+                </Link>
+                ,{" "}
+                <Link to="/privacy" className="text-primary hover:underline" target="_blank">
+                  Privacy Policy
+                </Link>
+                , and the liability waiver stated above.
+              </span>
+            </label>
+            {termsError && <p className="text-red-500 text-xs mt-2">{termsError}</p>}
+          </div>
+
           <button
             type="submit"
             className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark transition-colors"
-            disabled={isLoading}
+            disabled={isLoading || !formData.agreeToTerms}
           >
             {isLoading ? "Creating Account..." : "Create Account"}
           </button>
