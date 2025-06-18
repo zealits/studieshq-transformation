@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { createJob, saveJobAsDraft, updateJob } from "../../redux/slices/jobsSlice";
+import { createJob, saveJobAsDraft, updateJob, publishDraftJob, fetchClientJobs } from "../../redux/slices/jobsSlice";
 import { toast } from "react-hot-toast";
-import escrowService from "../../services/escrowService";
 
 const PostJobForm = ({ onClose, jobToEdit }) => {
   const dispatch = useDispatch();
@@ -25,6 +24,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
     location: "remote",
     deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), // 30 days from now
     freelancersNeeded: 1, // Add default value for number of freelancers
+    status: "open", // Default status for new jobs
   });
 
   // Initialize form data if editing an existing job
@@ -145,17 +145,21 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
         await dispatch(updateJob({ jobId: jobToEdit._id, jobData })).unwrap();
         toast.success("Job updated successfully!");
       } else {
-        const result = await dispatch(createJob(jobData)).unwrap();
+        // For new jobs, set status to draft initially and publish after budget blocking
+        const draftJobData = { ...jobData, status: "draft" };
+        const result = await dispatch(createJob(draftJobData)).unwrap();
         const newJob = result.data.job;
 
-        // If job is not a draft, block the budget
+        // If the intended status is not draft, publish the job (which includes budget blocking)
         if (jobData.status !== "draft") {
           try {
-            await escrowService.blockJobBudget(newJob._id);
+            await dispatch(publishDraftJob(newJob._id)).unwrap();
+            // Refresh the client jobs to get the updated status
+            await dispatch(fetchClientJobs());
             toast.success("Job posted successfully! Budget blocked in escrow.");
           } catch (escrowError) {
-            console.error("Escrow blocking error:", escrowError);
-            toast.error(escrowError.message || "Failed to block budget. Job created but not live.");
+            console.error("Publishing error:", escrowError);
+            toast.error(escrowError.message || "Failed to publish job. Job saved as draft.");
           }
         } else {
           toast.success("Job saved as draft!");

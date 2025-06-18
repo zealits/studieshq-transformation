@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const { Project, Attachment } = require("../models/Project");
 const User = require("../models/User");
 const { Job, Proposal } = require("../models/Job");
+const emailService = require("../services/emailService");
 
 /**
  * Helper function to check if project should be marked as completed
@@ -550,6 +551,20 @@ exports.createMilestone = async (req, res) => {
     project.milestones.push(milestone);
     await project.save();
 
+    // Send email notification to freelancer about new milestone
+    try {
+      const client = await User.findById(project.client);
+      const freelancer = await User.findById(project.freelancer);
+
+      if (client && freelancer) {
+        const createdMilestone = project.milestones[project.milestones.length - 1]; // Get the newly added milestone
+        await emailService.sendNewMilestoneNotification(freelancer, client, project, createdMilestone);
+      }
+    } catch (emailError) {
+      console.error("Error sending new milestone notification:", emailError);
+      // Don't fail the milestone creation if email fails
+    }
+
     res.status(201).json({
       success: true,
       data: { milestone },
@@ -599,6 +614,23 @@ exports.approveMilestone = async (req, res) => {
     }
 
     await project.save();
+
+    // Send email notification to freelancer about milestone approval/rejection
+    try {
+      const client = await User.findById(project.client);
+      const freelancer = await User.findById(project.freelancer);
+
+      if (client && freelancer) {
+        if (approvalStatus === "approved") {
+          await emailService.sendMilestoneApprovedNotification(freelancer, client, project, milestone);
+        } else if (approvalStatus === "rejected") {
+          await emailService.sendMilestoneRevisionNotification(freelancer, client, project, milestone);
+        }
+      }
+    } catch (emailError) {
+      console.error("Error sending milestone approval notification:", emailError);
+      // Don't fail the milestone approval if email fails
+    }
 
     res.json({
       success: true,
@@ -715,6 +747,19 @@ exports.submitMilestoneWork = async (req, res) => {
     milestone.attachments = attachmentIds;
 
     await project.save();
+
+    // Send email notification to client about milestone completion
+    try {
+      const client = await User.findById(project.client);
+      const freelancer = await User.findById(project.freelancer);
+
+      if (client && freelancer) {
+        await emailService.sendMilestoneCompletedNotification(client, freelancer, project, milestone);
+      }
+    } catch (emailError) {
+      console.error("Error sending milestone completion notification:", emailError);
+      // Don't fail the milestone submission if email fails
+    }
 
     // Populate the updated milestone with attachments
     await project.populate({

@@ -5,6 +5,7 @@ const Proposal = require("../models/Proposal");
 const User = require("../models/User");
 const Profile = require("../models/Profile");
 const { Project } = require("../models/Project");
+const emailService = require("../services/emailService");
 
 /**
  * Helper function to check if the user is the owner of a job or an admin
@@ -634,6 +635,19 @@ exports.submitProposal = async (req, res) => {
     job.applicationCount += 1;
     await job.save();
 
+    // Send email notification to client about new proposal
+    try {
+      const client = await User.findById(job.client);
+      const freelancer = await User.findById(req.user.id);
+
+      if (client && freelancer) {
+        await emailService.sendNewProposalNotification(client, freelancer, job, newProposal);
+      }
+    } catch (emailError) {
+      console.error("Error sending new proposal notification:", emailError);
+      // Don't fail the proposal submission if email fails
+    }
+
     res.status(201).json({
       success: true,
       data: { proposal: newProposal },
@@ -809,11 +823,22 @@ exports.updateProposalStatus = async (req, res) => {
         await job.save();
       }
 
-      // Send notifications
-      // TODO: Implement notification system
-      // - Notify freelancer about acceptance
-      // - Notify client about successful hiring
-      // - Notify other applicants if job is now closed
+      // Send email notifications
+      try {
+        const client = await User.findById(job.client);
+        const freelancer = await User.findById(proposal.freelancer);
+
+        if (client && freelancer) {
+          // Notify freelancer about acceptance
+          await emailService.sendProposalStatusNotification(freelancer, job, proposal, proposal.status);
+
+          // Notify client about successful hiring
+          await emailService.sendFreelancerHiredNotification(client, freelancer, project);
+        }
+      } catch (emailError) {
+        console.error("Error sending proposal acceptance notifications:", emailError);
+        // Don't fail the proposal acceptance if email fails
+      }
 
       return res.json({
         success: true,
@@ -827,8 +852,21 @@ exports.updateProposalStatus = async (req, res) => {
     }
 
     // For other status updates (rejected, shortlisted, etc.)
+    const oldStatus = proposal.status;
     proposal.status = status;
     await proposal.save();
+
+    // Send email notification to freelancer about status change
+    try {
+      const freelancer = await User.findById(proposal.freelancer);
+
+      if (freelancer) {
+        await emailService.sendProposalStatusNotification(freelancer, job, proposal, oldStatus);
+      }
+    } catch (emailError) {
+      console.error("Error sending proposal status notification:", emailError);
+      // Don't fail the proposal update if email fails
+    }
 
     res.json({
       success: true,

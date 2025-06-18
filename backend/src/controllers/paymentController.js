@@ -5,6 +5,7 @@ const { validationResult } = require("express-validator");
 const mongoose = require("mongoose");
 const paypalService = require("../services/paypalService");
 const giftogramService = require("../services/giftogramService");
+const emailService = require("../services/emailService");
 
 // *** PAYMENT METHODS ***
 
@@ -251,6 +252,17 @@ exports.capturePayPalPayment = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
+    // Send email notification for successful deposit
+    try {
+      const user = await User.findById(req.user.id);
+      if (user) {
+        await emailService.sendClientPaymentNotification(user, transaction);
+      }
+    } catch (emailError) {
+      console.error("Error sending payment notification:", emailError);
+      // Don't fail the payment if email fails
+    }
+
     res.json({
       success: true,
       message: "Funds added successfully via PayPal",
@@ -328,6 +340,17 @@ exports.addFunds = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
+    // Send email notification for successful deposit
+    try {
+      const user = await User.findById(req.user.id);
+      if (user) {
+        await emailService.sendClientPaymentNotification(user, transaction);
+      }
+    } catch (emailError) {
+      console.error("Error sending payment notification:", emailError);
+      // Don't fail the payment if email fails
+    }
+
     res.json({
       success: true,
       message: "Funds added successfully",
@@ -402,6 +425,17 @@ exports.withdrawFunds = async (req, res) => {
 
     await session.commitTransaction();
     session.endSession();
+
+    // Send email notification for withdrawal request
+    try {
+      const user = await User.findById(req.user.id);
+      if (user) {
+        await emailService.sendFreelancerPaymentNotification(user, transaction);
+      }
+    } catch (emailError) {
+      console.error("Error sending withdrawal notification:", emailError);
+      // Don't fail the withdrawal if email fails
+    }
 
     res.json({
       success: true,

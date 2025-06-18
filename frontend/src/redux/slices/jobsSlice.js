@@ -349,7 +349,9 @@ const jobsSlice = createSlice({
         const jobs = action.payload?.data?.jobs || [];
         state.clientJobs = {
           active: jobs.filter((job) => job.status === "open"),
-          closed: jobs.filter((job) => job.status === "in_progress" || job.status === "completed" || job.status === "cancelled"),
+          closed: jobs.filter(
+            (job) => job.status === "in_progress" || job.status === "completed" || job.status === "cancelled"
+          ),
           draft: jobs.filter((job) => job.status === "draft"),
         };
       })
@@ -379,7 +381,16 @@ const jobsSlice = createSlice({
         state.isLoading = false;
         const newJob = action.payload?.data?.job;
         if (newJob) {
-          state.clientJobs.active.unshift(newJob);
+          // Add job to appropriate category based on its status
+          if (newJob.status === "draft") {
+            state.clientJobs.draft.unshift(newJob);
+          } else if (newJob.status === "open" || newJob.status === "in_progress") {
+            state.clientJobs.active.unshift(newJob);
+          } else if (newJob.status === "completed" || newJob.status === "cancelled") {
+            state.clientJobs.closed.unshift(newJob);
+          }
+
+          // Add to main jobs array regardless of status
           state.jobs.unshift(newJob);
           state.filteredJobs.unshift(newJob);
         }
