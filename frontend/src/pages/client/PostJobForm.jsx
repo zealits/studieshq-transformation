@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { createJob, saveJobAsDraft, updateJob } from "../../redux/slices/jobsSlice";
 import { toast } from "react-hot-toast";
+import escrowService from "../../services/escrowService";
 
 const PostJobForm = ({ onClose, jobToEdit }) => {
   const dispatch = useDispatch();
@@ -144,13 +145,27 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
         await dispatch(updateJob({ jobId: jobToEdit._id, jobData })).unwrap();
         toast.success("Job updated successfully!");
       } else {
-        await dispatch(createJob(jobData)).unwrap();
-        toast.success("Job posted successfully!");
+        const result = await dispatch(createJob(jobData)).unwrap();
+        const newJob = result.data.job;
+
+        // If job is not a draft, block the budget
+        if (jobData.status !== "draft") {
+          try {
+            await escrowService.blockJobBudget(newJob._id);
+            toast.success("Job posted successfully! Budget blocked in escrow.");
+          } catch (escrowError) {
+            console.error("Escrow blocking error:", escrowError);
+            toast.error(escrowError.message || "Failed to block budget. Job created but not live.");
+          }
+        } else {
+          toast.success("Job saved as draft!");
+        }
       }
 
       onClose();
     } catch (err) {
-      toast.error(err || "Failed to submit job");
+      console.error("Job submission error:", err);
+      toast.error(err.message || "Failed to submit job");
     }
   };
 
@@ -268,6 +283,23 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
             />
           </div>
         </div>
+
+        {/* Escrow Information */}
+        {formData.budget.max && formData.freelancersNeeded && (
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+            <h4 className="text-sm font-medium text-blue-800 mb-2">Escrow Requirements</h4>
+            <div className="text-sm text-blue-700 space-y-1">
+              <p>• Project Budget: ${(formData.budget.max * formData.freelancersNeeded).toLocaleString()}</p>
+              <p>• Platform Fee (10%): ${(formData.budget.max * formData.freelancersNeeded * 0.1).toLocaleString()}</p>
+              <p className="font-medium">
+                • Total Required: ${(formData.budget.max * formData.freelancersNeeded * 1.1).toLocaleString()}
+              </p>
+              <p className="text-xs mt-2">
+                This amount will be held in escrow when you hire freelancers and released upon milestone completion.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>

@@ -76,7 +76,6 @@ const FindJobsPage = () => {
     <div>
       <h1 className="text-2xl font-bold mb-6">Find Projects</h1>
 
-
       {/* Search and Filters */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <div className="mb-4">
@@ -327,7 +326,9 @@ const FindJobsPage = () => {
                   )}
                 </div>
 
-                <p className="mt-4 text-gray-600">{job.description}</p>
+                <p className="mt-4 text-gray-600 line-clamp-3" title={job.description}>
+                  {job.description}
+                </p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   {job.skills.map((skill, index) => (

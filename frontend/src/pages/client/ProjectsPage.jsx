@@ -164,6 +164,7 @@ const ProjectsPage = () => {
       const milestoneData = {
         ...milestoneForm,
         percentage: percentage,
+        amount: parseFloat(calculateMilestoneAmount(percentage)), // Add the calculated amount
       };
 
       const response = await dispatch(
@@ -210,6 +211,7 @@ const ProjectsPage = () => {
       const milestoneData = {
         ...milestoneForm,
         percentage: percentage,
+        amount: parseFloat(calculateMilestoneAmount(percentage)), // Add the calculated amount
       };
 
       const response = await dispatch(
@@ -593,14 +595,16 @@ const ProjectsPage = () => {
             <form onSubmit={editingMilestone ? handleUpdateMilestone : handleCreateMilestone}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Milestone Title</label>
                   <input
                     type="text"
                     value={milestoneForm.title}
                     onChange={(e) => setMilestoneForm({ ...milestoneForm, title: e.target.value })}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., 'Phase 1: Initial Design & Planning'"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">Give this milestone a clear, descriptive name.</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
@@ -609,37 +613,53 @@ const ProjectsPage = () => {
                     onChange={(e) => setMilestoneForm({ ...milestoneForm, description: e.target.value })}
                     rows="3"
                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Describe what will be delivered in this milestone (e.g., 'Complete homepage design with wireframes and mockups')"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Be specific about deliverables, requirements, and acceptance criteria for this milestone.
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Percentage (Remaining: {calculateRemainingPercentage()}%)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Project Percentage</label>
                   <input
                     type="number"
                     min="1"
                     max={calculateRemainingPercentage()}
+                    step="0.1"
                     value={milestoneForm.percentage}
                     onChange={(e) => setMilestoneForm({ ...milestoneForm, percentage: e.target.value })}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., 25"
                     required
                   />
-                  {milestoneForm.percentage && (
-                    <p className="text-sm text-gray-500 mt-1">
-                      Amount: ${calculateMilestoneAmount(milestoneForm.percentage)}
+                  <div className="mt-1 space-y-1">
+                    <p className="text-xs text-gray-500">
+                      Remaining budget available: {calculateRemainingPercentage()}% ($
+                      {(selectedProject
+                        ? (selectedProject.budget * calculateRemainingPercentage()) / 100
+                        : 0
+                      ).toLocaleString()}
+                      )
                     </p>
-                  )}
+                    {milestoneForm.percentage && (
+                      <p className="text-sm font-medium text-green-600">
+                        💰 Milestone value: ${calculateMilestoneAmount(milestoneForm.percentage)}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Target Completion Date</label>
                   <input
                     type="date"
                     value={milestoneForm.dueDate}
                     onChange={(e) => setMilestoneForm({ ...milestoneForm, dueDate: e.target.value })}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min={new Date().toISOString().split("T")[0]}
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">When should this milestone be completed?</p>
                 </div>
               </div>
               <div className="flex justify-end space-x-3 mt-6">

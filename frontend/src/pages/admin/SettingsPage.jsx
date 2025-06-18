@@ -1,9 +1,55 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import adminService from "../../services/adminService";
+import { toast } from "react-hot-toast";
 
 const SettingsPage = () => {
+  const [activeSection, setActiveSection] = useState("platform");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("general");
 
-  // Mock settings data
+  // Load settings from API
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        setLoading(true);
+        const response = await adminService.getPlatformSettings();
+        if (response.data.settings) {
+          const settings = response.data.settings;
+          setGeneralSettings({
+            siteName: settings.platformName || "StudiesHQ",
+            siteDescription: settings.siteDescription || "Connecting freelancers with clients for successful projects",
+            supportEmail: settings.supportEmail || "support@studieshq.com",
+            platformFee: settings.platformFee ? settings.platformFee.toString() : "10",
+            maintenanceMode: settings.maintenanceMode || false,
+            allowSignups: settings.allowSignups !== false,
+            requireEmailVerification: settings.requireEmailVerification !== false,
+          });
+
+          setPaymentSettings({
+            minimumWithdrawal: settings.minWithdrawalAmount ? settings.minWithdrawalAmount.toString() : "10",
+            paymentMethods: {
+              paypal: settings.allowPaymentMethods?.includes("paypal") !== false,
+              stripe: settings.allowPaymentMethods?.includes("stripe") !== false,
+              bankTransfer: settings.allowPaymentMethods?.includes("bank") !== false,
+            },
+            withdrawalFee: settings.withdrawalFee ? settings.withdrawalFee.toString() : "0",
+            withdrawalProcessingDays: settings.withdrawalProcessingDays || "3-5",
+            autoReleasePayment: settings.autoReleasePayment || false,
+          });
+        }
+      } catch (error) {
+        console.error("Error loading settings:", error);
+        toast.error("Failed to load settings");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSettings();
+  }, []);
+
+  // Settings data
   const [generalSettings, setGeneralSettings] = useState({
     siteName: "StudiesHQ",
     siteDescription: "Connecting freelancers with clients for successful projects",
@@ -15,16 +61,17 @@ const SettingsPage = () => {
   });
 
   const [paymentSettings, setPaymentSettings] = useState({
-    minimumWithdrawal: "50",
+    minimumWithdrawal: "10",
     paymentMethods: {
       paypal: true,
       stripe: true,
       bankTransfer: true,
     },
-    withdrawalFee: "2",
+    withdrawalFee: "0",
     withdrawalProcessingDays: "3-5",
+    autoReleasePayment: false,
   });
-  
+
   const [securitySettings, setSecuritySettings] = useState({
     twoFactorAuth: true,
     passwordMinLength: "8",
@@ -38,16 +85,52 @@ const SettingsPage = () => {
     const { name, type, checked, value } = e.target;
     setGeneralSettings({
       ...generalSettings,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === "checkbox" ? checked : value,
     });
+  };
+
+  const handleSaveSettings = async () => {
+    try {
+      setSaving(true);
+
+      // Prepare settings object for API
+      const settingsToSave = {
+        platformName: generalSettings.siteName,
+        siteDescription: generalSettings.siteDescription,
+        supportEmail: generalSettings.supportEmail,
+        platformFee: parseFloat(generalSettings.platformFee),
+        maintenanceMode: generalSettings.maintenanceMode,
+        allowSignups: generalSettings.allowSignups,
+        requireEmailVerification: generalSettings.requireEmailVerification,
+        minWithdrawalAmount: parseFloat(paymentSettings.minimumWithdrawal),
+        withdrawalFee: parseFloat(paymentSettings.withdrawalFee),
+        withdrawalProcessingDays: paymentSettings.withdrawalProcessingDays,
+        allowPaymentMethods: Object.keys(paymentSettings.paymentMethods).filter(
+          (method) => paymentSettings.paymentMethods[method]
+        ),
+        autoReleasePayment: paymentSettings.autoReleasePayment,
+        passwordMinLength: parseInt(securitySettings.passwordMinLength),
+        requireStrongPassword: securitySettings.requireStrongPassword,
+        loginAttempts: parseInt(securitySettings.loginAttempts),
+        sessionTimeout: parseInt(securitySettings.sessionTimeout),
+      };
+
+      const response = await adminService.updatePlatformSettings({ settings: settingsToSave });
+      toast.success("Settings saved successfully!");
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      toast.error(error.message || "Error saving settings");
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Handle payment settings change
   const handlePaymentChange = (e) => {
-    const { name, value } = e.target;
+    const { name, type, checked, value } = e.target;
     setPaymentSettings({
       ...paymentSettings,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     });
   };
 
@@ -68,7 +151,7 @@ const SettingsPage = () => {
     const { name, type, checked, value } = e.target;
     setSecuritySettings({
       ...securitySettings,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === "checkbox" ? checked : value,
     });
   };
 
@@ -191,7 +274,7 @@ const SettingsPage = () => {
                   Enable Maintenance Mode
                 </label>
               </div>
-              
+
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -205,7 +288,7 @@ const SettingsPage = () => {
                   Allow New User Registrations
                 </label>
               </div>
-              
+
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -290,7 +373,7 @@ const SettingsPage = () => {
                     PayPal
                   </label>
                 </div>
-                
+
                 <div className="flex items-center">
                   <input
                     type="checkbox"
@@ -304,7 +387,7 @@ const SettingsPage = () => {
                     Stripe (Credit/Debit Cards)
                   </label>
                 </div>
-                
+
                 <div className="flex items-center">
                   <input
                     type="checkbox"
@@ -318,6 +401,23 @@ const SettingsPage = () => {
                     Bank Transfer
                   </label>
                 </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <h3 className="text-md font-medium text-gray-700 mb-2">Escrow Settings</h3>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="autoReleasePayment"
+                  name="autoReleasePayment"
+                  checked={paymentSettings.autoReleasePayment}
+                  onChange={handlePaymentChange}
+                  className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
+                <label htmlFor="autoReleasePayment" className="ml-2 block text-sm text-gray-700">
+                  Automatically release payments after milestone completion (Admin approval not required)
+                </label>
               </div>
             </div>
           </div>
@@ -412,9 +512,10 @@ const SettingsPage = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-lg font-semibold mb-4">Email Templates</h2>
           <p className="text-gray-600 mb-4">
-            Customize the email templates that are sent to users. You can use placeholders like &#123;name&#125;, &#123;email&#125;, etc.
+            Customize the email templates that are sent to users. You can use placeholders like &#123;name&#125;,
+            &#123;email&#125;, etc.
           </p>
-          
+
           <div className="space-y-6">
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
               <div className="flex justify-between items-center mb-2">
@@ -423,7 +524,7 @@ const SettingsPage = () => {
               </div>
               <p className="text-sm text-gray-600">Sent to new users after registration</p>
             </div>
-            
+
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-md font-medium">Password Reset</h3>
@@ -431,7 +532,7 @@ const SettingsPage = () => {
               </div>
               <p className="text-sm text-gray-600">Sent when a user requests a password reset</p>
             </div>
-            
+
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-md font-medium">Email Verification</h3>
@@ -439,7 +540,7 @@ const SettingsPage = () => {
               </div>
               <p className="text-sm text-gray-600">Sent to verify a user's email address</p>
             </div>
-            
+
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-md font-medium">Project Award</h3>
@@ -447,7 +548,7 @@ const SettingsPage = () => {
               </div>
               <p className="text-sm text-gray-600">Sent to freelancers when they are awarded a project</p>
             </div>
-            
+
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-md font-medium">Payment Confirmation</h3>
@@ -463,6 +564,7 @@ const SettingsPage = () => {
       <div className="mt-6 flex justify-end">
         <button
           type="button"
+          onClick={handleSaveSettings}
           className="bg-primary hover:bg-primary-dark text-white py-2 px-6 rounded-md font-medium"
         >
           Save Changes
@@ -472,4 +574,4 @@ const SettingsPage = () => {
   );
 };
 
-export default SettingsPage; 
+export default SettingsPage;

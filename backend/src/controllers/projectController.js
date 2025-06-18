@@ -16,7 +16,15 @@ const checkProjectCompletion = (project) => {
   }
 
   // Check if all milestones are completed
-  return project.milestones.every((milestone) => milestone.status === "completed");
+  const allMilestonesCompleted = project.milestones.every((milestone) => milestone.status === "completed");
+
+  // Check if total percentage of completed milestones is 100%
+  const completedMilestonesPercentage = project.milestones
+    .filter((milestone) => milestone.status === "completed")
+    .reduce((sum, milestone) => sum + milestone.percentage, 0);
+
+  // Project is complete only if all milestones are completed AND total percentage is 100%
+  return allMilestonesCompleted && completedMilestonesPercentage === 100;
 };
 
 /**
@@ -509,7 +517,7 @@ exports.createMilestone = async (req, res) => {
       return res.status(403).json({ success: false, message: "Not authorized to create milestone" });
     }
 
-    const { title, description, percentage, dueDate } = req.body;
+    const { title, description, percentage, dueDate, amount } = req.body;
 
     // Calculate total percentage of existing milestones
     const totalPercentage = project.milestones.reduce((sum, m) => sum + m.percentage, 0);
@@ -524,11 +532,15 @@ exports.createMilestone = async (req, res) => {
       });
     }
 
+    // Calculate amount if not provided
+    const milestoneAmount = amount || (percentage / 100) * project.budget;
+
     // Create new milestone
     const milestone = {
       title,
       description,
       percentage,
+      amount: milestoneAmount,
       dueDate,
       status: "pending",
       createdBy: req.user.id,
@@ -755,6 +767,10 @@ exports.reviewMilestoneWork = async (req, res) => {
         .json({ success: false, message: "Invalid action. Must be 'approve' or 'request_revision'" });
     }
 
+    // Declare payment result variables outside the if block
+    let paymentResult = null;
+    let paymentError = null;
+
     if (action === "approve") {
       // Approve the milestone
       milestone.status = "completed";
@@ -767,10 +783,97 @@ exports.reviewMilestoneWork = async (req, res) => {
         milestone.feedback = feedback;
       }
 
+      // Save the project first to ensure milestone approval is persisted
+      await project.save();
+
+      console.log(`🎯 MILESTONE APPROVED: ${milestone.title}`);
+      console.log(`  ├─ Milestone ID: ${milestone._id}`);
+      console.log(`  ├─ Project ID: ${project._id}`);
+      console.log(`  ├─ Client ID: ${req.user.id}`);
+      console.log(`  └─ Attempting automatic payment release...`);
+
+      // Automatically release milestone payment from escrow
+      const escrowController = require("./escrowController");
+
+      // Enhanced validation before payment release
+      try {
+        // Check if escrow exists for this project
+        const Escrow = require("../models/Escrow");
+        const escrow = await Escrow.findOne({ project: project._id });
+
+        if (!escrow) {
+          console.error(`❌ No escrow found for project: ${project._id}`);
+          paymentError = { success: false, message: "No escrow found for project" };
+        } else {
+          console.log(`✅ Found escrow: ${escrow.escrowId}`);
+
+          // Check if milestone exists in escrow
+          const escrowMilestone = escrow.milestones?.find(
+            (em) => em.milestoneId.toString() === milestone._id.toString()
+          );
+
+          if (!escrowMilestone) {
+            console.error(`❌ Milestone not found in escrow: ${milestone._id}`);
+            console.error(
+              `Available escrow milestones:`,
+              escrow.milestones.map((m) => ({
+                id: m.milestoneId.toString(),
+                title: m.title,
+                status: m.status,
+              }))
+            );
+            paymentError = { success: false, message: "Milestone not found in escrow" };
+          } else {
+            console.log(`✅ Found escrow milestone: ${escrowMilestone.title} (Status: ${escrowMilestone.status})`);
+
+            // Create a mock request object for the escrow controller
+            const escrowReq = {
+              user: { id: req.user.id },
+              params: {
+                projectId: project._id.toString(),
+                milestoneId: milestone._id.toString(),
+              },
+            };
+
+            // Create a mock response object to capture the result
+            const escrowRes = {
+              json: (data) => {
+                paymentResult = data;
+              },
+              status: (code) => ({
+                json: (data) => {
+                  paymentError = data;
+                  paymentResult = { success: false, statusCode: code, ...data };
+                },
+              }),
+            };
+
+            // Attempt to release payment
+            await escrowController.releaseMilestonePayment(escrowReq, escrowRes);
+
+            if (paymentResult && paymentResult.success) {
+              console.log(`✅ Payment released automatically for milestone: ${milestone.title}`);
+              console.log(`💰 Amount released: $${paymentResult.data?.transaction?.netAmount || "N/A"}`);
+            } else {
+              console.error(
+                `❌ Failed to release payment for milestone: ${milestone.title}`,
+                paymentResult || paymentError
+              );
+            }
+          }
+        }
+      } catch (paymentReleaseError) {
+        console.error("❌ Error during automatic payment release:", paymentReleaseError);
+        paymentError = { success: false, message: paymentReleaseError.message };
+        // Don't fail the milestone approval if payment release fails
+        // The payment can be released manually later
+      }
+
       // Check if all milestones are completed and update project status
       if (checkProjectCompletion(project) && project.status !== "completed") {
         project.status = "completed";
         project.completedDate = new Date();
+        await project.save(); // Save again after status update
       }
     } else if (action === "request_revision") {
       // Request revision
@@ -799,6 +902,9 @@ exports.reviewMilestoneWork = async (req, res) => {
       data: {
         milestone,
         projectCompleted: isProjectCompleted,
+        paymentReleased: action === "approve" && paymentResult?.success,
+        paymentAmount:
+          action === "approve" && paymentResult?.success ? paymentResult.data?.transaction?.netAmount : null,
         project: isProjectCompleted
           ? {
               _id: project._id,

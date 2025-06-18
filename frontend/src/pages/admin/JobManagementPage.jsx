@@ -325,7 +325,9 @@ const JobManagementPage = () => {
 
                       <div>
                         <h4 className="font-medium text-gray-700 mb-1">Description:</h4>
-                        <p className="text-sm text-gray-600">{selectedJob.description}</p>
+                        <p className="text-sm text-gray-600 line-clamp-4" title={selectedJob.description}>
+                          {selectedJob.description}
+                        </p>
                       </div>
 
                       {selectedJob.skills && selectedJob.skills.length > 0 && (

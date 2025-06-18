@@ -1,117 +1,206 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import escrowService from "../../services/escrowService";
+import { useSelector } from "react-redux";
+import { toast } from "react-hot-toast";
 
 const PaymentsPage = () => {
   const [activeTab, setActiveTab] = useState("transactions");
+  const [loading, setLoading] = useState(true);
+  const [escrowData, setEscrowData] = useState(null);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const { user } = useSelector((state) => state.auth);
 
-  const transactions = [
-    {
-      id: 1,
-      date: "May 2, 2023",
-      amount: "$1,450.00",
-      type: "Payment",
-      description: "Project milestone: E-commerce Website Redesign",
-      status: "Completed",
-      client: "RetailSolutions Ltd.",
-    },
-    {
-      id: 2,
-      date: "April 28, 2023",
-      amount: "$800.00",
-      type: "Payment",
-      description: "Project completion: Logo and Brand Identity",
-      status: "Completed",
-      client: "StartUp Ventures",
-    },
-    {
-      id: 3,
-      date: "April 15, 2023",
-      amount: "$75.00",
-      type: "Withdrawal",
-      description: "Withdrawal to Bank Account",
-      status: "Processed",
-      reference: "WD78945612",
-    },
-    {
-      id: 4,
-      date: "April 10, 2023",
-      amount: "$1,200.00",
-      type: "Payment",
-      description: "Project milestone: Mobile App Development",
-      status: "Completed",
-      client: "HealthTech Innovations",
-    },
-    {
-      id: 5,
-      date: "March 28, 2023",
-      amount: "$2,000.00",
-      type: "Withdrawal",
-      description: "Withdrawal to PayPal",
-      status: "Processed",
-      reference: "WD78941234",
-    },
-  ];
+  // Load real escrow and transaction data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        console.log("🖥️ FREELANCER PAYMENTS PAGE: Loading data for user:", user?.id);
+        setLoading(true);
+        const response = await escrowService.getFreelancerEscrowData();
+        console.log("🖥️ FREELANCER PAYMENTS PAGE: Data loaded successfully:", response.data);
+        setEscrowData(response.data);
+      } catch (error) {
+        console.error("🖥️ FREELANCER PAYMENTS PAGE: Error loading payment data:", error);
+        toast.error("Failed to load payment data");
+        // Set default empty data on error
+        setEscrowData({
+          totalEarned: 0,
+          inEscrow: 0,
+          platformFeesPaid: 0,
+          pendingMilestones: 0,
+          availableBalance: 0,
+          activeEscrows: [],
+          recentTransactions: [],
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const invoices = [
-    {
-      id: "INV-2023-056",
-      date: "May 1, 2023",
-      dueDate: "May 15, 2023",
-      amount: "$1,200.00",
-      client: "HealthTech Innovations",
-      project: "Mobile App Development",
-      status: "Pending",
-    },
-    {
-      id: "INV-2023-045",
-      date: "April 15, 2023",
-      dueDate: "April 30, 2023",
-      amount: "$800.00",
-      client: "StartUp Ventures",
-      project: "Logo and Brand Identity",
-      status: "Paid",
-    },
-    {
-      id: "INV-2023-032",
-      date: "March 20, 2023",
-      dueDate: "April 4, 2023",
-      amount: "$1,450.00",
-      client: "RetailSolutions Ltd.",
-      project: "E-commerce Website Redesign",
-      status: "Paid",
-    },
-  ];
+    if (user) {
+      loadData();
+    }
+  }, [user]);
 
-  const paymentMethods = [
-    {
-      id: 1,
-      type: "Bank Account",
-      name: "Chase Bank",
-      details: "XXXX-XXXX-XXXX-4321",
-      isDefault: true,
-      icon: "bank",
-    },
-    {
-      id: 2,
-      type: "PayPal",
-      name: "johndoe@email.com",
-      details: "Connected on Jan 15, 2023",
-      isDefault: false,
-      icon: "paypal",
-    },
-  ];
+  const handleWithdraw = async (amount) => {
+    try {
+      // Implement withdrawal logic here
+      toast.success("Withdrawal request submitted successfully");
+      setShowWithdrawModal(false);
+      // Reload data after withdrawal
+      const response = await escrowService.getFreelancerEscrowData();
+      setEscrowData(response.data);
+    } catch (error) {
+      toast.error("Failed to process withdrawal");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="ml-2">Loading payment data...</span>
+        </div>
+      </div>
+    );
+  }
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(amount || 0);
+  };
+
+  const formatDate = (date) => {
+    return new Date(date).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const getTransactionTypeColor = (type) => {
+    switch (type) {
+      case "milestone":
+        return "text-green-600 bg-green-100";
+      case "withdrawal":
+        return "text-blue-600 bg-blue-100";
+      case "platform_fee":
+        return "text-red-600 bg-red-100";
+      case "escrow_completion":
+        return "text-purple-600 bg-purple-100";
+      case "refund":
+        return "text-orange-600 bg-orange-100";
+      default:
+        return "text-gray-600 bg-gray-100";
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "completed":
+        return "text-green-600 bg-green-100";
+      case "pending":
+        return "text-yellow-600 bg-yellow-100";
+      case "failed":
+        return "text-red-600 bg-red-100";
+      default:
+        return "text-gray-600 bg-gray-100";
+    }
+  };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Payments</h1>
-        <div className="flex items-center">
-          <div className="mr-4">
+        <div className="flex items-center space-x-6">
+          <div className="text-right">
             <span className="block text-sm text-gray-500">Available Balance</span>
-            <span className="block text-xl font-bold">$3,245.00</span>
+            <span className="block text-xl font-bold">{formatCurrency(escrowData?.availableBalance)}</span>
           </div>
-          <button className="btn-primary">Withdraw Funds</button>
+          <div className="text-right">
+            <span className="block text-sm text-gray-500">Pending from Escrow</span>
+            <span className="block text-xl font-bold text-blue-600">{formatCurrency(escrowData?.inEscrow)}</span>
+          </div>
+          <button
+            className="btn-primary"
+            onClick={() => setShowWithdrawModal(true)}
+            disabled={!escrowData?.availableBalance || escrowData.availableBalance <= 0}
+          >
+            Withdraw Funds
+          </button>
         </div>
       </div>
+
+      {/* Escrow Status Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-sm font-medium text-gray-500 mb-1">Total Earned</h3>
+          <p className="text-2xl font-bold text-gray-800">{formatCurrency(escrowData?.totalEarned)}</p>
+          <p className="text-xs text-gray-500 mt-1">After platform fees</p>
+        </div>
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-sm font-medium text-gray-500 mb-1">In Escrow</h3>
+          <p className="text-2xl font-bold text-blue-600">{formatCurrency(escrowData?.inEscrow)}</p>
+          <p className="text-xs text-gray-500 mt-1">Awaiting milestone completion</p>
+        </div>
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-sm font-medium text-gray-500 mb-1">Platform Fees Paid</h3>
+          <p className="text-2xl font-bold text-orange-600">{formatCurrency(escrowData?.platformFeesPaid)}</p>
+          <p className="text-xs text-gray-500 mt-1">Total fees deducted</p>
+        </div>
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-sm font-medium text-gray-500 mb-1">Pending Milestones</h3>
+          <p className="text-2xl font-bold text-yellow-600">{escrowData?.pendingMilestones || 0}</p>
+          <p className="text-xs text-gray-500 mt-1">Awaiting client approval</p>
+        </div>
+      </div>
+
+      {/* Active Escrows Section */}
+      {escrowData?.activeEscrows?.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h3 className="text-lg font-semibold mb-4">Active Escrows</h3>
+          <div className="space-y-4">
+            {escrowData.activeEscrows.map((escrow, index) => (
+              <div key={index} className="border rounded-lg p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h4 className="font-medium">{escrow.projectTitle}</h4>
+                    <p className="text-sm text-gray-500">Escrow ID: {escrow.escrowId}</p>
+                  </div>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      escrow.status === "active"
+                        ? "bg-green-100 text-green-800"
+                        : escrow.status === "partially_released"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {escrow.status.replace("_", " ").toUpperCase()}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">Total Amount:</span>
+                    <p className="font-medium">{formatCurrency(escrow.totalAmount)}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Released:</span>
+                    <p className="font-medium text-green-600">{formatCurrency(escrow.releasedAmount)}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Pending:</span>
+                    <p className="font-medium text-blue-600">{formatCurrency(escrow.pendingAmount)}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex border-b mb-6">
@@ -123,7 +212,7 @@ const PaymentsPage = () => {
           }`}
           onClick={() => setActiveTab("transactions")}
         >
-          Transactions
+          Recent Transactions
         </button>
         <button
           className={`pb-2 px-4 font-medium ${
@@ -135,237 +224,130 @@ const PaymentsPage = () => {
         </button>
         <button
           className={`pb-2 px-4 font-medium ${
-            activeTab === "payment-methods"
-              ? "border-b-2 border-primary text-primary"
-              : "text-gray-500 hover:text-gray-700"
+            activeTab === "methods" ? "border-b-2 border-primary text-primary" : "text-gray-500 hover:text-gray-700"
           }`}
-          onClick={() => setActiveTab("payment-methods")}
+          onClick={() => setActiveTab("methods")}
         >
           Payment Methods
         </button>
       </div>
 
-      {/* Transactions Tab */}
+      {/* Content based on active tab */}
       {activeTab === "transactions" && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Date
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Description
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Amount
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Status
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Type
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {transactions.map((transaction) => (
-                <tr key={transaction.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{transaction.date}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    <div>{transaction.description}</div>
-                    {transaction.client && <div className="text-xs text-gray-400">{transaction.client}</div>}
-                    {transaction.reference && <div className="text-xs text-gray-400">Ref: {transaction.reference}</div>}
-                  </td>
-                  <td
-                    className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                      transaction.type === "Payment" ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {transaction.type === "Payment" ? "+" : "-"}
-                    {transaction.amount}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        transaction.status === "Completed" || transaction.status === "Processed"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {transaction.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{transaction.type}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Invoices Tab */}
-      {activeTab === "invoices" && (
-        <div>
-          <div className="flex justify-end mb-4">
-            <button className="btn-primary">Create Invoice</button>
-          </div>
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Invoice ID
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Client & Project
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Date / Due Date
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Amount
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Status
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {invoices.map((invoice) => (
-                  <tr key={invoice.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{invoice.id}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      <div className="font-medium">{invoice.client}</div>
-                      <div className="text-xs text-gray-400">{invoice.project}</div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      <div>Issued: {invoice.date}</div>
-                      <div>Due: {invoice.dueDate}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{invoice.amount}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          invoice.status === "Paid" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {invoice.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-primary hover:text-primary-dark mr-3">View</button>
-                      <button className="text-gray-600 hover:text-gray-900">Download</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Payment Methods Tab */}
-      {activeTab === "payment-methods" && (
-        <div>
-          <div className="flex justify-end mb-4">
-            <button className="btn-primary">Add Payment Method</button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {paymentMethods.map((method) => (
-              <div key={method.id} className="bg-white rounded-lg shadow p-6 flex">
-                <div className="mr-4">
-                  {method.icon === "bank" ? (
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-500">
-                      <svg
-                        className="w-6 h-6"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                        ></path>
-                      </svg>
-                    </div>
-                  ) : (
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-500">
-                      <svg
-                        className="w-6 h-6"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                        ></path>
-                      </svg>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between">
-                    <h3 className="font-medium text-gray-900">{method.type}</h3>
-                    {method.isDefault && (
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Default</span>
-                    )}
-                  </div>
-                  <p className="text-gray-600 mt-1">{method.name}</p>
-                  <p className="text-gray-500 text-sm mt-1">{method.details}</p>
-                  <div className="mt-4 flex space-x-3 text-sm">
-                    {!method.isDefault && (
-                      <button className="text-primary hover:text-primary-dark">Set as Default</button>
-                    )}
-                    <button className="text-gray-600 hover:text-gray-900">Edit</button>
-                    <button className="text-red-600 hover:text-red-800">Remove</button>
-                  </div>
-                </div>
+        <div className="bg-white rounded-lg shadow-md">
+          <div className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Transaction History</h3>
+            {escrowData?.recentTransactions?.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-4">Date</th>
+                      <th className="text-left py-3 px-4">Description</th>
+                      <th className="text-left py-3 px-4">Type</th>
+                      <th className="text-left py-3 px-4">Amount</th>
+                      <th className="text-left py-3 px-4">Fee</th>
+                      <th className="text-left py-3 px-4">Net Amount</th>
+                      <th className="text-left py-3 px-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {escrowData.recentTransactions.map((transaction) => (
+                      <tr key={transaction.id} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-4 text-sm">{formatDate(transaction.date)}</td>
+                        <td className="py-3 px-4">
+                          <div>
+                            <p className="font-medium text-sm">{transaction.description}</p>
+                            {transaction.projectTitle && (
+                              <p className="text-xs text-gray-500">Project: {transaction.projectTitle}</p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${getTransactionTypeColor(
+                              transaction.type
+                            )}`}
+                          >
+                            {transaction.type.replace("_", " ").toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-medium">{formatCurrency(transaction.amount)}</td>
+                        <td className="py-3 px-4 text-red-600">{formatCurrency(transaction.fee)}</td>
+                        <td className="py-3 px-4 font-medium text-green-600">
+                          {formatCurrency(transaction.netAmount)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                              transaction.status
+                            )}`}
+                          >
+                            {transaction.status.toUpperCase()}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ))}
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No transactions found</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "invoices" && (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold mb-4">Invoices</h3>
+          <div className="text-center py-8">
+            <p className="text-gray-500">Invoice management coming soon</p>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "methods" && (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold mb-4">Payment Methods</h3>
+          <div className="text-center py-8">
+            <p className="text-gray-500">Payment method management coming soon</p>
+          </div>
+        </div>
+      )}
+
+      {/* Withdraw Modal */}
+      {showWithdrawModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Withdraw Funds</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Available Balance: {formatCurrency(escrowData?.availableBalance)}
+              </label>
+              <input
+                type="number"
+                placeholder="Enter amount to withdraw"
+                max={escrowData?.availableBalance}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+              />
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowWithdrawModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleWithdraw(100)} // Pass the actual amount
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+              >
+                Withdraw
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -124,7 +124,7 @@ const JobsPage = () => {
 
     // Refresh jobs list when modal closes as a proposal might have been accepted
     dispatch(fetchClientJobs());
-    
+
     // If a proposal was accepted, switch to the closed listings tab
     if (switchToClosedTab) {
       setActiveTab("closed");
@@ -209,7 +209,9 @@ const JobsPage = () => {
               </span>
             </div>
 
-            <p className="text-gray-600 mb-4">{job.description}</p>
+            <p className="text-gray-600 mb-4 line-clamp-3" title={job.description}>
+              {job.description}
+            </p>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div>

@@ -56,6 +56,17 @@ const MilestoneSchema = new Schema({
   feedback: {
     type: String,
   },
+  amount: {
+    type: Number,
+    required: true,
+  },
+  isPaid: {
+    type: Boolean,
+    default: false,
+  },
+  paidAt: {
+    type: Date,
+  },
   attachments: [
     {
       type: Schema.Types.ObjectId,
@@ -192,6 +203,15 @@ const ProjectSchema = new Schema({
     max: 100,
   },
   milestones: [MilestoneSchema],
+  escrow: {
+    type: Schema.Types.ObjectId,
+    ref: "Escrow",
+  },
+  escrowStatus: {
+    type: String,
+    enum: ["none", "blocked", "escrowed", "released", "disputed", "completed"],
+    default: "none",
+  },
   attachments: [
     {
       type: Schema.Types.ObjectId,

@@ -110,6 +110,12 @@ const JobSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "Project",
   },
+  blockedBudget: {
+    amount: { type: Number },
+    platformFee: { type: Number },
+    total: { type: Number },
+    transactionId: { type: String },
+  },
 });
 
 // Update the updatedAt field before saving

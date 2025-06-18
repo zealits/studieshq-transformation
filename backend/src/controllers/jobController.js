@@ -105,16 +105,61 @@ exports.createJob = async (req, res) => {
       duration,
       location,
       deadline,
-      status: status === "draft" ? "draft" : "open", // Default to open if not explicitly set to draft
+      status: status === "draft" ? "draft" : "draft", // Always start as draft, will be open after budget blocking
       companyDetails,
       freelancersNeeded: freelancersNeeded || 1,
     });
 
     await job.save();
 
+    // If not a draft, require budget blocking
+    if (status !== "draft") {
+      const Settings = require("../models/Settings");
+      const { Wallet } = require("../models/Payment");
+
+      // Calculate total amount to block: max budget * freelancers needed
+      const amountToBlock = normalizedBudget.max * (freelancersNeeded || 1);
+
+      // Get platform fee percentage
+      const platformFeePercentage = await Settings.getSetting("platformFee", 10);
+      const clientPlatformFee = (amountToBlock * platformFeePercentage) / 100;
+      const totalChargedToClient = amountToBlock + clientPlatformFee;
+
+      // Check if client has enough balance
+      let clientWallet = await Wallet.findOne({ user: req.user.id });
+      if (!clientWallet) {
+        clientWallet = new Wallet({ user: req.user.id });
+        await clientWallet.save();
+      }
+
+      if (clientWallet.balance < totalChargedToClient) {
+        // Delete the job if insufficient funds
+        await Job.findByIdAndDelete(job._id);
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient funds to post job. Required: $${totalChargedToClient.toFixed(
+            2
+          )}, Available: $${clientWallet.balance.toFixed(2)}`,
+          data: {
+            required: totalChargedToClient,
+            available: clientWallet.balance,
+            breakdown: {
+              projectBudget: amountToBlock,
+              platformFee: clientPlatformFee,
+              total: totalChargedToClient,
+            },
+          },
+        });
+      }
+    }
+
     res.status(201).json({
       success: true,
       data: { job },
+      message:
+        status === "draft"
+          ? "Job saved as draft"
+          : "Job created successfully. Please confirm budget blocking to make it live.",
     });
   } catch (err) {
     console.error("Error in createJob:", err.message);
@@ -703,12 +748,55 @@ exports.updateProposalStatus = async (req, res) => {
         budget: proposal.bidPrice,
         startDate: new Date(),
         deadline: job.deadline,
-        status: "in_progress",
+        status: "pending", // Start as pending until escrow is created
         job: job._id,
+        escrowStatus: "none",
       });
 
       console.log("project", project);
       await project.save();
+
+      // Call the escrow service to create escrow and handle refund
+      const escrowController = require("./escrowController");
+
+      // Create a mock request object for the escrow controller
+      const escrowReq = {
+        user: { id: job.client.toString() },
+        body: {
+          projectId: project._id,
+          freelancerId: proposal.freelancer,
+          agreedAmount: proposal.bidPrice,
+        },
+      };
+
+      // Create a mock response object to capture the result
+      let escrowResult = null;
+      const escrowRes = {
+        json: (data) => {
+          escrowResult = data;
+        },
+        status: () => escrowRes,
+      };
+
+      try {
+        await escrowController.createEscrow(escrowReq, escrowRes);
+
+        if (escrowResult && escrowResult.success) {
+          console.log("✅ Escrow created successfully with refund handling");
+
+          // Update project status to in_progress since escrow is now created
+          project.status = "in_progress";
+          project.escrowStatus = "escrowed";
+          await project.save();
+        } else {
+          throw new Error("Escrow creation failed");
+        }
+      } catch (escrowError) {
+        console.error("❌ Escrow creation failed:", escrowError);
+        // Delete the project since escrow creation failed
+        await Project.findByIdAndDelete(project._id);
+        throw new Error("Failed to create escrow for project");
+      }
 
       // Update proposal with project reference
       proposal.project = project._id;
@@ -794,14 +882,61 @@ exports.publishJob = async (req, res) => {
       });
     }
 
-    // Update job status to open
-    job.status = "open";
-    await job.save();
+    // Block budget before publishing the job
+    const escrowController = require("./escrowController");
 
-    res.json({
-      success: true,
-      data: { job },
-    });
+    // Create a mock request object for the escrow controller
+    const escrowReq = {
+      user: { id: req.user.id },
+      body: { jobId: job._id },
+    };
+
+    // Create a mock response object to capture the result
+    let escrowResult = null;
+    let escrowError = null;
+    const escrowRes = {
+      json: (data) => {
+        escrowResult = data;
+      },
+      status: (code) => ({
+        json: (data) => {
+          escrowError = data;
+          escrowResult = { success: false, statusCode: code, ...data };
+        },
+      }),
+    };
+
+    // Try to block the budget
+    try {
+      await escrowController.blockJobBudget(escrowReq, escrowRes);
+
+      if (escrowResult && escrowResult.success) {
+        // Budget blocked successfully, update job status
+        job.status = "open";
+        await job.save();
+
+        res.json({
+          success: true,
+          data: { job },
+          message: "Job published successfully and budget blocked in escrow",
+        });
+      } else {
+        // Budget blocking failed
+        const errorMessage = escrowResult?.message || escrowError?.message || "Failed to block budget";
+        return res.status(400).json({
+          success: false,
+          message: errorMessage,
+          data: escrowResult || escrowError,
+        });
+      }
+    } catch (budgetError) {
+      console.error("Budget blocking error:", budgetError);
+      return res.status(400).json({
+        success: false,
+        message: "Failed to block budget for job publication",
+        error: budgetError.message,
+      });
+    }
   } catch (err) {
     console.error("Error in publishJob:", err.message);
 

@@ -276,7 +276,9 @@ const ProjectsPage = () => {
                     </div>
                   </div>
 
-                  <p className="mt-4 text-gray-600">{project.description}</p>
+                  <p className="mt-4 text-gray-600 line-clamp-3" title={project.description}>
+                    {project.description}
+                  </p>
 
                   <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -360,7 +362,9 @@ const ProjectsPage = () => {
                                       {getMilestoneActions(project, milestone)}
                                     </div>
                                   </div>
-                                  <p className="text-sm text-gray-600 mt-1">{milestone.description}</p>
+                                  <p className="text-sm text-gray-600 mt-1 line-clamp-2" title={milestone.description}>
+                                    {milestone.description}
+                                  </p>
                                   <div className="flex items-center text-sm text-gray-500 mt-2">
                                     <span>Due: {formatDate(milestone.dueDate)}</span>
                                     <span className="mx-2">•</span>
