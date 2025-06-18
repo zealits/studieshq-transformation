@@ -782,12 +782,12 @@ exports.getFreelancerEscrowData = async (req, res) => {
 
     const platformFeesPaid = completedTransactions.reduce((total, tx) => total + (tx.fee || 0), 0);
 
-    console.log(`💼 FREELANCER ESCROW SUMMARY:`);
-    console.log(`  ├─ Available Balance: $${availableBalance}`);
-    console.log(`  ├─ Total Earned: $${totalEarned}`);
-    console.log(`  ├─ In Escrow: $${inEscrow}`);
-    console.log(`  ├─ Platform Fees Paid: $${platformFeesPaid}`);
-    console.log(`  └─ Active Escrows: ${activeEscrows.length}`);
+    // console.log(`💼 FREELANCER ESCROW SUMMARY:`);
+    // console.log(`  ├─ Available Balance: $${availableBalance}`);
+    // console.log(`  ├─ Total Earned: $${totalEarned}`);
+    // console.log(`  ├─ In Escrow: $${inEscrow}`);
+    // console.log(`  ├─ Platform Fees Paid: $${platformFeesPaid}`);
+    // console.log(`  └─ Active Escrows: ${activeEscrows.length}`);
 
     // Add detailed debugging for freelancer escrow calculations
     activeEscrows.forEach((escrow) => {
@@ -796,10 +796,10 @@ exports.getFreelancerEscrowData = async (req, res) => {
       const pendingAmount = pending.reduce((sum, m) => sum + (m.freelancerReceives || 0), 0);
       const releasedAmount = released.reduce((sum, m) => sum + (m.freelancerReceives || 0), 0);
 
-      console.log(`Freelancer Escrow ${escrow.escrowId}:`);
-      console.log(`  ├─ ${pending.length} pending milestones = $${pendingAmount}`);
-      console.log(`  ├─ ${released.length} released milestones = $${releasedAmount}`);
-      console.log(`  └─ Status: ${escrow.status}`);
+      // console.log(`Freelancer Escrow ${escrow.escrowId}:`);
+      // console.log(`  ├─ ${pending.length} pending milestones = $${pendingAmount}`);
+      // console.log(`  ├─ ${released.length} released milestones = $${releasedAmount}`);
+      // console.log(`  └─ Status: ${escrow.status}`);
     });
 
     // Count pending milestones
@@ -914,11 +914,11 @@ exports.getClientEscrowData = async (req, res) => {
       return total + unreleased;
     }, 0);
 
-    console.log(`💰 CLIENT ESCROW SUMMARY:`);
-    console.log(`  ├─ Available Balance: $${availableBalance}`);
-    console.log(`  ├─ Total Spent: $${totalSpent}`);
-    console.log(`  ├─ In Escrow: $${inEscrow}`);
-    console.log(`  └─ Active Escrows: ${activeEscrows.length}`);
+    // console.log(`💰 CLIENT ESCROW SUMMARY:`);
+    // console.log(`  ├─ Available Balance: $${availableBalance}`);
+    // console.log(`  ├─ Total Spent: $${totalSpent}`);
+    // console.log(`  ├─ In Escrow: $${inEscrow}`);
+    // console.log(`  └─ Active Escrows: ${activeEscrows.length}`);
 
     // Calculate platform fees paid (both client and total platform revenue)
     const platformFeesPaid = allEscrows

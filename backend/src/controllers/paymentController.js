@@ -4,6 +4,7 @@ const User = require("../models/User");
 const { validationResult } = require("express-validator");
 const mongoose = require("mongoose");
 const paypalService = require("../services/paypalService");
+const giftogramService = require("../services/giftogramService");
 
 // *** PAYMENT METHODS ***
 
@@ -889,57 +890,6 @@ exports.getTransaction = async (req, res) => {
   }
 };
 
-// *** TRANSACTIONS ***
-
-// Get user transactions
-exports.getTransactions = async (req, res) => {
-  try {
-    const { page = 1, limit = 10, type, status } = req.query;
-
-    // Build filter query
-    const filter = { user: req.user.id };
-
-    if (type) {
-      filter.type = type;
-    }
-
-    if (status) {
-      filter.status = status;
-    }
-
-    // Calculate pagination
-    const skip = (page - 1) * limit;
-
-    // Get transactions with pagination
-    const transactions = await Transaction.find(filter)
-      .populate("relatedUser", "name email")
-      .populate("project", "title")
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip(skip);
-
-    // Get total count for pagination
-    const total = await Transaction.countDocuments(filter);
-
-    res.json({
-      success: true,
-      data: {
-        transactions,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(total / limit),
-          totalTransactions: total,
-          hasNextPage: page * limit < total,
-          hasPrevPage: page > 1,
-        },
-      },
-    });
-  } catch (error) {
-    console.error("Error fetching transactions:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
 // *** BALANCE & STATISTICS ***
 
 // Get user wallet/balance
@@ -1214,3 +1164,398 @@ function getCardBrand(cardNumber) {
 
   return "Unknown";
 }
+
+// *** GIFTOGRAM INTEGRATION ***
+
+// Get available gift card campaigns
+exports.getGiftCardCampaigns = async (req, res) => {
+  try {
+    console.log("🎁 CONTROLLER: === STARTING getCampaigns ENDPOINT ===");
+    console.log("🎁 CONTROLLER: Request method:", req.method);
+    console.log("🎁 CONTROLLER: Request URL:", req.url);
+    console.log("🎁 CONTROLLER: Request headers:", JSON.stringify(req.headers, null, 2));
+    console.log(
+      "🎁 CONTROLLER: User from token:",
+      req.user ? { id: req.user.id, email: req.user.email, role: req.user.role } : "null"
+    );
+    console.log("🎁 CONTROLLER: Request body:", req.body);
+    console.log("🎁 CONTROLLER: Request query:", req.query);
+
+    console.log("🎁 CONTROLLER: Calling giftogramService.getCampaigns()...");
+    const campaigns = await giftogramService.getCampaigns();
+
+    console.log("🎁 CONTROLLER: === RAW SERVICE RESPONSE ===");
+    console.log("🎁 CONTROLLER: Service response:", campaigns);
+    console.log("🎁 CONTROLLER: Response type:", typeof campaigns);
+    console.log("🎁 CONTROLLER: Is array?", Array.isArray(campaigns));
+    console.log("🎁 CONTROLLER: Response keys:", campaigns ? Object.keys(campaigns) : "null");
+    console.log("🎁 CONTROLLER: Full service response JSON:", JSON.stringify(campaigns, null, 2));
+
+    console.log("🎁 CONTROLLER: === PROCESSING CAMPAIGNS ===");
+    let processedCampaigns = [];
+
+    if (Array.isArray(campaigns)) {
+      console.log("🎁 CONTROLLER: ✅ Campaigns is direct array");
+      console.log("🎁 CONTROLLER: Array length:", campaigns.length);
+      processedCampaigns = campaigns;
+    } else if (campaigns && campaigns.data && Array.isArray(campaigns.data)) {
+      console.log("🎁 CONTROLLER: ✅ Campaigns in data property");
+      console.log("🎁 CONTROLLER: Data array length:", campaigns.data.length);
+      processedCampaigns = campaigns.data;
+    } else if (campaigns && campaigns.campaigns && Array.isArray(campaigns.campaigns)) {
+      console.log("🎁 CONTROLLER: ✅ Campaigns in campaigns property");
+      console.log("🎁 CONTROLLER: Campaigns array length:", campaigns.campaigns.length);
+      processedCampaigns = campaigns.campaigns;
+    } else {
+      console.warn("🎁 CONTROLLER: ❌ Unexpected campaigns structure");
+      console.warn("🎁 CONTROLLER: Available keys:", campaigns ? Object.keys(campaigns) : "null");
+      processedCampaigns = [];
+    }
+
+    console.log("🎁 CONTROLLER: === FILTERING ACTIVE CAMPAIGNS ===");
+    console.log("🎁 CONTROLLER: Pre-filter count:", processedCampaigns.length);
+
+    // Filter for active campaigns
+    const activeCampaigns = processedCampaigns.filter((campaign) => {
+      console.log("🎁 CONTROLLER: Checking campaign:", {
+        id: campaign.id,
+        name: campaign.name,
+        active: campaign.active,
+        type: campaign.type,
+        status: campaign.status,
+      });
+
+      const isActive = campaign.active === true || campaign.active === "true";
+      console.log("🎁 CONTROLLER: Campaign active check:", isActive);
+      return isActive;
+    });
+
+    console.log("🎁 CONTROLLER: === ACTIVE CAMPAIGNS FILTERED ===");
+    console.log("🎁 CONTROLLER: Active campaigns count:", activeCampaigns.length);
+    console.log(
+      "🎁 CONTROLLER: Active campaign names:",
+      activeCampaigns.map((c) => c.name)
+    );
+    console.log(
+      "🎁 CONTROLLER: Active campaigns details:",
+      activeCampaigns.map((c) => ({
+        id: c.id,
+        name: c.name,
+        active: c.active,
+        currencies: c.currencies,
+        denominations: c.denominations,
+      }))
+    );
+
+    console.log("🎁 CONTROLLER: === PREPARING RESPONSE ===");
+    const responseData = {
+      success: true,
+      message: "Gift card campaigns retrieved successfully",
+      data: {
+        campaigns: activeCampaigns,
+        total: activeCampaigns.length,
+      },
+    };
+
+    console.log("🎁 CONTROLLER: Final response data:", JSON.stringify(responseData, null, 2));
+    console.log("🎁 CONTROLLER: Response campaigns count:", responseData.data.campaigns.length);
+    console.log("🎁 CONTROLLER: Sending response...");
+
+    console.log("🎁 CONTROLLER: === ENDPOINT SUCCESS ===");
+    res.json(responseData);
+
+    console.log("🎁 CONTROLLER: Response sent successfully");
+    console.log("🎁 CONTROLLER: === getCampaigns COMPLETED ===");
+  } catch (error) {
+    console.error("🎁 CONTROLLER: === ERROR in getCampaigns ===");
+    console.error("🎁 CONTROLLER: Error type:", error.constructor.name);
+    console.error("🎁 CONTROLLER: Error message:", error.message);
+    console.error("🎁 CONTROLLER: Error stack:", error.stack);
+    console.error("🎁 CONTROLLER: Full error object:", error);
+
+    console.error("🎁 CONTROLLER: === SENDING ERROR RESPONSE ===");
+    const errorResponse = {
+      success: false,
+      message: error.message || "Failed to fetch gift card campaigns",
+      error: process.env.NODE_ENV === "development" ? error.stack : "Internal server error",
+    };
+
+    console.error("🎁 CONTROLLER: Error response:", JSON.stringify(errorResponse, null, 2));
+    console.error("🎁 CONTROLLER: === getCampaigns ERROR END ===");
+
+    res.status(500).json(errorResponse);
+  }
+};
+
+// Withdraw funds as gift card
+exports.withdrawAsGiftCard = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { campaignId, amount, recipientEmail, recipientName, message } = req.body;
+    const userId = req.user.id;
+
+    console.log("🎁 PAYMENT CONTROLLER: Processing gift card withdrawal", {
+      userId,
+      campaignId,
+      amount,
+      recipientEmail,
+    });
+
+    // Validation
+    if (!campaignId || !amount || !recipientEmail || !recipientName) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: campaignId, amount, recipientEmail, recipientName",
+      });
+    }
+
+    if (amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount must be greater than 0",
+      });
+    }
+
+    // Check user's wallet balance
+    const wallet = await Wallet.findOne({ user: userId }).session(session);
+    if (!wallet || wallet.balance < amount) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient balance for gift card withdrawal",
+      });
+    }
+
+    // Get user details for sender information
+    const user = await User.findById(userId).session(session);
+    if (!user) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Generate unique transaction ID
+    const transactionId = `GC-${uuidv4().substring(0, 8)}`;
+
+    // Prepare gift card order data
+    const orderData = {
+      campaignId,
+      amount,
+      recipientEmail,
+      recipientName,
+      senderEmail: user.email,
+      senderName: `${user.firstName} ${user.lastName}`,
+      message: message || "Congratulations on your earnings! Enjoy your gift card.",
+      externalId: transactionId,
+    };
+
+    // Validate order data
+    const validation = giftogramService.validateOrderData(orderData);
+    if (!validation.valid) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: validation.error,
+      });
+    }
+
+    // Create gift card order with Giftogram
+    const giftCardResult = await giftogramService.createGiftCardOrder(orderData);
+
+    if (!giftCardResult.success) {
+      await session.abortTransaction();
+      return res.status(500).json({
+        success: false,
+        message: giftCardResult.error,
+      });
+    }
+
+    // Deduct amount from wallet
+    wallet.balance -= amount;
+    await wallet.save({ session });
+
+    // Create transaction record
+    const transaction = new Transaction({
+      transactionId,
+      user: userId,
+      amount: -amount, // Negative for withdrawal
+      type: "gift_card_withdrawal",
+      status: "completed",
+      description: `Gift card withdrawal - ${giftCardResult.order.campaign_name || "Gift Card"}`,
+      metadata: {
+        giftogramOrderId: giftCardResult.order.order_id,
+        campaignId,
+        recipientEmail,
+        recipientName,
+        giftCardStatus: giftCardResult.order.status,
+      },
+    });
+
+    await transaction.save({ session });
+
+    await session.commitTransaction();
+
+    console.log("🎁 PAYMENT CONTROLLER: Gift card withdrawal successful", {
+      transactionId,
+      giftogramOrderId: giftCardResult.order.order_id,
+      status: giftCardResult.order.status,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        transaction: {
+          id: transaction._id,
+          transactionId,
+          amount,
+          type: "gift_card_withdrawal",
+          status: "completed",
+          giftCardOrder: {
+            id: giftCardResult.order.order_id,
+            status: giftCardResult.order.status,
+            campaignName: giftCardResult.order.campaign_name,
+            recipientEmail,
+          },
+          createdAt: transaction.createdAt,
+        },
+        newBalance: wallet.balance,
+      },
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("🎁 PAYMENT CONTROLLER: Error processing gift card withdrawal:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process gift card withdrawal",
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+// Get gift card withdrawal history
+exports.getGiftCardWithdrawals = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { page = 1, limit = 10 } = req.query;
+
+    console.log("🎁 PAYMENT CONTROLLER: Fetching gift card withdrawal history", {
+      userId,
+      page,
+      limit,
+    });
+
+    const transactions = await Transaction.find({
+      user: userId,
+      type: "gift_card_withdrawal",
+    })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    const total = await Transaction.countDocuments({
+      user: userId,
+      type: "gift_card_withdrawal",
+    });
+
+    // Enrich with current gift card order status if needed
+    const enrichedTransactions = await Promise.all(
+      transactions.map(async (transaction) => {
+        const transactionObj = transaction.toObject();
+
+        if (transactionObj.metadata?.giftogramOrderId) {
+          try {
+            const orderResult = await giftogramService.getOrder(transactionObj.metadata.giftogramOrderId);
+            if (orderResult.success) {
+              transactionObj.giftCardOrder = orderResult.order;
+            }
+          } catch (error) {
+            console.warn("🎁 PAYMENT CONTROLLER: Could not fetch gift card order status:", error.message);
+          }
+        }
+
+        return transactionObj;
+      })
+    );
+
+    res.json({
+      success: true,
+      data: {
+        transactions: enrichedTransactions,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("🎁 PAYMENT CONTROLLER: Error fetching gift card withdrawals:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch gift card withdrawal history",
+    });
+  }
+};
+
+// Check gift card order status
+exports.checkGiftCardOrderStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const userId = req.user.id;
+
+    console.log("🎁 PAYMENT CONTROLLER: Checking gift card order status", {
+      userId,
+      orderId,
+    });
+
+    // Verify the order belongs to the user
+    const transaction = await Transaction.findOne({
+      user: userId,
+      "metadata.giftogramOrderId": orderId,
+      type: "gift_card_withdrawal",
+    });
+
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        message: "Gift card order not found or access denied",
+      });
+    }
+
+    // Get current order status from Giftogram
+    const orderResult = await giftogramService.getOrder(orderId);
+
+    if (!orderResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: orderResult.error,
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        order: orderResult.order,
+        transaction: {
+          id: transaction._id,
+          transactionId: transaction.transactionId,
+          amount: Math.abs(transaction.amount),
+          status: transaction.status,
+          createdAt: transaction.createdAt,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("🎁 PAYMENT CONTROLLER: Error checking gift card order status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to check gift card order status",
+    });
+  }
+};

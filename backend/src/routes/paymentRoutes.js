@@ -612,4 +612,42 @@ router.post("/paypal/create-order", auth, paymentController.createPayPalOrder);
 // @access  Private
 router.post("/paypal/capture-payment", auth, paymentController.capturePayPalPayment);
 
+// ***** GIFTOGRAM GIFT CARD ROUTES *****
+
+// @route   GET /api/payments/gift-cards/campaigns
+// @desc    Get available gift card campaigns
+// @access  Private (Freelancers only)
+router.get("/gift-cards/campaigns", auth, checkRole(["freelancer"]), paymentController.getGiftCardCampaigns);
+
+// @route   POST /api/payments/gift-cards/withdraw
+// @desc    Withdraw funds as gift card
+// @access  Private (Freelancers only)
+router.post(
+  "/gift-cards/withdraw",
+  [
+    auth,
+    checkRole(["freelancer"]),
+    check("campaignId", "Campaign ID is required").notEmpty(),
+    check("amount", "Amount must be a positive number").isFloat({ min: 0.01 }),
+    check("recipientEmail", "Valid recipient email is required").isEmail(),
+    check("recipientName", "Recipient name is required").notEmpty().trim(),
+  ],
+  paymentController.withdrawAsGiftCard
+);
+
+// @route   GET /api/payments/gift-cards/history
+// @desc    Get gift card withdrawal history
+// @access  Private (Freelancers only)
+router.get("/gift-cards/history", auth, checkRole(["freelancer"]), paymentController.getGiftCardWithdrawals);
+
+// @route   GET /api/payments/gift-cards/order/:orderId/status
+// @desc    Check gift card order status
+// @access  Private (Freelancers only)
+router.get(
+  "/gift-cards/order/:orderId/status",
+  auth,
+  checkRole(["freelancer"]),
+  paymentController.checkGiftCardOrderStatus
+);
+
 module.exports = router;

@@ -2,25 +2,45 @@ import React, { useState, useEffect } from "react";
 import escrowService from "../../services/escrowService";
 import { useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
+import GiftCardWithdrawModal from "../../components/payments/GiftCardWithdrawModal";
 
 const PaymentsPage = () => {
   const [activeTab, setActiveTab] = useState("transactions");
   const [loading, setLoading] = useState(true);
   const [escrowData, setEscrowData] = useState(null);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showGiftCardModal, setShowGiftCardModal] = useState(false);
   const { user } = useSelector((state) => state.auth);
 
   // Load real escrow and transaction data
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log("🖥️ FREELANCER PAYMENTS PAGE: Loading data for user:", user?.id);
+        console.log("🖥️ FREELANCER PAYMENTS PAGE: === LOADING PAYMENT DATA ===");
+        console.log("🖥️ FREELANCER PAYMENTS PAGE: User from Redux:", user);
+        console.log("🖥️ FREELANCER PAYMENTS PAGE: User ID:", user?.id);
+        console.log("🖥️ FREELANCER PAYMENTS PAGE: User role:", user?.role);
+        console.log("🖥️ FREELANCER PAYMENTS PAGE: User email:", user?.email);
+
+        // Check token
+        const token = localStorage.getItem("token");
+        console.log("🖥️ FREELANCER PAYMENTS PAGE: Auth token:", {
+          hasToken: !!token,
+          tokenLength: token ? token.length : 0,
+          tokenPreview: token ? `${token.substring(0, 20)}...` : "null",
+        });
+
         setLoading(true);
         const response = await escrowService.getFreelancerEscrowData();
-        console.log("🖥️ FREELANCER PAYMENTS PAGE: Data loaded successfully:", response.data);
+        console.log("🖥️ FREELANCER PAYMENTS PAGE: ✅ Data loaded successfully:", response.data);
         setEscrowData(response.data);
       } catch (error) {
-        console.error("🖥️ FREELANCER PAYMENTS PAGE: Error loading payment data:", error);
+        console.error("🖥️ FREELANCER PAYMENTS PAGE: ❌ Error loading payment data:", error);
+        console.error("🖥️ FREELANCER PAYMENTS PAGE: Error details:", {
+          message: error.message,
+          status: error.response?.status,
+          data: error.response?.data,
+        });
         toast.error("Failed to load payment data");
         // Set default empty data on error
         setEscrowData({
@@ -37,8 +57,15 @@ const PaymentsPage = () => {
       }
     };
 
+    console.log("🖥️ FREELANCER PAYMENTS PAGE: === USEEFFECT TRIGGERED ===");
+    console.log("🖥️ FREELANCER PAYMENTS PAGE: User exists?", !!user);
+    console.log("🖥️ FREELANCER PAYMENTS PAGE: User details:", user);
+
     if (user) {
+      console.log("🖥️ FREELANCER PAYMENTS PAGE: ✅ User exists, calling loadData()");
       loadData();
+    } else {
+      console.warn("🖥️ FREELANCER PAYMENTS PAGE: ⚠️ No user found, not loading data");
     }
   }, [user]);
 
@@ -52,6 +79,16 @@ const PaymentsPage = () => {
       setEscrowData(response.data);
     } catch (error) {
       toast.error("Failed to process withdrawal");
+    }
+  };
+
+  const handleGiftCardWithdrawal = async (withdrawalData) => {
+    try {
+      // Reload data after successful gift card withdrawal
+      const response = await escrowService.getFreelancerEscrowData();
+      setEscrowData(response.data);
+    } catch (error) {
+      console.error("Error reloading data after gift card withdrawal:", error);
     }
   };
 
@@ -87,6 +124,8 @@ const PaymentsPage = () => {
         return "text-green-600 bg-green-100";
       case "withdrawal":
         return "text-blue-600 bg-blue-100";
+      case "gift_card_withdrawal":
+        return "text-purple-600 bg-purple-100";
       case "platform_fee":
         return "text-red-600 bg-red-100";
       case "escrow_completion":
@@ -124,13 +163,30 @@ const PaymentsPage = () => {
             <span className="block text-sm text-gray-500">Pending from Escrow</span>
             <span className="block text-xl font-bold text-blue-600">{formatCurrency(escrowData?.inEscrow)}</span>
           </div>
-          <button
-            className="btn-primary"
-            onClick={() => setShowWithdrawModal(true)}
-            disabled={!escrowData?.availableBalance || escrowData.availableBalance <= 0}
-          >
-            Withdraw Funds
-          </button>
+          <div className="flex flex-col space-y-2">
+            <button
+              className="btn-primary"
+              onClick={() => setShowWithdrawModal(true)}
+              disabled={!escrowData?.availableBalance || escrowData.availableBalance <= 0}
+            >
+              Withdraw Funds
+            </button>
+            <button
+              className="btn-secondary bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md transition-colors"
+              onClick={() => {
+                console.log("🎁 PAYMENTS PAGE: === GIFT CARD BUTTON CLICKED ===");
+                console.log("🎁 PAYMENTS PAGE: Current escrowData:", escrowData);
+                console.log("🎁 PAYMENTS PAGE: Available balance:", escrowData?.availableBalance);
+                console.log("🎁 PAYMENTS PAGE: showGiftCardModal before:", showGiftCardModal);
+                console.log("🎁 PAYMENTS PAGE: About to set showGiftCardModal to true...");
+                setShowGiftCardModal(true);
+                console.log("🎁 PAYMENTS PAGE: setShowGiftCardModal(true) called");
+              }}
+              disabled={!escrowData?.availableBalance || escrowData.availableBalance <= 0}
+            >
+              🎁 Gift Card
+            </button>
+          </div>
         </div>
       </div>
 
@@ -261,6 +317,9 @@ const PaymentsPage = () => {
                             {transaction.projectTitle && (
                               <p className="text-xs text-gray-500">Project: {transaction.projectTitle}</p>
                             )}
+                            {transaction.type === "gift_card_withdrawal" && transaction.recipientEmail && (
+                              <p className="text-xs text-purple-600">Gift card sent to: {transaction.recipientEmail}</p>
+                            )}
                           </div>
                         </td>
                         <td className="py-3 px-4">
@@ -269,7 +328,9 @@ const PaymentsPage = () => {
                               transaction.type
                             )}`}
                           >
-                            {transaction.type.replace("_", " ").toUpperCase()}
+                            {transaction.type === "gift_card_withdrawal"
+                              ? "GIFT CARD"
+                              : transaction.type.replace("_", " ").toUpperCase()}
                           </span>
                         </td>
                         <td className="py-3 px-4 font-medium">{formatCurrency(transaction.amount)}</td>
@@ -351,6 +412,23 @@ const PaymentsPage = () => {
           </div>
         </div>
       )}
+
+      {/* Gift Card Withdrawal Modal */}
+      {(() => {
+        console.log("🎁 PAYMENTS PAGE RENDER: showGiftCardModal state:", showGiftCardModal);
+        console.log("🎁 PAYMENTS PAGE RENDER: availableBalance:", escrowData?.availableBalance);
+        console.log("🎁 PAYMENTS PAGE RENDER: Rendering modal with props");
+        return null;
+      })()}
+      <GiftCardWithdrawModal
+        isOpen={showGiftCardModal}
+        onClose={() => {
+          console.log("🎁 PAYMENTS PAGE: Modal onClose called");
+          setShowGiftCardModal(false);
+        }}
+        availableBalance={escrowData?.availableBalance || 0}
+        onSuccess={handleGiftCardWithdrawal}
+      />
     </div>
   );
 };
