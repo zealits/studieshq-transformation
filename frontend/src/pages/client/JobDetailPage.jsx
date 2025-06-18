@@ -145,9 +145,9 @@ const JobDetailPage = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div>
             <span className="block text-sm text-gray-500">Budget</span>
-            <span className="font-medium">
-              ${job.budget.min} - ${job.budget.max}
-            </span>
+            <div className="text-lg font-semibold text-primary">
+              ${job.budget.min} - ${job.budget.max} USD
+            </div>
           </div>
           <div>
             <span className="block text-sm text-gray-500">Payment Type</span>

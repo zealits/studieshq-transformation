@@ -134,11 +134,11 @@ const FindJobsPage = () => {
             </label>
             <select id="budget" name="budget" className="input" value={filters.budget} onChange={handleFilterChange}>
               <option value="">Any Budget</option>
-              <option value="0-500">Under $500</option>
-              <option value="500-1000">$500 - $1,000</option>
-              <option value="1000-5000">$1,000 - $5,000</option>
-              <option value="5000-10000">$5,000 - $10,000</option>
-              <option value="10000+">Over $10,000</option>
+              <option value="0-500">Under $500 USD</option>
+              <option value="500-1000">$500 - $1,000 USD</option>
+              <option value="1000-5000">$1,000 - $5,000 USD</option>
+              <option value="5000-10000">$5,000 - $10,000 USD</option>
+              <option value="10000+">Over $10,000 USD</option>
             </select>
           </div>
 
@@ -292,7 +292,7 @@ const FindJobsPage = () => {
                     <h2 className="text-xl font-semibold hover:text-primary">{job.title}</h2>
                     <div className="flex items-center text-sm text-gray-500 mt-1">
                       <span>
-                        ${job.budget.min} - ${job.budget.max}
+                        ${job.budget.min} - ${job.budget.max} USD
                       </span>
                       <span className="mx-2">•</span>
                       <span>{job.budget.type === "milestone" ? "Milestone Based" : "After Completion"}</span>

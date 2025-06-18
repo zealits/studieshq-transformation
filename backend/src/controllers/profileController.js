@@ -205,12 +205,27 @@ exports.getAllProfiles = async (req, res) => {
  */
 exports.getAllFreelancers = async (req, res) => {
   try {
-    const users = await User.find({ role: "freelancer" }).select("_id");
+    const { location } = req.query;
+
+    // Build the filter object
+    const userFilter = { role: "freelancer" };
+    const profileFilter = {};
+
+    // Add location filter if provided
+    if (location && location.trim() !== "") {
+      profileFilter.location = new RegExp(location.trim(), "i"); // Case-insensitive regex match
+    }
+
+    const users = await User.find(userFilter).select("_id");
     const userIds = users.map((user) => user._id);
 
-    const freelancerProfiles = await Profile.find({
+    // Build the complete filter for profiles
+    const completeFilter = {
       user: { $in: userIds },
-    }).populate("user", ["name", "email", "avatar"]);
+      ...profileFilter,
+    };
+
+    const freelancerProfiles = await Profile.find(completeFilter).populate("user", ["name", "email", "avatar"]);
 
     res.json({ success: true, data: { freelancers: freelancerProfiles } });
   } catch (err) {

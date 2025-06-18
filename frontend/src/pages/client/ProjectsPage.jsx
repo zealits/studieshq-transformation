@@ -380,7 +380,7 @@ const ProjectsPage = () => {
                   <div className="flex items-center space-x-4 text-sm text-gray-500">
                     <span>Freelancer: {project.freelancer?.name}</span>
                     <span>•</span>
-                    <span>Budget: ${project.budget?.toLocaleString()}</span>
+                    <span>Budget: ${project.budget?.toLocaleString()} USD</span>
                     <span>•</span>
                     <span>Due: {format(new Date(project.deadline), "MMM d, yyyy")}</span>
                   </div>
@@ -493,7 +493,7 @@ const ProjectsPage = () => {
                             <div>
                               <p className="text-sm text-gray-500">Amount</p>
                               <p className="font-medium">
-                                ${((project.budget * milestone.percentage) / 100).toFixed(2)}
+                                ${((project.budget * milestone.percentage) / 100).toFixed(2)} USD
                               </p>
                             </div>
                           </div>
@@ -644,7 +644,7 @@ const ProjectsPage = () => {
                     </p>
                     {milestoneForm.percentage && (
                       <p className="text-sm font-medium text-green-600">
-                        💰 Milestone value: ${calculateMilestoneAmount(milestoneForm.percentage)}
+                        💰 Milestone value: ${calculateMilestoneAmount(milestoneForm.percentage)} USD
                       </p>
                     )}
                   </div>

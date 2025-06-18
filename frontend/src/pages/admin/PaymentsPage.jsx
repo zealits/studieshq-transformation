@@ -57,12 +57,12 @@ const PaymentsPage = () => {
   const getDisplayStats = () => {
     if (!stats || !revenueData || !escrowData) {
       return {
-        totalProcessed: "$0.00",
-        platformFees: "$0.00",
-        pendingPayouts: "$0.00",
-        monthlyRevenue: "$0.00",
-        escrowTotal: "$0.00",
-        totalRevenue: "$0.00",
+        totalProcessed: "$0.00 USD",
+        platformFees: "$0.00 USD",
+        pendingPayouts: "$0.00 USD",
+        monthlyRevenue: "$0.00 USD",
+        escrowTotal: "$0.00 USD",
+        totalRevenue: "$0.00 USD",
       };
     }
 
@@ -75,16 +75,16 @@ const PaymentsPage = () => {
     const pendingAmount = escrowStats.active?.totalAmount || 0;
 
     return {
-      totalProcessed: `$${totalEscrowAmount.toLocaleString()}`,
-      platformFees: `$${(feeTransactions.totalFees || 0).toLocaleString()}`,
-      pendingPayouts: `$${pendingAmount.toLocaleString()}`,
-      monthlyRevenue: `$${(escrowRevenue.totalRevenue || 0).toLocaleString()}`,
-      escrowTotal: `$${totalEscrowAmount.toLocaleString()}`,
+      totalProcessed: `$${totalEscrowAmount.toLocaleString()} USD`,
+      platformFees: `$${(feeTransactions.totalFees || 0).toLocaleString()} USD`,
+      pendingPayouts: `$${pendingAmount.toLocaleString()} USD`,
+      monthlyRevenue: `$${(escrowRevenue.totalRevenue || 0).toLocaleString()} USD`,
+      escrowTotal: `$${totalEscrowAmount.toLocaleString()} USD`,
       totalRevenue: `$${(
         (escrowRevenue.totalRevenue || 0) +
         (feeTransactions.totalFees || 0) +
         totalEscrowRevenue
-      ).toLocaleString()}`,
+      ).toLocaleString()} USD`,
     };
   };
 

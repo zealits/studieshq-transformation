@@ -725,7 +725,7 @@ const ProfilePage = () => {
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-gray-700 mb-2">Hourly Rate Range ($)</label>
+                    <label className="block text-gray-700 mb-2">Hourly Rate Range (USD)</label>
                     <div className="flex items-center space-x-4">
                       <div className="flex-1">
                         <input
@@ -757,7 +757,7 @@ const ProfilePage = () => {
                         />
                       </div>
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">Rates must be in multiples of 10</p>
+                    <p className="text-sm text-gray-500 mt-1">Rates must be in multiples of 10 (USD)</p>
                   </div>
 
                   {/* Social Links Section */}

@@ -291,7 +291,7 @@ const ProjectsPage = () => {
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Budget</p>
-                      <p className="font-medium">${project.budget?.toLocaleString() || "N/A"}</p>
+                      <p className="font-medium">${project.budget?.toLocaleString() || "N/A"} USD</p>
                     </div>
                   </div>
 
@@ -531,12 +531,12 @@ const ProjectsPage = () => {
                   <div>
                     <p className="text-sm text-gray-500">Client's Budget</p>
                     <p className="font-medium">
-                      ${proposal?.job?.budget.min} - ${proposal?.job?.budget.max}
+                      ${proposal?.job?.budget.min} - ${proposal?.job?.budget.max} USD
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Your Bid</p>
-                    <p className="font-medium">${proposal?.bidPrice}</p>
+                    <p className="font-medium">${proposal?.bidPrice} USD</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Duration</p>
@@ -639,7 +639,7 @@ const ProjectsPage = () => {
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Final Budget</p>
-                      <p className="font-medium">${project.budget?.toLocaleString() || "N/A"}</p>
+                      <p className="font-medium">${project.budget?.toLocaleString() || "N/A"} USD</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Duration</p>

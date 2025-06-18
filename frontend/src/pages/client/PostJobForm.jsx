@@ -255,7 +255,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label htmlFor="budget.min" className="block text-sm font-medium text-gray-700 mb-1">
-              Minimum Budget ($)
+              Minimum Budget (USD)
             </label>
             <input
               type="number"
@@ -270,7 +270,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
 
           <div>
             <label htmlFor="budget.max" className="block text-sm font-medium text-gray-700 mb-1">
-              Maximum Budget ($)
+              Maximum Budget (USD)
             </label>
             <input
               type="number"
@@ -289,10 +289,12 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
           <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
             <h4 className="text-sm font-medium text-blue-800 mb-2">Escrow Requirements</h4>
             <div className="text-sm text-blue-700 space-y-1">
-              <p>• Project Budget: ${(formData.budget.max * formData.freelancersNeeded).toLocaleString()}</p>
-              <p>• Platform Fee (10%): ${(formData.budget.max * formData.freelancersNeeded * 0.1).toLocaleString()}</p>
+              <p>• Project Budget: ${(formData.budget.max * formData.freelancersNeeded).toLocaleString()} USD</p>
+              <p>
+                • Platform Fee (10%): ${(formData.budget.max * formData.freelancersNeeded * 0.1).toLocaleString()} USD
+              </p>
               <p className="font-medium">
-                • Total Required: ${(formData.budget.max * formData.freelancersNeeded * 1.1).toLocaleString()}
+                • Total Required: ${(formData.budget.max * formData.freelancersNeeded * 1.1).toLocaleString()} USD
               </p>
               <p className="text-xs mt-2">
                 This amount will be held in escrow when you hire freelancers and released upon milestone completion.

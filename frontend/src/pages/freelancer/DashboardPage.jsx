@@ -94,14 +94,14 @@ const DashboardPage = () => {
 
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-sm font-medium text-gray-500 mb-1">Total Earnings</h3>
-          <p className="text-3xl font-bold text-primary">${totalEarnings.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-primary">${totalEarnings.toLocaleString()} USD</p>
           <p className="text-xs text-gray-500 mt-1">From completed projects</p>
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-sm font-medium text-gray-500 mb-1">Pending Earnings</h3>
           <p className="text-3xl font-bold text-green-600">
-            ${pendingEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            ${pendingEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
           </p>
           <p className="text-xs text-gray-500 mt-1">From completed milestones</p>
         </div>
@@ -174,7 +174,7 @@ const DashboardPage = () => {
           <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
             <h3 className="font-medium">Senior React Developer</h3>
             <div className="flex items-center text-sm text-gray-500 mt-1">
-              <span>$50-70/hr</span>
+              <span>$50-70 USD/hr</span>
               <span className="mx-2">•</span>
               <span>Remote</span>
               <span className="mx-2">•</span>
@@ -189,7 +189,7 @@ const DashboardPage = () => {
           <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
             <h3 className="font-medium">UI/UX Designer for E-commerce Project</h3>
             <div className="flex items-center text-sm text-gray-500 mt-1">
-              <span>$3,000-5,000</span>
+              <span>$3,000-5,000 USD</span>
               <span className="mx-2">•</span>
               <span>Fixed Price</span>
               <span className="mx-2">•</span>

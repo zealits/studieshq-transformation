@@ -217,7 +217,7 @@ const JobsPage = () => {
               <div>
                 <span className="block text-sm text-gray-500">Budget</span>
                 <span className="font-medium">
-                  ${job.budget.min} - ${job.budget.max}
+                  ${job.budget.min} - ${job.budget.max} USD
                 </span>
               </div>
               <div>

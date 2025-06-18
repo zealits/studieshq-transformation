@@ -1,24 +1,38 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchFreelancers,
+  fetchAllFreelancersForOptions,
   setFilters,
   selectFilteredFreelancers,
   selectFreelancerLoading,
   selectFreelancerError,
   selectFreelancerFilters,
+  selectAllFreelancers,
 } from "../../redux/slices/freelancerSlice";
 
 const FreelancersPage = () => {
   const dispatch = useDispatch();
   const freelancers = useSelector(selectFilteredFreelancers);
+  const allFreelancers = useSelector(selectAllFreelancers);
   const loading = useSelector(selectFreelancerLoading);
   const error = useSelector(selectFreelancerError);
   const filters = useSelector(selectFreelancerFilters);
 
+  // Fetch freelancers when component mounts
   useEffect(() => {
     dispatch(fetchFreelancers());
+    dispatch(fetchAllFreelancersForOptions()); // Fetch all for dropdown options
   }, [dispatch]);
+
+  // Re-fetch freelancers when location filter changes (for backend filtering)
+  useEffect(() => {
+    if (filters.location) {
+      dispatch(fetchFreelancers({ location: filters.location }));
+    } else {
+      dispatch(fetchFreelancers());
+    }
+  }, [dispatch, filters.location]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -28,6 +42,13 @@ const FreelancersPage = () => {
   const handleSearchChange = (e) => {
     dispatch(setFilters({ searchTerm: e.target.value }));
   };
+
+  // Get unique locations from all freelancers for the dropdown
+  const availableLocations = Array.from(
+    new Set(
+      allFreelancers.map((freelancer) => freelancer.location).filter((location) => location && location.trim() !== "")
+    )
+  ).sort();
 
   if (loading) {
     return (
@@ -75,16 +96,36 @@ const FreelancersPage = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label htmlFor="skill" className="block text-sm font-medium text-gray-700 mb-1">
               Skill
             </label>
             <select id="skill" name="skill" className="input" value={filters.skill} onChange={handleFilterChange}>
               <option value="">All Skills</option>
-              {Array.from(new Set(freelancers.flatMap((f) => f.skills))).map((skill) => (
+              {Array.from(new Set(allFreelancers.flatMap((f) => f.skills || []))).map((skill) => (
                 <option key={skill} value={skill}>
                   {skill}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+              Location
+            </label>
+            <select
+              id="location"
+              name="location"
+              className="input"
+              value={filters.location}
+              onChange={handleFilterChange}
+            >
+              <option value="">All Locations</option>
+              {availableLocations.map((location) => (
+                <option key={location} value={location}>
+                  {location}
                 </option>
               ))}
             </select>
@@ -96,10 +137,10 @@ const FreelancersPage = () => {
             </label>
             <select id="rate" name="rate" className="input" value={filters.rate} onChange={handleFilterChange}>
               <option value="">Any Rate</option>
-              <option value="0-20">$0 - $20</option>
-              <option value="20-40">$20 - $40</option>
-              <option value="40-60">$40 - $60</option>
-              <option value="60+">$60+</option>
+              <option value="0-20">$0 - $20 USD</option>
+              <option value="20-40">$20 - $40 USD</option>
+              <option value="40-60">$40 - $60 USD</option>
+              <option value="60+">$60+ USD</option>
             </select>
           </div>
 
@@ -130,6 +171,7 @@ const FreelancersPage = () => {
                 setFilters({
                   searchTerm: "",
                   skill: "",
+                  location: "",
                   rate: "",
                   experience: "",
                 })
@@ -140,6 +182,14 @@ const FreelancersPage = () => {
             Reset Filters
           </button>
         </div>
+      </div>
+
+      {/* Results count */}
+      <div className="mb-4">
+        <p className="text-gray-600">
+          {freelancers.length === 1 ? `1 freelancer found` : `${freelancers.length} freelancers found`}
+          {filters.location && ` in ${filters.location}`}
+        </p>
       </div>
 
       {/* Freelancers List */}
@@ -174,8 +224,8 @@ const FreelancersPage = () => {
                   <div className="flex items-center mt-2 md:mt-0">
                     <div className="text-primary font-semibold">
                       {typeof freelancer.hourlyRate === "object"
-                        ? `$${freelancer.hourlyRate.min} - $${freelancer.hourlyRate.max}/hr`
-                        : `$${freelancer.hourlyRate}/hr`}
+                        ? `$${freelancer.hourlyRate.min} - $${freelancer.hourlyRate.max} USD/hr`
+                        : `$${freelancer.hourlyRate} USD/hr`}
                     </div>
                   </div>
                 </div>
@@ -183,7 +233,7 @@ const FreelancersPage = () => {
                 <p className="mt-3 text-gray-600">{freelancer.bio}</p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {freelancer.skills.map((skill, index) => (
+                  {(freelancer.skills || []).map((skill, index) => (
                     <span key={index} className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">
                       {skill}
                     </span>
@@ -212,7 +262,7 @@ const FreelancersPage = () => {
                         d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                       ></path>
                     </svg>
-                    {freelancer.location}
+                    {freelancer.location || "Location not specified"}
                   </div>
                   <div className="flex space-x-2">
                     <button className="btn-outline text-sm py-1">View Profile</button>
@@ -224,6 +274,16 @@ const FreelancersPage = () => {
           </div>
         ))}
       </div>
+
+      {/* No results message */}
+      {freelancers.length === 0 && !loading && (
+        <div className="text-center py-12">
+          <div className="text-gray-500 text-lg mb-2">No freelancers found</div>
+          <div className="text-gray-400 text-sm">
+            Try adjusting your filters or search terms to find more freelancers.
+          </div>
+        </div>
+      )}
     </div>
   );
 };

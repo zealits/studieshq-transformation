@@ -14,9 +14,9 @@
       <div className="mt-4 grid grid-cols-2 gap-4">
         <div>
           <p className="text-sm text-gray-500">Budget</p>
-          <p className="font-medium">
-            ${job.budget.min} - ${job.budget.max}
-          </p>
+          <div className="text-sm text-gray-500 mt-1">
+            ${job.budget.min} - ${job.budget.max} USD
+          </div>
         </div>
         <div>
           <p className="text-sm text-gray-500">Applications</p>

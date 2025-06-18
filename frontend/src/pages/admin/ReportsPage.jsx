@@ -40,9 +40,9 @@ const ReportsPage = () => {
   // Mock report statistics
   const reportStats = {
     revenue: {
-      total: "$107,300",
-      average: "$17,883",
-      highest: "$23,500 (Jun)",
+      total: "$107,300 USD",
+      average: "$17,883 USD",
+      highest: "$23,500 USD (Jun)",
       growth: "+12.8%",
     },
     users: {

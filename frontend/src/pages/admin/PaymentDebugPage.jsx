@@ -135,7 +135,7 @@ const PaymentDebugPage = () => {
       const response = await escrowService.releaseMilestonePayment(projectId, milestoneId);
 
       if (response.success) {
-        toast.success(`Payment released successfully: $${response.data?.transaction?.netAmount || "N/A"}`);
+        toast.success(`Payment released successfully: $${response.data?.transaction?.netAmount || "N/A"} USD`);
       } else {
         toast.error(response.message || "Failed to release payment");
       }

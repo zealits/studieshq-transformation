@@ -82,7 +82,7 @@ const ApplyJobModal = ({ job, onClose }) => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="bidPrice" className="block text-sm font-medium text-gray-700 mb-1">
-                Bid Price ($)
+                Bid Price (USD)
               </label>
               <input
                 type="number"
@@ -97,7 +97,7 @@ const ApplyJobModal = ({ job, onClose }) => {
               />
               {job.budget && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Suggested budget: ${job.budget.min} - ${job.budget.max}
+                  Suggested budget: ${job.budget.min} - ${job.budget.max} USD
                 </p>
               )}
             </div>

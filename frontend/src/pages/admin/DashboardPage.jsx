@@ -110,7 +110,7 @@ const DashboardPage = () => {
   const stats = {
     totalUsers,
     totalProjects,
-    totalRevenue: `$${totalRevenue.toLocaleString()}`,
+    totalRevenue: `$${totalRevenue.toLocaleString()} USD`,
     activeJobs: activeJobs.length,
     pendingWithdrawals: 0, // This would come from payments system
     newUsers:
@@ -411,7 +411,7 @@ const DashboardPage = () => {
                         </td>
                         <td className="py-3 text-sm text-gray-600">{freelancer.category}</td>
                         <td className="py-3 text-sm text-gray-600">{freelancer.completedProjects}</td>
-                        <td className="py-3 text-sm font-medium">${freelancer.totalEarnings.toLocaleString()}</td>
+                        <td className="py-3 text-sm font-medium">${freelancer.totalEarnings.toLocaleString()} USD</td>
                         <td className="py-3">
                           <div className="flex items-center">
                             <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">

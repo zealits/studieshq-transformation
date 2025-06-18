@@ -69,7 +69,7 @@ const JobManagementPage = () => {
   // Format budget display
   const formatBudget = (budget) => {
     if (!budget) return "N/A";
-    return `$${budget.min} - $${budget.max}`;
+    return `$${budget.min} - $${budget.max} USD`;
   };
 
   if (isLoading) {

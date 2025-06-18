@@ -3,19 +3,42 @@ import axios from "../../api/axios";
 import { createSelector } from "@reduxjs/toolkit";
 
 // Async thunk for fetching all freelancers
-export const fetchFreelancers = createAsyncThunk("freelancers/fetchAll", async (_, { rejectWithValue }) => {
+export const fetchFreelancers = createAsyncThunk("freelancers/fetchAll", async (filters = {}, { rejectWithValue }) => {
   try {
-    const response = await axios.get(`/api/profile/freelancers`);
+    // Build query parameters for location filtering
+    const queryParams = new URLSearchParams();
+    if (filters.location) {
+      queryParams.append("location", filters.location);
+    }
+
+    const response = await axios.get(`/api/profile/freelancers?${queryParams.toString()}`);
     console.log("API Response:", response.data);
-    // Return the freelancers array directly
-    return response.data.data.freelancers;
+    // Return the freelancers array directly along with filter info
+    return {
+      freelancers: response.data.data.freelancers,
+      isFiltered: !!filters.location,
+    };
   } catch (error) {
     return rejectWithValue(error.response?.data || error.message);
   }
 });
 
+// Fetch all freelancers without filters for dropdown options
+export const fetchAllFreelancersForOptions = createAsyncThunk(
+  "freelancers/fetchAllForOptions",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(`/api/profile/freelancers`);
+      return response.data.data.freelancers;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 const initialState = {
   freelancers: [],
+  allFreelancers: [], // Store all freelancers for dropdown options
   loading: false,
   error: null,
   filters: {
@@ -23,6 +46,7 @@ const initialState = {
     skill: "",
     rate: "",
     experience: "",
+    location: "",
   },
 };
 
@@ -49,12 +73,19 @@ const freelancerSlice = createSlice({
       .addCase(fetchFreelancers.fulfilled, (state, action) => {
         state.loading = false;
         // Set the freelancers array directly from the action payload
-        state.freelancers = action.payload || [];
+        state.freelancers = action.payload.freelancers || [];
+        // If this is unfiltered data, also update allFreelancers
+        if (!action.payload.isFiltered) {
+          state.allFreelancers = action.payload.freelancers || [];
+        }
         console.log("Redux State Updated:", state.freelancers);
       })
       .addCase(fetchFreelancers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || "Failed to fetch freelancers";
+      })
+      .addCase(fetchAllFreelancersForOptions.fulfilled, (state, action) => {
+        state.allFreelancers = action.payload || [];
       });
   },
 });
@@ -71,8 +102,8 @@ const selectFreelancers = (state) => state.freelancers.freelancers;
 const selectFilters = (state) => state.freelancers.filters;
 
 // Memoized selectors with proper transformations
-export const selectAllFreelancers = createSelector([selectFreelancers], (freelancers) =>
-  Array.isArray(freelancers) ? freelancers : []
+export const selectAllFreelancers = createSelector([(state) => state.freelancers.allFreelancers], (allFreelancers) =>
+  Array.isArray(allFreelancers) ? allFreelancers : []
 );
 
 // Memoized filtered freelancers selector with proper transformation
@@ -89,6 +120,11 @@ export const selectFilteredFreelancers = createSelector([selectFreelancers, sele
 
     const matchesSkill =
       !filters.skill || (Array.isArray(freelancer.skills) && freelancer.skills.includes(filters.skill));
+
+    // Location filtering is now handled by backend, so we don't need to filter here
+    // const matchesLocation =
+    //   !filters.location ||
+    //   (freelancer.location && freelancer.location.toLowerCase().includes(filters.location.toLowerCase()));
 
     const matchesRate =
       !filters.rate ||

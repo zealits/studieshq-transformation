@@ -204,8 +204,8 @@ const DashboardPage = () => {
                       <span className="ml-1 text-sm">{freelancer.avgRating || "N/A"}</span>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600">
-                    {freelancer.completedProjects} projects completed • ${freelancer.totalEarnings.toLocaleString()}{" "}
+                  <p className="text-gray-600">
+                    {freelancer.completedProjects} projects completed • ${freelancer.totalEarnings.toLocaleString()} USD{" "}
                     earned
                   </p>
                 </div>
