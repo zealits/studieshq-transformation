@@ -42,6 +42,11 @@ router.get("/admin/all", auth, checkRole(["admin"]), projectController.getAllPro
 // @access  Private
 router.get("/:id", auth, projectController.getProject);
 
+// @route   GET /api/projects/:id/debug-auth
+// @desc    Debug project authorization (temporary debugging endpoint)
+// @access  Private
+router.get("/:id/debug-auth", auth, projectController.debugProjectAuth);
+
 // @route   PUT /api/projects/:id
 // @desc    Update project
 // @access  Private
@@ -57,6 +62,21 @@ router.put(
     ],
   ],
   projectController.updateProject
+);
+
+// @route   PUT /api/projects/:id/reassign-freelancer
+// @desc    Reassign project to different freelancer (Admin only)
+// @access  Private (Admin only)
+router.put(
+  "/:id/reassign-freelancer",
+  [
+    auth,
+    checkRole(["admin"]),
+    [
+      check("newFreelancerId", "New freelancer ID is required").not().isEmpty(),
+    ],
+  ],
+  projectController.reassignProjectFreelancer
 );
 
 // @route   POST /api/projects/:id/milestones

@@ -784,3 +784,184 @@ exports.sendGenericNotification = async (email, subject, title, content, buttonT
 
   return await transporter.sendMail(mailOptions);
 };
+
+// ======================= ESCROW & PROJECT COMPLETION NOTIFICATIONS =======================
+
+/**
+ * Send escrow payment release notification to freelancer
+ * @param {Object} freelancer - Freelancer user object
+ * @param {Object} client - Client user object
+ * @param {Object} project - Project object
+ * @param {Object} milestone - Milestone object
+ * @param {Object} transaction - Transaction object
+ * @returns {Promise} - Nodemailer info object
+ */
+exports.sendEscrowPaymentReleaseNotification = async (freelancer, client, project, milestone, transaction) => {
+  const paymentsUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/freelancer/payments`;
+
+  const content = `
+    <p>Hello ${freelancer.name},</p>
+    <p>🎉 Great news! Your milestone payment has been released from escrow and added to your wallet!</p>
+    
+    <div style="background-color: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+      <h3 style="margin: 0 0 10px 0; color: #059669;">Payment Release Details:</h3>
+      <p><strong>Project:</strong> ${project.title}</p>
+      <p><strong>Milestone:</strong> ${milestone.title}</p>
+      <p><strong>Gross Amount:</strong> $${transaction.amount}</p>
+      <p><strong>Platform Fee:</strong> $${transaction.fee}</p>
+      <p><strong>Net Amount Received:</strong> $${transaction.netAmount}</p>
+      <p><strong>Transaction ID:</strong> ${transaction.transactionId}</p>
+      <p><strong>Released:</strong> ${new Date(transaction.createdAt).toLocaleString()}</p>
+    </div>
+    
+    <p>The payment has been automatically released from escrow after client approval and is now available in your wallet. You can withdraw these funds anytime through your payments dashboard.</p>
+    <p>Best regards,<br>The StudiesHQ Team</p>
+  `;
+
+  const mailOptions = {
+    from: `"StudiesHQ" <${process.env.SMPT_MAIL}>`,
+    to: freelancer.email,
+    subject: `Escrow Payment Released - "${milestone.title}"`,
+    html: getEmailTemplate("Escrow Payment Released!", content, "View Payments", paymentsUrl),
+  };
+
+  return await transporter.sendMail(mailOptions);
+};
+
+/**
+ * Send escrow payment release notification to client
+ * @param {Object} client - Client user object
+ * @param {Object} freelancer - Freelancer user object
+ * @param {Object} project - Project object
+ * @param {Object} milestone - Milestone object
+ * @param {Object} transaction - Transaction object
+ * @returns {Promise} - Nodemailer info object
+ */
+exports.sendClientEscrowPaymentNotification = async (client, freelancer, project, milestone, transaction) => {
+  const paymentsUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/client/payments`;
+
+  const content = `
+    <p>Hello ${client.name},</p>
+    <p>Payment for the completed milestone has been successfully released from escrow to ${freelancer.name}.</p>
+    
+    <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+      <h3 style="margin: 0 0 10px 0; color: #1d4ed8;">Payment Release Details:</h3>
+      <p><strong>Project:</strong> ${project.title}</p>
+      <p><strong>Milestone:</strong> ${milestone.title}</p>
+      <p><strong>Amount Released:</strong> $${transaction.amount}</p>
+      <p><strong>Freelancer Received:</strong> $${transaction.metadata?.freelancerReceived || transaction.netAmount}</p>
+      <p><strong>Platform Fee:</strong> $${transaction.metadata?.platformFee || transaction.fee}</p>
+      <p><strong>Transaction ID:</strong> ${transaction.transactionId}</p>
+      <p><strong>Released:</strong> ${new Date(transaction.createdAt).toLocaleString()}</p>
+    </div>
+    
+    <p>This payment was automatically released from escrow after you approved the milestone. The freelancer has received their payment minus the platform fee.</p>
+    <p>Best regards,<br>The StudiesHQ Team</p>
+  `;
+
+  const mailOptions = {
+    from: `"StudiesHQ" <${process.env.SMPT_MAIL}>`,
+    to: client.email,
+    subject: `Payment Released from Escrow - "${milestone.title}"`,
+    html: getEmailTemplate("Payment Released from Escrow", content, "View Payments", paymentsUrl),
+  };
+
+  return await transporter.sendMail(mailOptions);
+};
+
+/**
+ * Send project completion notification to client
+ * @param {Object} client - Client user object
+ * @param {Object} freelancer - Freelancer user object
+ * @param {Object} project - Project object
+ * @param {Object} escrowData - Escrow completion data
+ * @returns {Promise} - Nodemailer info object
+ */
+exports.sendProjectCompletionNotificationToClient = async (client, freelancer, project, escrowData) => {
+  const projectUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/client/projects/${project._id}`;
+
+  const content = `
+    <p>Hello ${client.name},</p>
+    <p>🎉 Congratulations! Your project "<strong>${project.title}</strong>" has been completed successfully!</p>
+    
+    <div style="background-color: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+      <h3 style="margin: 0 0 10px 0; color: #059669;">Project Completion Summary:</h3>
+      <p><strong>Project:</strong> ${project.title}</p>
+      <p><strong>Freelancer:</strong> ${freelancer.name}</p>
+      <p><strong>Total Project Value:</strong> $${escrowData.totalAmount}</p>
+      <p><strong>Total Paid to Freelancer:</strong> $${escrowData.amountToFreelancer}</p>
+      <p><strong>Platform Fees:</strong> $${escrowData.platformRevenue}</p>
+      <p><strong>Completed:</strong> ${new Date(project.completedDate).toLocaleString()}</p>
+      <p><strong>Total Milestones:</strong> ${project.milestones?.length || 0}</p>
+    </div>
+    
+    <p>All milestones have been completed and approved. All payments have been released from escrow to the freelancer. Thank you for using StudiesHQ!</p>
+    <p>We'd love to hear about your experience. Please consider leaving feedback for ${freelancer.name}.</p>
+    <p>Best regards,<br>The StudiesHQ Team</p>
+  `;
+
+  const mailOptions = {
+    from: `"StudiesHQ" <${process.env.SMPT_MAIL}>`,
+    to: client.email,
+    subject: `Project Completed - "${project.title}"`,
+    html: getEmailTemplate("🎉 Project Completed Successfully!", content, "View Project", projectUrl),
+  };
+
+  return await transporter.sendMail(mailOptions);
+};
+
+/**
+ * Send project completion notification to freelancer
+ * @param {Object} freelancer - Freelancer user object
+ * @param {Object} client - Client user object
+ * @param {Object} project - Project object
+ * @param {Object} escrowData - Escrow completion data
+ * @returns {Promise} - Nodemailer info object
+ */
+exports.sendProjectCompletionNotificationToFreelancer = async (freelancer, client, project, escrowData) => {
+  const projectUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/freelancer/projects/${project._id}`;
+
+  const content = `
+    <p>Hello ${freelancer.name},</p>
+    <p>🎉 Congratulations! You've successfully completed the project "<strong>${project.title}</strong>" for ${client.name}!</p>
+    
+    <div style="background-color: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+      <h3 style="margin: 0 0 10px 0; color: #059669;">Project Completion Summary:</h3>
+      <p><strong>Project:</strong> ${project.title}</p>
+      <p><strong>Client:</strong> ${client.name}</p>
+      <p><strong>Total Project Value:</strong> $${escrowData.totalAmount}</p>
+      <p><strong>Your Total Earnings:</strong> $${escrowData.amountToFreelancer}</p>
+      <p><strong>Platform Fees Deducted:</strong> $${escrowData.platformRevenue / 2}</p>
+      <p><strong>Completed:</strong> ${new Date(project.completedDate).toLocaleString()}</p>
+      <p><strong>Milestones Completed:</strong> ${project.milestones?.length || 0}</p>
+    </div>
+    
+    <p>All your hard work has paid off! All milestone payments have been released from escrow and are now available in your wallet. You can withdraw these funds anytime.</p>
+    <p>Thank you for delivering excellent work. Keep up the great job and look forward to more projects!</p>
+    <p>Best regards,<br>The StudiesHQ Team</p>
+  `;
+
+  const mailOptions = {
+    from: `"StudiesHQ" <${process.env.SMPT_MAIL}>`,
+    to: freelancer.email,
+    subject: `Project Completed - "${project.title}"`,
+    html: getEmailTemplate("🎉 Project Completed Successfully!", content, "View Project", projectUrl),
+  };
+
+  return await transporter.sendMail(mailOptions);
+};
+
+/**
+ * Send final escrow completion notification to both parties
+ * @param {Object} client - Client user object
+ * @param {Object} freelancer - Freelancer user object
+ * @param {Object} project - Project object
+ * @param {Object} escrowData - Escrow completion data
+ * @returns {Promise} - Array of Nodemailer info objects
+ */
+exports.sendEscrowCompletionNotification = async (client, freelancer, project, escrowData) => {
+  const clientPromise = exports.sendProjectCompletionNotificationToClient(client, freelancer, project, escrowData);
+  const freelancerPromise = exports.sendProjectCompletionNotificationToFreelancer(freelancer, client, project, escrowData);
+
+  return await Promise.all([clientPromise, freelancerPromise]);
+};

@@ -38,6 +38,7 @@ const { Wallet, Transaction } = require("../models/Payment");
 const Settings = require("../models/Settings");
 const User = require("../models/User");
 const { syncEscrowMilestones, checkProjectCompletion } = require("../utils/escrowSync");
+const emailService = require("../services/emailService");
 
 /**
  * Block funds when client posts a job
@@ -617,6 +618,58 @@ exports.releaseMilestonePayment = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
     console.log(`✅ Transaction committed successfully`);
+
+    // Send email notifications after successful payment release
+    try {
+      // Get client and freelancer details
+      const client = await User.findById(escrow.client);
+      const freelancer = await User.findById(escrow.freelancer);
+
+      if (client && freelancer) {
+        console.log(`📧 Sending email notifications for payment release...`);
+
+        // Send escrow payment release notifications
+        await Promise.all([
+          emailService.sendEscrowPaymentReleaseNotification(
+            freelancer, 
+            client, 
+            project, 
+            projectMilestone, 
+            freelancerTransaction
+          ),
+          emailService.sendClientEscrowPaymentNotification(
+            client, 
+            freelancer, 
+            project, 
+            projectMilestone, 
+            clientTransaction
+          )
+        ]);
+
+        // If project is completed, send completion notifications
+        if (allMilestonesReleased) {
+          const escrowData = {
+            totalAmount: escrow.totalAmount,
+            amountToFreelancer: escrow.amountToFreelancer,
+            platformRevenue: escrow.platformRevenue
+          };
+
+          await emailService.sendEscrowCompletionNotification(
+            client, 
+            freelancer, 
+            project, 
+            escrowData
+          );
+          
+          console.log(`📧 Project completion notifications sent`);
+        }
+
+        console.log(`📧 Email notifications sent successfully`);
+      }
+    } catch (emailError) {
+      console.error("Error sending email notifications:", emailError);
+      // Don't fail the payment release if email fails
+    }
 
     const finalStatus = {
       escrowStatus: escrow.status,

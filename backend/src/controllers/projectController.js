@@ -29,6 +29,94 @@ const checkProjectCompletion = (project) => {
 };
 
 /**
+ * Utility function to check if user is authorized for project operations
+ * @param {Object} project - Project document
+ * @param {Object} user - User from req.user
+ * @param {string} operation - Type of operation (freelancer, client, both)
+ * @returns {Object} - { authorized: boolean, message: string, role: string }
+ */
+const checkProjectAuthorization = (project, user, operation = 'freelancer') => {
+  if (!project) {
+    return { authorized: false, message: "Project not found", role: null };
+  }
+
+  if (!user || !user.id) {
+    return { authorized: false, message: "User not authenticated", role: null };
+  }
+
+  const isClient = project.client && project.client.toString() === user.id;
+  const isFreelancer = project.freelancer && project.freelancer.toString() === user.id;
+  const isAdmin = user.role === 'admin';
+
+  console.log(`🔐 AUTHORIZATION CHECK:`);
+  console.log(`  ├─ Operation: ${operation}`);
+  console.log(`  ├─ User ID: ${user.id} (${user.role})`);
+  console.log(`  ├─ Project Client: ${project.client}`);
+  console.log(`  ├─ Project Freelancer: ${project.freelancer || 'Not assigned'}`);
+  console.log(`  ├─ Is Client: ${isClient}`);
+  console.log(`  ├─ Is Freelancer: ${isFreelancer}`);
+  console.log(`  └─ Is Admin: ${isAdmin}`);
+
+  switch (operation) {
+    case 'freelancer':
+      if (!project.freelancer) {
+        return { 
+          authorized: false, 
+          message: "No freelancer assigned to this project yet", 
+          role: null 
+        };
+      }
+      if (isFreelancer || isAdmin) {
+        return { 
+          authorized: true, 
+          message: "Authorized", 
+          role: isAdmin ? 'admin' : 'freelancer' 
+        };
+      }
+      return { 
+        authorized: false, 
+        message: `Not authorized. You are not the assigned freelancer for this project. Expected: ${project.freelancer}, Got: ${user.id}`, 
+        role: user.role 
+      };
+
+    case 'client':
+      if (isClient || isAdmin) {
+        return { 
+          authorized: true, 
+          message: "Authorized", 
+          role: isAdmin ? 'admin' : 'client' 
+        };
+      }
+      return { 
+        authorized: false, 
+        message: "Not authorized. You are not the client for this project.", 
+        role: user.role 
+      };
+
+    case 'both':
+      if (isClient || isFreelancer || isAdmin) {
+        return { 
+          authorized: true, 
+          message: "Authorized", 
+          role: isAdmin ? 'admin' : (isClient ? 'client' : 'freelancer') 
+        };
+      }
+      return { 
+        authorized: false, 
+        message: "Not authorized to access this project.", 
+        role: user.role 
+      };
+
+    default:
+      return { 
+        authorized: false, 
+        message: "Invalid operation type", 
+        role: user.role 
+      };
+  }
+};
+
+/**
  * @desc    Create a new project
  * @route   POST /api/projects
  * @access  Private (Client only)
@@ -654,9 +742,19 @@ exports.startMilestone = async (req, res) => {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
 
-    // Check if user is the freelancer for this project
-    if (project.freelancer.toString() !== req.user.id) {
-      return res.status(403).json({ success: false, message: "Not authorized to start this milestone" });
+    // Use the robust authorization check
+    const authCheck = checkProjectAuthorization(project, req.user, 'freelancer');
+    if (!authCheck.authorized) {
+      return res.status(403).json({ 
+        success: false, 
+        message: authCheck.message,
+        debug: {
+          projectFreelancer: project.freelancer?.toString() || null,
+          currentUser: req.user.id,
+          userRole: req.user.role,
+          operation: 'freelancer'
+        }
+      });
     }
 
     const milestone = project.milestones.id(req.params.milestoneId);
@@ -666,7 +764,10 @@ exports.startMilestone = async (req, res) => {
 
     // Check if milestone is in pending status
     if (milestone.status !== "pending") {
-      return res.status(400).json({ success: false, message: "Milestone is already started or completed" });
+      return res.status(400).json({ 
+        success: false, 
+        message: `Milestone is already ${milestone.status}. Only pending milestones can be started.` 
+      });
     }
 
     const { estimatedCompletionDate } = req.body;
@@ -680,13 +781,16 @@ exports.startMilestone = async (req, res) => {
 
     await project.save();
 
+    console.log(`✅ Milestone started successfully: ${milestone.title} by ${req.user.role} ${req.user.id}`);
+
     res.json({
       success: true,
+      message: "Milestone started successfully",
       data: { milestone },
     });
   } catch (err) {
     console.error("Error in startMilestone:", err.message);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false, message: "Server error", error: err.message });
   }
 };
 
@@ -1114,6 +1218,123 @@ exports.getMilestoneAttachments = async (req, res) => {
   } catch (err) {
     console.error("Error in getMilestoneAttachments:", err.message);
     console.error("Full error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * @desc    Debug project authorization (temporary debugging endpoint)
+ * @route   GET /api/projects/:id/debug-auth
+ * @access  Private
+ */
+exports.debugProjectAuth = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id)
+      .populate("client", "name email role")
+      .populate("freelancer", "name email role");
+    
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    const debugInfo = {
+      project: {
+        id: project._id.toString(),
+        title: project.title,
+        status: project.status,
+        client: project.client,
+        freelancer: project.freelancer,
+        createdAt: project.createdAt
+      },
+      currentUser: {
+        id: req.user.id,
+        role: req.user.role,
+        email: req.user.email
+      },
+      authorization: {
+        isClient: project.client._id.toString() === req.user.id,
+        isFreelancer: project.freelancer ? project.freelancer._id.toString() === req.user.id : false,
+        freelancerAssigned: !!project.freelancer,
+        clientMatch: {
+          projectClientId: project.client._id.toString(),
+          userIdType: typeof req.user.id,
+          userId: req.user.id,
+          match: project.client._id.toString() === req.user.id
+        },
+        freelancerMatch: project.freelancer ? {
+          projectFreelancerId: project.freelancer._id.toString(),
+          userIdType: typeof req.user.id,
+          userId: req.user.id,
+          match: project.freelancer._id.toString() === req.user.id
+        } : null
+      }
+    };
+
+    res.json({
+      success: true,
+      data: debugInfo
+    });
+  } catch (err) {
+    console.error("Error in debugProjectAuth:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * @desc    Reassign project to a different freelancer (Admin only)
+ * @route   PUT /api/projects/:id/reassign-freelancer
+ * @access  Private (Admin only)
+ */
+exports.reassignProjectFreelancer = async (req, res) => {
+  try {
+    const { newFreelancerId } = req.body;
+    
+    if (!newFreelancerId) {
+      return res.status(400).json({ success: false, message: "New freelancer ID is required" });
+    }
+
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    // Verify new freelancer exists and is a freelancer
+    const newFreelancer = await User.findById(newFreelancerId);
+    if (!newFreelancer || newFreelancer.role !== "freelancer") {
+      return res.status(404).json({ success: false, message: "New freelancer not found or invalid role" });
+    }
+
+    const oldFreelancerId = project.freelancer;
+    
+    // Update project freelancer
+    project.freelancer = newFreelancerId;
+    await project.save();
+
+    console.log(`🔄 PROJECT REASSIGNED:`);
+    console.log(`  ├─ Project: ${project.title}`);
+    console.log(`  ├─ Old Freelancer: ${oldFreelancerId}`);
+    console.log(`  ├─ New Freelancer: ${newFreelancerId}`);
+    console.log(`  └─ Updated by Admin: ${req.user.id}`);
+
+    // Get user details for response
+    const [oldFreelancer, updatedProject] = await Promise.all([
+      User.findById(oldFreelancerId).select('name email'),
+      Project.findById(req.params.id)
+        .populate("client", "name email")
+        .populate("freelancer", "name email")
+    ]);
+
+    res.json({
+      success: true,
+      message: "Project freelancer reassigned successfully",
+      data: {
+        project: updatedProject,
+        oldFreelancer: oldFreelancer,
+        newFreelancer: newFreelancer
+      }
+    });
+  } catch (err) {
+    console.error("Error in reassignProjectFreelancer:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
