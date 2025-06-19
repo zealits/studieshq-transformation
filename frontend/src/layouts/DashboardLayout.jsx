@@ -43,6 +43,7 @@ const DashboardLayout = ({ role }) => {
           { path: "/freelancer/messages", label: "Messages", icon: "chat", showUnreadBadge: true },
           { path: "/freelancer/payments", label: "Payments", icon: "dollar" },
           { path: "/freelancer/profile", label: "My Profile", icon: "user" },
+          { path: "/freelancer/support", label: "Support", icon: "help" },
           { path: "/freelancer/settings", label: "Settings", icon: "settings" },
         ];
       case "client":
@@ -54,6 +55,7 @@ const DashboardLayout = ({ role }) => {
           { path: "/client/messages", label: "Messages", icon: "chat", showUnreadBadge: true },
           { path: "/client/payments", label: "Payments", icon: "dollar" },
           { path: "/client/profile", label: "My Profile", icon: "user" },
+          { path: "/client/support", label: "Support", icon: "help" },
           { path: "/client/settings", label: "Settings", icon: "settings" },
         ];
       case "admin":

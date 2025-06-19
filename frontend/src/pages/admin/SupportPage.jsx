@@ -1,503 +1,586 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
+import api from "../../api/axios";
+import toast from "react-hot-toast";
 
 const SupportPage = () => {
-  const [activeTab, setActiveTab] = useState("open");
+  const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [replyText, setReplyText] = useState("");
+  const [tickets, setTickets] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [ticketDetails, setTicketDetails] = useState(null);
+  const [replies, setReplies] = useState([]);
+  const [refreshInterval, setRefreshInterval] = useState(null);
 
-  // Mock support tickets data
-  const tickets = {
-    open: [
-      {
-        id: 1,
-        subject: "Payment not received for completed project",
-        user: {
-          name: "Alex Johnson",
-          email: "alex.johnson@example.com",
-          role: "freelancer",
-          avatar: "AJ",
-        },
-        category: "Payment",
-        priority: "high",
-        status: "open",
-        createdAt: "2 hours ago",
-        lastUpdated: "2 hours ago",
-        messages: [
-          {
-            sender: "user",
-            content:
-              "I completed a project for TechSolutions Inc. two weeks ago, and the payment is still pending. The client has confirmed that they released the payment, but I haven't received it in my account. Can you help resolve this issue?",
-            timestamp: "2 hours ago",
-          },
-        ],
-      },
-      {
-        id: 2,
-        subject: "Unable to upload portfolio images",
-        user: {
-          name: "Emily Carter",
-          email: "emily.carter@example.com",
-          role: "freelancer",
-          avatar: "EC",
-        },
-        category: "Technical",
-        priority: "medium",
-        status: "open",
-        createdAt: "5 hours ago",
-        lastUpdated: "3 hours ago",
-        messages: [
-          {
-            sender: "user",
-            content:
-              "I'm trying to upload images to my portfolio, but I keep getting an error message saying 'File upload failed'. I've tried different file formats (JPG, PNG) and sizes, but the issue persists.",
-            timestamp: "5 hours ago",
-          },
-          {
-            sender: "support",
-            content:
-              "Thank you for reporting this issue. Could you please provide more details about the error message? Also, what browser and device are you using?",
-            timestamp: "4 hours ago",
-          },
-          {
-            sender: "user",
-            content:
-              "I'm using Chrome on a Windows laptop. The full error message is 'File upload failed: Server responded with 500 error'. I've attached a screenshot of the error.",
-            timestamp: "3 hours ago",
-          },
-        ],
-      },
-      {
-        id: 3,
-        subject: "Request to delete my account",
-        user: {
-          name: "Michael Chen",
-          email: "michael.chen@example.com",
-          role: "client",
-          avatar: "MC",
-        },
-        category: "Account",
-        priority: "low",
-        status: "open",
-        createdAt: "1 day ago",
-        lastUpdated: "6 hours ago",
-        messages: [
-          {
-            sender: "user",
-            content:
-              "I would like to delete my account from your platform. I've completed all my projects and have no ongoing contracts. Please guide me on how to proceed with account deletion.",
-            timestamp: "1 day ago",
-          },
-          {
-            sender: "support",
-            content:
-              "Hello Michael, we're sorry to see you go. Before we process your account deletion, could you please confirm if you have any pending payments or active contracts on your account?",
-            timestamp: "18 hours ago",
-          },
-          {
-            sender: "user",
-            content:
-              "I've checked and there are no pending payments or active contracts. All my projects have been completed and all payments have been processed.",
-            timestamp: "6 hours ago",
-          },
-        ],
-      },
-    ],
-    inProgress: [
-      {
-        id: 4,
-        subject: "Dispute with freelancer over project deliverables",
-        user: {
-          name: "TechSolutions Inc.",
-          email: "contact@techsolutions.com",
-          role: "client",
-          avatar: "TS",
-        },
-        category: "Dispute",
-        priority: "high",
-        status: "in-progress",
-        createdAt: "2 days ago",
-        lastUpdated: "4 hours ago",
-        messages: [
-          {
-            sender: "user",
-            content:
-              "We're having an issue with a freelancer who hasn't delivered the project according to our specifications. We've tried to communicate with them, but they insist that they've met all requirements. We need mediation.",
-            timestamp: "2 days ago",
-          },
-          {
-            sender: "support",
-            content:
-              "Thank you for bringing this to our attention. I'll be handling your case. Could you please provide the project ID and specific details of the requirements that haven't been met?",
-            timestamp: "1 day ago",
-          },
-          {
-            sender: "user",
-            content:
-              "The project ID is #P-2578. The main issues are: 1) The mobile responsiveness is not working as required, 2) The payment gateway integration is incomplete, and 3) There are several UI bugs that weren't fixed.",
-            timestamp: "1 day ago",
-          },
-          {
-            sender: "support",
-            content:
-              "Thank you for providing the details. I've reviewed the project requirements and communications. I'll now reach out to the freelancer to get their perspective. I'll update you once I have more information.",
-            timestamp: "4 hours ago",
-          },
-        ],
-        assignedTo: "Daniel Rodriguez",
-      },
-    ],
-    resolved: [
-      {
-        id: 5,
-        subject: "Need help with contract terms",
-        user: {
-          name: "Sarah Williams",
-          email: "sarah.williams@example.com",
-          role: "freelancer",
-          avatar: "SW",
-        },
-        category: "Legal",
-        priority: "medium",
-        status: "resolved",
-        createdAt: "5 days ago",
-        lastUpdated: "2 days ago",
-        messages: [
-          {
-            sender: "user",
-            content:
-              "I'm about to sign a contract with a new client, but there are some terms I don't fully understand. Can someone help clarify the intellectual property rights section and the payment terms?",
-            timestamp: "5 days ago",
-          },
-          {
-            sender: "support",
-            content:
-              "Hello Sarah, I'd be happy to help. The intellectual property rights section typically outlines who owns the work once it's completed. The payment terms section details when and how you'll be paid. Could you share the specific clauses you're confused about?",
-            timestamp: "4 days ago",
-          },
-          {
-            sender: "user",
-            content:
-              "Thank you for the explanation. I'm particularly concerned about clause 8.2, which states that the client owns all 'derivative works'. Does this mean I can't use similar designs for other clients?",
-            timestamp: "4 days ago",
-          },
-          {
-            sender: "support",
-            content:
-              "Regarding clause 8.2, 'derivative works' typically refers to works that are based on or derived from the original work you create for this client. You should be cautious about reusing very similar designs for other clients, as this could potentially violate the agreement. However, you can still use your general skills and knowledge. I'd recommend discussing this specific concern with the client to reach a clear understanding.",
-            timestamp: "3 days ago",
-          },
-          {
-            sender: "user",
-            content:
-              "That makes sense. I'll discuss this with the client to ensure we both have the same understanding. Thank you for your help!",
-            timestamp: "3 days ago",
-          },
-          {
-            sender: "support",
-            content:
-              "You're welcome, Sarah! I'm glad I could help clarify the contract terms. If you have any other questions or concerns, don't hesitate to reach out. Good luck with your new project!",
-            timestamp: "2 days ago",
-          },
-        ],
-        resolvedBy: "Emily Brown",
-        resolution: "Explained contract terms and advised client communication",
-      },
-    ],
+  const { token } = useSelector((state) => state.auth);
+
+  // Fetch all tickets
+  const fetchTickets = async (silent = false) => {
+    try {
+      if (!silent && !loading) {
+        // Only show loading state for manual refresh, not auto-refresh
+        setLoading(true);
+      }
+      
+      const response = await api.get('/api/support/admin/tickets', {
+        headers: { 'x-auth-token': token },
+        timeout: 5000 // 5 second timeout for faster response
+      });
+      
+      if (response.data.success) {
+        setTickets(response.data.data.tickets);
+      }
+    } catch (error) {
+      if (!silent) {
+        console.error('Error fetching tickets:', error);
+        toast.error('Failed to fetch tickets');
+      }
+    } finally {
+      if (!silent && loading) {
+        setLoading(false);
+      }
+    }
   };
 
-  // Filter tickets based on active tab and search query
+  // Fetch analytics
+  const fetchAnalytics = async (silent = false) => {
+    try {
+      const response = await api.get('/api/support/admin/analytics', {
+        headers: { 'x-auth-token': token },
+        timeout: 5000 // 5 second timeout for faster response
+      });
+      
+      if (response.data.success) {
+        setAnalytics(response.data.data);
+      }
+    } catch (error) {
+      if (!silent) {
+        console.error('Error fetching analytics:', error);
+      }
+    }
+  };
+
+  // Fetch ticket details and replies
+  const fetchTicketDetails = async (ticketId) => {
+    try {
+      const response = await api.get(`/api/support/tickets/${ticketId}`, {
+        headers: { 'x-auth-token': token }
+      });
+      
+      if (response.data.success) {
+        setTicketDetails(response.data.data.ticket);
+        setReplies(response.data.data.replies);
+      }
+    } catch (error) {
+      console.error('Error fetching ticket details:', error);
+      toast.error('Failed to fetch ticket details');
+    }
+  };
+
+  // Update ticket status/priority
+  const updateTicket = async (ticketId, updates) => {
+    try {
+      const response = await api.put(`/api/support/admin/tickets/${ticketId}`, updates, {
+        headers: { 'x-auth-token': token }
+      });
+      
+      if (response.data.success) {
+        toast.success('Ticket updated successfully');
+        await fetchTickets();
+        if (selectedTicket?._id === ticketId) {
+          await fetchTicketDetails(ticketId);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating ticket:', error);
+      toast.error('Failed to update ticket');
+    }
+  };
+
+  // Send reply
+  const sendReply = async (ticketId, content, isInternal = false) => {
+    try {
+      const response = await api.post(`/api/support/tickets/${ticketId}/replies`, {
+        content,
+        isInternal
+      }, {
+        headers: { 'x-auth-token': token }
+      });
+      
+      if (response.data.success) {
+        toast.success('Reply sent successfully');
+        setReplyText('');
+        await fetchTicketDetails(ticketId);
+        await fetchTickets();
+      }
+    } catch (error) {
+      console.error('Error sending reply:', error);
+      toast.error('Failed to send reply');
+    }
+  };
+
+  // Manual refresh function
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([fetchTickets(false), fetchAnalytics(false)]);
+      toast.success('Data refreshed successfully');
+    } catch (error) {
+      toast.error('Failed to refresh data');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Initial load
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchTickets(), fetchAnalytics()]);
+      setLoading(false);
+    };
+    
+    loadData();
+  }, [token]);
+
+  // Auto-refresh tickets every 10 seconds instead of 30 seconds for better responsiveness
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchTickets(true); // Silent refresh - don't show loading states
+      if (selectedTicket) {
+        fetchTicketDetails(selectedTicket._id);
+      }
+    }, 10000); // Changed from 30000 to 10000 (10 seconds)
+    
+    setRefreshInterval(interval);
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [selectedTicket]);
+
+  // Filter tickets based on active tab and search
   const getFilteredTickets = () => {
-    const ticketsToFilter = tickets[activeTab] || [];
-    return ticketsToFilter.filter(
-      (ticket) =>
+    let filtered = tickets;
+    
+    // Filter by status
+    if (activeTab !== "all") {
+      const statusMap = {
+        open: "open",
+        inProgress: "in-progress", 
+        resolved: "resolved",
+        closed: "closed"
+      };
+      filtered = filtered.filter(ticket => ticket.status === statusMap[activeTab]);
+    }
+    
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(ticket =>
         ticket.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ticket.ticketNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ticket.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ticket.category.toLowerCase().includes(searchQuery.toLowerCase())
+        ticket.user.email.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    }
+    
+    return filtered;
+  };
+
+  const handleTicketSelect = async (ticket) => {
+    setSelectedTicket(ticket);
+    await fetchTicketDetails(ticket._id);
+  };
+
+  const handleReplySubmit = async (e) => {
+    e.preventDefault();
+    if (!replyText.trim() || !selectedTicket) return;
+    
+    await sendReply(selectedTicket._id, replyText);
+  };
+
+  const handleStatusChange = async (status) => {
+    if (!selectedTicket) return;
+    await updateTicket(selectedTicket._id, { status });
+  };
+
+  const handlePriorityChange = async (priority) => {
+    if (!selectedTicket) return;
+    await updateTicket(selectedTicket._id, { priority });
+  };
+
+  const renderPriorityBadge = (priority) => {
+    const colors = {
+      low: "bg-gray-100 text-gray-800",
+      medium: "bg-yellow-100 text-yellow-800",
+      high: "bg-orange-100 text-orange-800",
+      urgent: "bg-red-100 text-red-800",
+    };
+
+    return (
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${colors[priority]}`}>
+        {priority.charAt(0).toUpperCase() + priority.slice(1)}
+      </span>
     );
   };
 
-  // Handle ticket selection
-  const handleTicketSelect = (ticket) => {
-    setSelectedTicket(ticket);
-    setReplyText("");
-  };
-
-  // Handle reply submission
-  const handleReplySubmit = (e) => {
-    e.preventDefault();
-    if (!replyText.trim()) return;
-    // In a real application, this would update the backend
-    // For now, we'll just log to console
-    console.log(`Reply to ticket #${selectedTicket.id}: ${replyText}`);
-    setReplyText("");
-  };
-
-  // Render priority badge
-  const renderPriorityBadge = (priority) => {
-    switch (priority) {
-      case "high":
-        return <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">High</span>;
-      case "medium":
-        return <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">Medium</span>;
-      case "low":
-        return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Low</span>;
-      default:
-        return <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">{priority}</span>;
-    }
-  };
-
-  // Render status badge
   const renderStatusBadge = (status) => {
-    switch (status) {
-      case "open":
-        return <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Open</span>;
-      case "in-progress":
-        return <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">In Progress</span>;
-      case "resolved":
-        return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Resolved</span>;
-      default:
-        return <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">{status}</span>;
+    const colors = {
+      open: "bg-blue-100 text-blue-800",
+      "in-progress": "bg-yellow-100 text-yellow-800",
+      "waiting-for-response": "bg-purple-100 text-purple-800",
+      resolved: "bg-green-100 text-green-800",
+      closed: "bg-gray-100 text-gray-800",
+    };
+
+    const labels = {
+      open: "Open",
+      "in-progress": "In Progress", 
+      "waiting-for-response": "Waiting for Response",
+      resolved: "Resolved",
+      closed: "Closed",
+    };
+
+    return (
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${colors[status]}`}>
+        {labels[status]}
+      </span>
+    );
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) {
+      const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+      return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
+    } else {
+      const diffInDays = Math.floor(diffInHours / 24);
+      return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
     <div>
-      <h1 className="text-2xl font-bold mb-6">Support Tickets</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Support Management</h1>
+          <p className="text-gray-600">Manage and respond to support tickets</p>
+        </div>
+        
+        <div className="flex space-x-4">
+          <button 
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+          >
+            {refreshing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                <span>Refreshing...</span>
+              </>
+            ) : (
+              <>
+                <span>🔄</span>
+                <span>Refresh</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Ticket List */}
-        <div className="lg:col-span-1">
-          {/* Search and Filter */}
-          <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search tickets..."
-                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <svg
-                  className="w-5 h-5 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  ></path>
-                </svg>
+      {/* Analytics Cards */}
+      {analytics && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <span className="text-blue-600 text-sm font-medium">📋</span>
+                </div>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Tickets</p>
+                <p className="text-2xl font-bold text-gray-900">{analytics.overview.totalTickets}</p>
               </div>
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-4">
-            <div className="flex border-b">
-              <button
-                className={`flex-1 py-3 px-4 text-center font-medium ${
-                  activeTab === "open" ? "border-b-2 border-primary text-primary" : "text-gray-500 hover:text-gray-700"
-                }`}
-                onClick={() => setActiveTab("open")}
-              >
-                Open ({tickets.open.length})
-              </button>
-              <button
-                className={`flex-1 py-3 px-4 text-center font-medium ${
-                  activeTab === "inProgress"
-                    ? "border-b-2 border-primary text-primary"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-                onClick={() => setActiveTab("inProgress")}
-              >
-                In Progress ({tickets.inProgress.length})
-              </button>
-              <button
-                className={`flex-1 py-3 px-4 text-center font-medium ${
-                  activeTab === "resolved"
-                    ? "border-b-2 border-primary text-primary"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-                onClick={() => setActiveTab("resolved")}
-              >
-                Resolved ({tickets.resolved.length})
-              </button>
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <span className="text-green-600 text-sm font-medium">✅</span>
+                </div>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Resolved</p>
+                <p className="text-2xl font-bold text-gray-900">{analytics.overview.resolvedTickets}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                  <span className="text-yellow-600 text-sm font-medium">⏳</span>
+                </div>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">In Progress</p>
+                <p className="text-2xl font-bold text-gray-900">{analytics.overview.inProgressTickets}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                  <span className="text-red-600 text-sm font-medium">🚨</span>
+                </div>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Open</p>
+                <p className="text-2xl font-bold text-gray-900">{analytics.overview.openTickets}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Tickets List */}
+        <div className="lg:col-span-1 bg-white rounded-lg shadow-sm border">
+          <div className="p-6 border-b">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Support Tickets</h2>
+              <span className="text-sm text-gray-500">{getFilteredTickets().length} tickets</span>
             </div>
 
-            {/* Ticket List */}
-            <div className="divide-y divide-gray-200 max-h-[calc(100vh-300px)] overflow-y-auto">
-              {getFilteredTickets().map((ticket) => (
-                <div
-                  key={ticket.id}
-                  className={`p-4 cursor-pointer hover:bg-gray-50 ${
-                    selectedTicket && selectedTicket.id === ticket.id ? "bg-gray-50" : ""
+            {/* Search */}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Search tickets..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Tabs */}
+            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+              {[
+                { key: "all", label: "All" },
+                { key: "open", label: "Open" },
+                { key: "inProgress", label: "In Progress" },
+                { key: "resolved", label: "Resolved" }
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                    activeTab === tab.key
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
                   }`}
-                  onClick={() => handleTicketSelect(ticket)}
                 >
-                  <div className="flex items-start">
-                    <div className="h-10 w-10 rounded-full bg-primary text-white flex items-center justify-center text-sm font-medium mr-3">
-                      {ticket.user.avatar}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tickets List */}
+          <div className="max-h-96 overflow-y-auto">
+            {getFilteredTickets().map((ticket) => (
+              <div
+                key={ticket._id}
+                onClick={() => handleTicketSelect(ticket)}
+                className={`p-4 border-b hover:bg-gray-50 cursor-pointer transition-colors ${
+                  selectedTicket?._id === ticket._id ? "bg-blue-50 border-blue-200" : ""
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <span className="text-xs font-mono text-gray-500">{ticket.ticketNumber}</span>
+                      {renderPriorityBadge(ticket.priority)}
                     </div>
-                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{ticket.subject}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {ticket.user.name} • {ticket.lastUpdated}
-                      </p>
-                      <div className="flex space-x-2 mt-2">
-                        <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-800">
-                          {ticket.category}
+                    <div className="flex items-center space-x-2 mt-1">
+                      <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-medium text-blue-600">
+                          {ticket.user.name.charAt(0).toUpperCase()}
                         </span>
-                        {renderPriorityBadge(ticket.priority)}
                       </div>
+                      <span className="text-xs text-gray-600">{ticket.user.name}</span>
+                      <span className="text-xs text-gray-400">•</span>
+                      <span className="text-xs text-gray-600">{formatDate(ticket.createdAt)}</span>
+                    </div>
+                  </div>
+                  <div className="ml-2">
+                    {renderStatusBadge(ticket.status)}
                     </div>
                   </div>
                 </div>
               ))}
 
               {getFilteredTickets().length === 0 && (
-                <div className="p-6 text-center text-gray-500">No tickets found</div>
+              <div className="p-8 text-center text-gray-500">
+                <p>No tickets found</p>
+              </div>
               )}
-            </div>
           </div>
         </div>
 
-        {/* Right Column - Ticket Details */}
+        {/* Ticket Details */}
         <div className="lg:col-span-2">
           {selectedTicket ? (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="bg-white rounded-lg shadow-sm border">
               {/* Ticket Header */}
               <div className="p-6 border-b">
-                <div className="flex justify-between items-start">
-                  <h2 className="text-xl font-semibold">{selectedTicket.subject}</h2>
-                  <div>{renderStatusBadge(selectedTicket.status)}</div>
-                </div>
-
-                <div className="mt-2 flex flex-wrap gap-3">
-                  <div className="text-sm">
-                    <span className="text-gray-500">Ticket #:</span> {selectedTicket.id}
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-gray-500">Created:</span> {selectedTicket.createdAt}
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-gray-500">Category:</span> {selectedTicket.category}
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-gray-500">Priority:</span> {selectedTicket.priority}
-                  </div>
-                  {selectedTicket.status === "in-progress" && (
-                    <div className="text-sm">
-                      <span className="text-gray-500">Assigned to:</span> {selectedTicket.assignedTo}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h2 className="text-xl font-semibold text-gray-900">{ticketDetails?.subject}</h2>
+                      {renderStatusBadge(ticketDetails?.status)}
                     </div>
-                  )}
+                    <div className="flex items-center space-x-4 text-sm text-gray-600">
+                      <span>#{ticketDetails?.ticketNumber}</span>
+                      <span>•</span>
+                      <span>{ticketDetails?.user.name} ({ticketDetails?.user.role})</span>
+                      <span>•</span>
+                      <span>{formatDate(ticketDetails?.createdAt)}</span>
+                </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    {/* Priority Dropdown */}
+                    <select
+                      value={ticketDetails?.priority || 'medium'}
+                      onChange={(e) => handlePriorityChange(e.target.value)}
+                      className="text-sm border border-gray-300 rounded-md px-3 py-1"
+                    >
+                      <option value="low">Low Priority</option>
+                      <option value="medium">Medium Priority</option>
+                      <option value="high">High Priority</option>
+                      <option value="urgent">Urgent</option>
+                    </select>
+                    
+                    {/* Status Dropdown */}
+                    <select
+                      value={ticketDetails?.status || 'open'}
+                      onChange={(e) => handleStatusChange(e.target.value)}
+                      className="text-sm border border-gray-300 rounded-md px-3 py-1"
+                    >
+                      <option value="open">Open</option>
+                      <option value="in-progress">In Progress</option>
+                      <option value="waiting-for-response">Waiting for Response</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </div>
+                  </div>
+                
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-800">{ticketDetails?.description}</p>
+                  <div className="mt-2 text-xs text-gray-500">
+                    Category: {ticketDetails?.category}
+                  </div>
                 </div>
               </div>
 
-              {/* Ticket Messages */}
-              <div className="p-6 max-h-[calc(100vh-400px)] overflow-y-auto">
-                <div className="space-y-6">
-                  {selectedTicket.messages.map((message, index) => (
+              {/* Messages */}
+              <div className="max-h-96 overflow-y-auto p-6 space-y-4">
+                {replies.map((reply, index) => (
+                  <div
+                    key={reply._id}
+                    className={`flex ${reply.author?.role === 'admin' ? 'justify-end' : 'justify-start'}`}
+                  >
                     <div
-                      key={index}
-                      className={`flex ${message.sender === "support" ? "justify-end" : "justify-start"}`}
+                      className={`max-w-xs lg:max-w-md px-4 py-3 rounded-lg ${
+                        reply.author?.role === 'admin'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-900'
+                      }`}
                     >
-                      <div
-                        className={`max-w-3/4 rounded-lg p-4 ${
-                          message.sender === "support" ? "bg-primary text-white" : "bg-gray-100"
-                        }`}
-                      >
-                        <p className="text-sm">{message.content}</p>
-                        <p
-                          className={`text-xs mt-2 ${
-                            message.sender === "support" ? "text-primary-light" : "text-gray-500"
-                          }`}
-                        >
-                          {message.timestamp}
-                        </p>
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className="text-xs font-medium">
+                          {reply.author?.name || 'Unknown User'} ({reply.author?.role || 'user'})
+                        </span>
+                        {reply.isInternal && (
+                          <span className="text-xs bg-yellow-200 text-yellow-800 px-1 rounded">
+                            Internal
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm">{reply.content}</p>
+                      <p className={`text-xs mt-1 ${
+                        reply.author?.role === 'admin' ? 'text-blue-100' : 'text-gray-500'
+                      }`}>
+                        {formatDate(reply.createdAt)}
+                      </p>
                       </div>
                     </div>
                   ))}
-                </div>
               </div>
 
-              {/* Reply Form (only for non-resolved tickets) */}
-              {selectedTicket.status !== "resolved" ? (
-                <div className="p-6 border-t bg-gray-50">
+              {/* Reply Form */}
+              <div className="p-6 border-t">
                   <form onSubmit={handleReplySubmit}>
-                    <div className="mb-4">
+                  <div className="mb-3">
                       <textarea
-                        rows="4"
-                        placeholder="Type your reply here..."
-                        className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                         value={replyText}
                         onChange={(e) => setReplyText(e.target.value)}
-                      ></textarea>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <select className="mr-2 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-                          <option value="in-progress">Mark as In Progress</option>
-                          <option value="resolved">Mark as Resolved</option>
-                          <option value="need-info">Need More Info</option>
-                        </select>
-                        {activeTab !== "inProgress" && (
-                          <select className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-                            <option value="">Assign to...</option>
-                            <option value="daniel">Daniel Rodriguez</option>
-                            <option value="emily">Emily Brown</option>
-                            <option value="james">James Wilson</option>
-                          </select>
-                        )}
+                      placeholder="Type your reply..."
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center space-x-2">
+                      <label className="flex items-center space-x-1 text-sm text-gray-600">
+                        <input type="checkbox" className="rounded" />
+                        <span>Internal note (not visible to user)</span>
+                      </label>
                       </div>
                       <button
                         type="submit"
-                        className="bg-primary hover:bg-primary-dark text-white py-2 px-6 rounded-md font-medium"
+                      disabled={!replyText.trim()}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        Reply
+                      Send Reply
                       </button>
                     </div>
                   </form>
                 </div>
-              ) : (
-                <div className="p-6 border-t bg-gray-50">
-                  <div className="text-sm text-gray-600">
-                    <span className="font-medium">Resolved by:</span> {selectedTicket.resolvedBy}
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1">
-                    <span className="font-medium">Resolution:</span> {selectedTicket.resolution}
-                  </div>
-                  <button className="mt-4 text-primary hover:text-primary-dark text-sm font-medium">
-                    Reopen Ticket
-                  </button>
-                </div>
-              )}
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow-md p-12 text-center">
-              <div className="text-gray-400 mb-4">
-                <svg
-                  className="w-16 h-16 mx-auto"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                  />
-                </svg>
+            <div className="bg-white rounded-lg shadow-sm border h-96 flex items-center justify-center">
+              <div className="text-center text-gray-500">
+                <p>Select a ticket to view details</p>
               </div>
-              <h3 className="text-lg font-medium text-gray-900">No ticket selected</h3>
-              <p className="mt-1 text-sm text-gray-500">Select a ticket from the list to view its details</p>
             </div>
           )}
         </div>

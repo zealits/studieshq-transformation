@@ -965,3 +965,194 @@ exports.sendEscrowCompletionNotification = async (client, freelancer, project, e
 
   return await Promise.all([clientPromise, freelancerPromise]);
 };
+
+// ======================= SUPPORT TICKET NOTIFICATIONS =======================
+
+/**
+ * Send new ticket notification to support team
+ * @param {Object} ticket - Support ticket object
+ * @returns {Promise} - Nodemailer info object
+ */
+exports.sendNewTicketNotification = async (ticket) => {
+  const ticketUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/admin/support`;
+  const supportEmail = process.env.SUPPORT_EMAIL || "support@studieshq.com";
+
+  const content = `
+    <p>A new support ticket has been submitted and requires attention.</p>
+    
+    <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+      <h3 style="margin: 0 0 10px 0; color: #92400e;">Ticket Details:</h3>
+      <p><strong>Ticket #:</strong> ${ticket.ticketNumber}</p>
+      <p><strong>Subject:</strong> ${ticket.subject}</p>
+      <p><strong>Category:</strong> ${ticket.category}</p>
+      <p><strong>Priority:</strong> ${ticket.priority}</p>
+      <p><strong>User:</strong> ${ticket.user.name} (${ticket.user.email})</p>
+      <p><strong>User Role:</strong> ${ticket.user.role}</p>
+      <p><strong>Created:</strong> ${new Date(ticket.createdAt).toLocaleString()}</p>
+    </div>
+    
+    <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+      <h4 style="margin: 0 0 10px 0; color: #374151;">Description:</h4>
+      <p style="background-color: #ffffff; padding: 10px; border-left: 3px solid #4f46e5; margin: 0;">${ticket.description}</p>
+    </div>
+    
+    <p>Please review and respond to this ticket as soon as possible.</p>
+    <p>StudiesHQ Support System</p>
+  `;
+
+  const mailOptions = {
+    from: `"StudiesHQ Support" <${process.env.SMPT_MAIL}>`,
+    to: supportEmail,
+    subject: `New Support Ticket: ${ticket.subject} (#${ticket.ticketNumber})`,
+    html: getEmailTemplate("New Support Ticket Submitted", content, "View Ticket", ticketUrl),
+  };
+
+  return await transporter.sendMail(mailOptions);
+};
+
+/**
+ * Send ticket reply notification to user
+ * @param {Object} user - User object
+ * @param {Object} ticket - Support ticket object
+ * @param {Object} reply - Ticket reply object
+ * @returns {Promise} - Nodemailer info object
+ */
+exports.sendTicketReplyNotification = async (user, ticket, reply) => {
+  const ticketUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/${user.role}/support/tickets/${ticket._id}`;
+
+  const content = `
+    <p>Hello ${user.name},</p>
+    <p>You have received a new reply to your support ticket.</p>
+    
+    <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+      <h3 style="margin: 0 0 10px 0; color: #1d4ed8;">Ticket Information:</h3>
+      <p><strong>Ticket #:</strong> ${ticket.ticketNumber}</p>
+      <p><strong>Subject:</strong> ${ticket.subject}</p>
+      <p><strong>Status:</strong> ${ticket.status}</p>
+      <p><strong>Replied by:</strong> Support Team</p>
+      <p><strong>Replied at:</strong> ${new Date(reply.createdAt).toLocaleString()}</p>
+    </div>
+    
+    <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+      <h4 style="margin: 0 0 10px 0; color: #374151;">Reply:</h4>
+      <p style="background-color: #ffffff; padding: 10px; border-left: 3px solid #4f46e5; margin: 0;">${reply.content}</p>
+    </div>
+    
+    <p>You can view the full conversation and reply to this ticket through your support dashboard.</p>
+    <p>Best regards,<br>The StudiesHQ Support Team</p>
+  `;
+
+  const mailOptions = {
+    from: `"StudiesHQ Support" <${process.env.SMPT_MAIL}>`,
+    to: user.email,
+    subject: `Support Reply: ${ticket.subject} (#${ticket.ticketNumber})`,
+    html: getEmailTemplate("New Reply to Your Support Ticket", content, "View Ticket", ticketUrl),
+  };
+
+  return await transporter.sendMail(mailOptions);
+};
+
+/**
+ * Send user reply notification to support team
+ * @param {Object} ticket - Support ticket object
+ * @param {Object} reply - Ticket reply object
+ * @returns {Promise} - Nodemailer info object
+ */
+exports.sendUserReplyNotification = async (ticket, reply) => {
+  const ticketUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/admin/support`;
+  const supportEmail = process.env.SUPPORT_EMAIL || "support@studieshq.com";
+
+  const content = `
+    <p>A user has replied to support ticket #${ticket.ticketNumber} and requires attention.</p>
+    
+    <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+      <h3 style="margin: 0 0 10px 0; color: #92400e;">Ticket Details:</h3>
+      <p><strong>Ticket #:</strong> ${ticket.ticketNumber}</p>
+      <p><strong>Subject:</strong> ${ticket.subject}</p>
+      <p><strong>Status:</strong> ${ticket.status}</p>
+      <p><strong>User:</strong> ${ticket.user.name} (${ticket.user.email})</p>
+      <p><strong>Replied at:</strong> ${new Date(reply.createdAt).toLocaleString()}</p>
+    </div>
+    
+    <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+      <h4 style="margin: 0 0 10px 0; color: #374151;">User's Reply:</h4>
+      <p style="background-color: #ffffff; padding: 10px; border-left: 3px solid #4f46e5; margin: 0;">${reply.content}</p>
+    </div>
+    
+    <p>Please review and respond to this ticket reply as soon as possible.</p>
+    <p>StudiesHQ Support System</p>
+  `;
+
+  const mailOptions = {
+    from: `"StudiesHQ Support" <${process.env.SMPT_MAIL}>`,
+    to: supportEmail,
+    subject: `User Reply: ${ticket.subject} (#${ticket.ticketNumber})`,
+    html: getEmailTemplate("User Replied to Support Ticket", content, "View Ticket", ticketUrl),
+  };
+
+  return await transporter.sendMail(mailOptions);
+};
+
+/**
+ * Send ticket status update notification to user
+ * @param {Object} user - User object
+ * @param {Object} ticket - Support ticket object
+ * @param {string} oldStatus - Previous status
+ * @param {string} newStatus - New status
+ * @returns {Promise} - Nodemailer info object
+ */
+exports.sendTicketStatusUpdateNotification = async (user, ticket, oldStatus, newStatus) => {
+  const ticketUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/${user.role}/support/tickets/${ticket._id}`;
+
+  let statusMessage = "";
+  let statusColor = "#3b82f6";
+
+  switch (newStatus) {
+    case "in-progress":
+      statusMessage = "Your ticket is now being worked on by our support team.";
+      statusColor = "#f59e0b";
+      break;
+    case "waiting-for-response":
+      statusMessage = "We need additional information from you to resolve your ticket.";
+      statusColor = "#f59e0b";
+      break;
+    case "resolved":
+      statusMessage = "Your ticket has been resolved! Please review the solution and let us know if you need further assistance.";
+      statusColor = "#10b981";
+      break;
+    case "closed":
+      statusMessage = "Your ticket has been closed. Thank you for contacting our support team.";
+      statusColor = "#6b7280";
+      break;
+    default:
+      statusMessage = `Your ticket status has been updated to ${newStatus}.`;
+  }
+
+  const content = `
+    <p>Hello ${user.name},</p>
+    <p>The status of your support ticket has been updated.</p>
+    
+    <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${statusColor};">
+      <h3 style="margin: 0 0 10px 0; color: #1d4ed8;">Status Update:</h3>
+      <p><strong>Ticket #:</strong> ${ticket.ticketNumber}</p>
+      <p><strong>Subject:</strong> ${ticket.subject}</p>
+      <p><strong>Previous Status:</strong> ${oldStatus}</p>
+      <p><strong>New Status:</strong> ${newStatus}</p>
+      <p><strong>Updated:</strong> ${new Date().toLocaleString()}</p>
+    </div>
+    
+    <p>${statusMessage}</p>
+    
+    <p>You can view the full details and conversation history through your support dashboard.</p>
+    <p>Best regards,<br>The StudiesHQ Support Team</p>
+  `;
+
+  const mailOptions = {
+    from: `"StudiesHQ Support" <${process.env.SMPT_MAIL}>`,
+    to: user.email,
+    subject: `Ticket Status Update: ${ticket.subject} (#${ticket.ticketNumber})`,
+    html: getEmailTemplate("Support Ticket Status Updated", content, "View Ticket", ticketUrl),
+  };
+
+  return await transporter.sendMail(mailOptions);
+};

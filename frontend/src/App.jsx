@@ -38,6 +38,9 @@ import FreelancerProjects from "./pages/freelancer/ProjectsPage";
 import FreelancerMessages from "./pages/freelancer/MessagesPage";
 import FreelancerPayments from "./pages/freelancer/PaymentsPage";
 import FreelancerProfile from "./pages/freelancer/ProfilePage";
+import SupportPage from "./pages/Support/MyTickets";
+import SubmitTicket from "./pages/Support/SubmitTicket";
+import TicketDetails from "./pages/Support/TicketDetails";
 // import FreelancerSettings from "./pages/freelancer/SettingsPage";
 
 // Client Pages
@@ -156,6 +159,9 @@ function App() {
           <Route path="messages" element={<FreelancerMessages />} />
           <Route path="payments" element={<FreelancerPayments />} />
           <Route path="profile" element={<FreelancerProfile />} />
+          <Route path="support" element={<SupportPage />} />
+          <Route path="support/submit" element={<SubmitTicket />} />
+          <Route path="support/tickets/:id" element={<TicketDetails />} />
           {/* <Route path="settings" element={<FreelancerSettings />} />  */}
         </Route>
 
@@ -176,6 +182,9 @@ function App() {
           <Route path="payments" element={<ClientPayments />} />
           <Route path="profile" element={<ClientProfile />} />
           <Route path="settings" element={<ClientSettings />} />
+          <Route path="support" element={<SupportPage />} />
+          <Route path="support/submit" element={<SubmitTicket />} />
+          <Route path="support/tickets/:id" element={<TicketDetails />} />
           <Route
             path="jobs/:jobId/proposals"
             element={
