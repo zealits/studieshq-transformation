@@ -17,6 +17,22 @@ const ChatPage = () => {
     };
   }, [dispatch]);
 
+  // Log connection status to console instead of showing in UI
+  useEffect(() => {
+    if (connectionError) {
+      console.error("Chat connection error:", connectionError);
+    }
+    if (isConnecting) {
+      console.log("Connecting to chat server...");
+    }
+    if (!isConnected && !isConnecting && !connectionError) {
+      console.warn("Disconnected from chat server");
+    }
+    if (isConnected) {
+      console.log("Connected to chat server");
+    }
+  }, [isConnected, isConnecting, connectionError]);
+
   const handleSelectConversation = (conversation) => {
     setSelectedConversation(conversation);
   };
@@ -36,54 +52,10 @@ const ChatPage = () => {
     );
   }
 
-  const getConnectionStatus = () => {
-    if (connectionError) {
-      return {
-        message: `Connection error: ${connectionError}`,
-        color: "bg-red-500",
-        showRetry: true,
-      };
-    }
-
-    if (isConnecting) {
-      return {
-        message: "Connecting to chat server...",
-        color: "bg-yellow-500",
-        showRetry: false,
-      };
-    }
-
-    if (!isConnected) {
-      return {
-        message: "Disconnected from chat server",
-        color: "bg-red-500",
-        showRetry: true,
-      };
-    }
-
-    return null;
-  };
-
-  const connectionStatus = getConnectionStatus();
-
   return (
     <div className="h-screen flex bg-gray-50">
-      {/* Connection Status */}
-      {connectionStatus && (
-        <div
-          className={`absolute top-0 left-0 right-0 ${connectionStatus.color} text-white text-center py-2 text-sm z-50 flex items-center justify-center space-x-2`}
-        >
-          <span>{connectionStatus.message}</span>
-          {connectionStatus.showRetry && (
-            <button onClick={() => window.location.reload()} className="underline hover:no-underline">
-              Retry
-            </button>
-          )}
-        </div>
-      )}
-
       {/* Chat Content */}
-      <div className={`flex w-full ${connectionStatus ? "mt-10" : ""}`}>
+      <div className="flex w-full">
         {/* Chat List */}
         <ChatList onSelectConversation={handleSelectConversation} selectedConversation={selectedConversation} />
 
