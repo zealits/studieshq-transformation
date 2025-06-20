@@ -65,7 +65,11 @@ const ProjectsPage = () => {
 
   // Format budget display
   const formatBudget = (budget) => {
-    return `$${budget.toLocaleString()} USD`;
+    // Handle undefined, null, or invalid budget values
+    if (!budget || isNaN(budget) || budget < 0) {
+      return "N/A";
+    }
+    return `$${Number(budget).toLocaleString()} USD`;
   };
 
   // Calculate completion percentage

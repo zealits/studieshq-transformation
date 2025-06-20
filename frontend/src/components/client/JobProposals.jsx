@@ -20,7 +20,7 @@ const JobProposals = () => {
     try {
       const response = await fetch(`/api/jobs/${jobId}/proposals`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: localStorage.getItem("token"),
         },
       });
 

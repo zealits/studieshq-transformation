@@ -1,197 +1,89 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { useSelector } from "react-redux";
 import giftCardService from "../../services/giftCardService";
 import Spinner from "../common/Spinner";
 
 const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess }) => {
   const [loading, setLoading] = useState(false);
-  const [campaigns, setCampaigns] = useState([]);
-  const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+  
+  // Get current user data from Redux store
+  const { user } = useSelector((state) => state.auth);
+
+  // Fixed campaign ID from your curl example
+  const FIXED_CAMPAIGN_ID = "b9f641d1-610b-41cd-a2ce-0255638ee28e";
+  
+  // Fixed denominations for the campaign
+  const AVAILABLE_DENOMINATIONS = [5, 10, 25, 50, 100, 200, 500];
 
   const [formData, setFormData] = useState({
-    campaignId: "",
     amount: "",
-    recipientEmail: "",
-    recipientName: "",
     message: "",
   });
 
   const [errors, setErrors] = useState({});
 
-  // Load gift card campaigns when modal opens
+  // Auto-populate recipient info from user profile when modal opens
   useEffect(() => {
-    if (isOpen) {
-      console.log("🎁 MODAL: === MODAL OPENED - STARTING CAMPAIGN LOAD ===");
-      console.log("🎁 MODAL: Modal isOpen:", isOpen);
+    if (isOpen && user) {
+      console.log("🎁 MODAL: === MODAL OPENED - AUTO-POPULATING USER DATA ===");
+      console.log("🎁 MODAL: User data:", user);
       console.log("🎁 MODAL: Available balance:", availableBalance);
-      console.log("🎁 MODAL: Calling loadCampaigns()...");
-
-      loadCampaigns();
 
       // Reset form when modal opens
       setFormData({
-        campaignId: "",
         amount: "",
-        recipientEmail: "",
-        recipientName: "",
         message: "",
       });
       setErrors({});
-
-      console.log("🎁 MODAL: Form data reset and loadCampaigns called");
-    } else {
-      console.log("🎁 MODAL: Modal closed, isOpen:", isOpen);
     }
-  }, [isOpen]);
+  }, [isOpen, user]);
 
-  const loadCampaigns = async () => {
-    try {
-      console.log("🎁 MODAL: === STARTING loadCampaigns FUNCTION ===");
-      console.log("🎁 MODAL: Setting loadingCampaigns to true");
-      setLoadingCampaigns(true);
+  // Generate unique identifiers
+  const generateUniqueId = () => {
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 8);
+    return `${timestamp}-${random}`;
+  };
 
-      console.log("🎁 MODAL: About to call giftCardService.getCampaigns()...");
-      const response = await giftCardService.getCampaigns();
+  const generateExternalId = () => {
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+    const uniqueId = generateUniqueId();
+    return `order-${dateStr}-${uniqueId}`;
+  };
 
-      console.log("🎁 MODAL: === RESPONSE RECEIVED FROM SERVICE ===");
-      console.log("🎁 MODAL: Raw response:", response);
-      console.log("🎁 MODAL: Response type:", typeof response);
-      console.log("🎁 MODAL: Response structure:", {
-        hasResponse: !!response,
-        hasSuccess: !!response?.success,
-        successValue: response?.success,
-        hasData: !!response?.data,
-        hasCampaigns: !!response?.campaigns,
-        responseKeys: response ? Object.keys(response) : [],
-        dataKeys: response?.data ? Object.keys(response.data) : [],
-      });
-      console.log("🎁 MODAL: Full response JSON:", JSON.stringify(response, null, 2));
-
-      // Handle different response structures
-      let campaignsList = [];
-
-      console.log("🎁 MODAL: === PROCESSING RESPONSE STRUCTURE ===");
-
-      if (response && response.success) {
-        console.log("🎁 MODAL: ✅ Response indicates success");
-
-        if (response.data && Array.isArray(response.data.campaigns)) {
-          campaignsList = response.data.campaigns;
-          console.log("🎁 MODAL: ✅ Found campaigns in response.data.campaigns");
-          console.log("🎁 MODAL: Campaigns count:", campaignsList.length);
-        } else if (response.data && Array.isArray(response.data)) {
-          campaignsList = response.data;
-          console.log("🎁 MODAL: ✅ Found campaigns in response.data (direct array)");
-          console.log("🎁 MODAL: Campaigns count:", campaignsList.length);
-        } else if (response.campaigns && Array.isArray(response.campaigns)) {
-          campaignsList = response.campaigns;
-          console.log("🎁 MODAL: ✅ Found campaigns in response.campaigns");
-          console.log("🎁 MODAL: Campaigns count:", campaignsList.length);
-        } else {
-          console.warn("🎁 MODAL: ❌ No campaigns found in expected locations");
-          console.warn("🎁 MODAL: Available response keys:", Object.keys(response));
-          if (response.data) {
-            console.warn("🎁 MODAL: Available data keys:", Object.keys(response.data));
-          }
-        }
-      } else {
-        console.warn("🎁 MODAL: ❌ Response does not indicate success");
-        console.warn("🎁 MODAL: Success flag:", response?.success);
-        console.warn("🎁 MODAL: Error message:", response?.message);
-        console.warn("🎁 MODAL: Full response for debugging:", response);
-      }
-
-      console.log("🎁 MODAL: === FINAL PROCESSED CAMPAIGNS ===");
-      console.log("🎁 MODAL: Final campaigns list:", campaignsList);
-      console.log("🎁 MODAL: Campaigns count:", campaignsList.length);
-      console.log(
-        "🎁 MODAL: Campaign details:",
-        campaignsList.map((c) => ({
-          id: c.id,
-          name: c.name,
-          active: c.active,
-          currencies: c.currencies,
-          denominations: c.denominations,
-        }))
-      );
-
-      console.log("🎁 MODAL: Setting campaigns state...");
-      setCampaigns(campaignsList);
-      console.log("🎁 MODAL: Campaigns state set successfully");
-
-      if (campaignsList.length === 0) {
-        console.warn("🎁 MODAL: ⚠️ No campaigns available - showing error to user");
-        toast.error("No gift card options are currently available");
-      } else {
-        console.log("🎁 MODAL: ✅ Successfully loaded", campaignsList.length, "campaigns");
-        console.log("🎁 MODAL: Campaign names:", campaignsList.map((c) => c.name).join(", "));
-      }
-
-      console.log("🎁 MODAL: === ENDING loadCampaigns (SUCCESS) ===");
-    } catch (error) {
-      console.error("🎁 MODAL: === ERROR in loadCampaigns ===");
-      console.error("🎁 MODAL: Error type:", error.constructor.name);
-      console.error("🎁 MODAL: Error message:", error.message);
-      console.error("🎁 MODAL: Error stack:", error.stack);
-      console.error("🎁 MODAL: Full error object:", error);
-
-      if (error.response) {
-        console.error("🎁 MODAL: Error response status:", error.response.status);
-        console.error("🎁 MODAL: Error response data:", error.response.data);
-        console.error("🎁 MODAL: Error response headers:", error.response.headers);
-      }
-
-      console.error("🎁 MODAL: === ENDING loadCampaigns (ERROR) ===");
-
-      toast.error(error.message || "Failed to load gift card options");
-      setCampaigns([]);
-      console.log("🎁 MODAL: Set campaigns to empty array due to error");
-    } finally {
-      console.log("🎁 MODAL: Setting loadingCampaigns to false");
-      setLoadingCampaigns(false);
-      console.log("🎁 MODAL: loadCampaigns function completed");
-    }
+  const generateReferenceNumber = () => {
+    const prefix = "REF";
+    const timestamp = Date.now().toString().slice(-8);
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `${prefix}${timestamp}${random}`;
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
-    // If campaign is changed, reset the amount since denominations are different
-    if (name === "campaignId") {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-        amount: "", // Clear amount when campaign changes
-      }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
 
-      // Clear both campaign and amount errors
+    // Clear error when user starts typing
+    if (errors[name]) {
       setErrors((prev) => ({
         ...prev,
-        campaignId: "",
-        amount: "",
+        [name]: "",
       }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-
-      // Clear error when user starts typing
-      if (errors[name]) {
-        setErrors((prev) => ({
-          ...prev,
-          [name]: "",
-        }));
-      }
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.campaignId) {
-      newErrors.campaignId = "Please select a gift card option";
-    }
+    console.log("🎁 MODAL VALIDATION: === STARTING FORM VALIDATION ===");
+    console.log("🎁 MODAL VALIDATION: Form data:", formData);
+    console.log("🎁 MODAL VALIDATION: Available balance:", availableBalance);
+    console.log("🎁 MODAL VALIDATION: User:", user);
 
     if (!formData.amount) {
       newErrors.amount = "Amount is required";
@@ -199,23 +91,36 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
       newErrors.amount = "Amount must be greater than 0";
     } else if (parseFloat(formData.amount) > availableBalance) {
       newErrors.amount = "Amount exceeds available balance";
-    } else if (selectedCampaign && selectedCampaign.denominations) {
-      // Check if the selected amount is a valid denomination for this campaign
+    } else {
+      // Check if the selected amount is a valid denomination
       const selectedAmount = parseFloat(formData.amount);
-      if (!selectedCampaign.denominations.includes(selectedAmount)) {
-        newErrors.amount = `Invalid amount. Available denominations: $${selectedCampaign.denominations.join(", $")}`;
+      console.log("🎁 MODAL VALIDATION: === DENOMINATION VALIDATION ===");
+      console.log("🎁 MODAL VALIDATION: Selected amount:", selectedAmount);
+      console.log("🎁 MODAL VALIDATION: Available denominations:", AVAILABLE_DENOMINATIONS);
+      console.log("🎁 MODAL VALIDATION: Denominations include selected amount?", AVAILABLE_DENOMINATIONS.includes(selectedAmount));
+      
+      if (!AVAILABLE_DENOMINATIONS.includes(selectedAmount)) {
+        newErrors.amount = `Invalid amount. Available denominations: $${AVAILABLE_DENOMINATIONS.join(", $")}`;
+        console.log("🎁 MODAL VALIDATION: ❌ Invalid denomination selected");
+      } else {
+        console.log("🎁 MODAL VALIDATION: ✅ Valid denomination selected");
       }
     }
 
-    if (!formData.recipientEmail) {
-      newErrors.recipientEmail = "Recipient email is required";
-    } else if (!/\S+@\S+\.\S+/.test(formData.recipientEmail)) {
-      newErrors.recipientEmail = "Please enter a valid email address";
+    // Validate user data
+    if (!user) {
+      newErrors.user = "User information not available. Please refresh and try again.";
+    } else {
+      if (!user.email) {
+        newErrors.user = "User email not available. Please update your profile.";
+      }
+      if (!user.name) {
+        newErrors.user = "User name not available. Please update your profile.";
+      }
     }
 
-    if (!formData.recipientName.trim()) {
-      newErrors.recipientName = "Recipient name is required";
-    }
+    console.log("🎁 MODAL VALIDATION: Validation errors:", newErrors);
+    console.log("🎁 MODAL VALIDATION: Form is valid:", Object.keys(newErrors).length === 0);
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -226,7 +131,7 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
 
     console.log("🎁 MODAL SUBMIT: === GIFT CARD WITHDRAWAL STARTED ===");
     console.log("🎁 MODAL SUBMIT: Form data:", formData);
-    console.log("🎁 MODAL SUBMIT: Selected campaign:", selectedCampaign);
+    console.log("🎁 MODAL SUBMIT: User:", user);
     console.log("🎁 MODAL SUBMIT: Available balance:", availableBalance);
 
     if (!validateForm()) {
@@ -240,12 +145,18 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
       console.log("🎁 MODAL SUBMIT: Setting loading state to true");
       setLoading(true);
 
+      // Generate unique identifiers
+      const externalId = generateExternalId();
+      const referenceNumber = generateReferenceNumber();
+
       const withdrawalData = {
-        campaignId: formData.campaignId,
+        campaignId: FIXED_CAMPAIGN_ID,
         amount: parseFloat(formData.amount),
-        recipientEmail: formData.recipientEmail.toLowerCase().trim(),
-        recipientName: formData.recipientName.trim(),
-        message: formData.message.trim() || undefined,
+        recipientEmail: user.email.toLowerCase().trim(),
+        recipientName: user.name.trim(),
+        message: formData.message.trim() || "Gift card from StudiesHQ",
+        externalId: externalId,
+        referenceNumber: referenceNumber,
       };
 
       console.log("🎁 MODAL SUBMIT: === PREPARED WITHDRAWAL DATA ===");
@@ -255,6 +166,8 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
       console.log("🎁 MODAL SUBMIT: Recipient email:", withdrawalData.recipientEmail);
       console.log("🎁 MODAL SUBMIT: Recipient name:", withdrawalData.recipientName);
       console.log("🎁 MODAL SUBMIT: Message:", withdrawalData.message);
+      console.log("🎁 MODAL SUBMIT: External ID:", withdrawalData.externalId);
+      console.log("🎁 MODAL SUBMIT: Reference Number:", withdrawalData.referenceNumber);
 
       console.log("🎁 MODAL SUBMIT: Calling giftCardService.withdrawAsGiftCard()...");
       const response = await giftCardService.withdrawAsGiftCard(withdrawalData);
@@ -298,22 +211,11 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
     }
   };
 
-  const selectedCampaign = campaigns.find((c) => c.id === formData.campaignId);
-
-  // Log denomination changes for debugging
-  React.useEffect(() => {
-    if (selectedCampaign) {
-      console.log("🎁 MODAL: Selected campaign changed:", {
-        id: selectedCampaign.id,
-        name: selectedCampaign.name,
-        denominations: selectedCampaign.denominations,
-        affordableDenominations: selectedCampaign.denominations?.filter((d) => d <= availableBalance),
-        currentAmount: formData.amount,
-      });
-    }
-  }, [selectedCampaign, availableBalance, formData.amount]);
-
   if (!isOpen) return null;
+
+  // Get user display info
+  const recipientName = user?.name || "Unknown User";
+  const recipientEmail = user?.email || "No email available";
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -333,180 +235,119 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Gift Card Campaign Selection */}
-          <div>
-            <label htmlFor="campaignId" className="block text-sm font-medium text-gray-700 mb-1">
-              Gift Card Type *
-            </label>
-            {loadingCampaigns ? (
-              <div className="flex items-center justify-center py-8">
-                <Spinner size="sm" />
-                <span className="ml-2 text-sm text-gray-500">Loading gift card options...</span>
-              </div>
-            ) : (
-              <>
-                {(() => {
-                  console.log("🎁 MODAL RENDER: === RENDERING CAMPAIGNS DROPDOWN ===");
-                  console.log("🎁 MODAL RENDER: Campaigns array:", campaigns);
-                  console.log("🎁 MODAL RENDER: Campaigns count:", campaigns.length);
-                  console.log(
-                    "🎁 MODAL RENDER: Campaign names:",
-                    campaigns.map((c) => c.name)
-                  );
-                  console.log("🎁 MODAL RENDER: loadingCampaigns:", loadingCampaigns);
-                  console.log("🎁 MODAL RENDER: formData.campaignId:", formData.campaignId);
-                  return null;
-                })()}
-                <select
-                  id="campaignId"
-                  name="campaignId"
-                  value={formData.campaignId}
-                  onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.campaignId ? "border-red-500" : "border-gray-300"
-                  }`}
-                  disabled={loading}
-                >
-                  <option value="">Select a gift card option</option>
-                  {campaigns.length > 0 ? (
-                    campaigns.map((campaign) => {
-                      console.log("🎁 MODAL RENDER: Rendering option for campaign:", campaign.name);
-                      return (
-                        <option key={campaign.id} value={campaign.id}>
-                          {campaign.name} {campaign.description && `- ${campaign.description}`}
-                        </option>
-                      );
-                    })
-                  ) : (
-                    <option disabled>No gift card options available</option>
-                  )}
-                </select>
-                {campaigns.length === 0 && !loadingCampaigns && (
-                  <p className="text-yellow-600 text-xs mt-1">
-                    🔍 No gift card campaigns are currently available. Check the console for details.
-                  </p>
-                )}
-              </>
-            )}
-            {errors.campaignId && <p className="text-red-500 text-xs mt-1">{errors.campaignId}</p>}
+        {/* Recipient Information Display */}
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <h4 className="font-medium text-sm text-gray-800 mb-2">Gift Card Recipient</h4>
+          <div className="space-y-1">
+            <p className="text-sm text-gray-600">
+              <strong>Name:</strong> {recipientName}
+            </p>
+            <p className="text-sm text-gray-600">
+              <strong>Email:</strong> {recipientEmail}
+            </p>
           </div>
+          <p className="text-xs text-gray-500 mt-2">
+            The gift card will be sent to your registered email address.
+          </p>
+        </div>
 
-          {/* Selected Campaign Info */}
-          {selectedCampaign && (
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <h4 className="font-medium text-sm text-gray-800 mb-1">{selectedCampaign.name}</h4>
-              {selectedCampaign.description && (
-                <p className="text-xs text-gray-600 mb-2">{selectedCampaign.description}</p>
-              )}
-              {selectedCampaign.terms && <p className="text-xs text-gray-500">{selectedCampaign.terms}</p>}
-            </div>
-          )}
-
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Amount - Denomination Selection */}
           <div>
             <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
               Gift Card Amount (USD) *
             </label>
-            {selectedCampaign && selectedCampaign.denominations ? (
-              <select
-                id="amount"
-                name="amount"
-                value={formData.amount}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.amount ? "border-red-500" : "border-gray-300"
-                }`}
-                disabled={loading}
-              >
-                <option value="">Select amount</option>
-                {selectedCampaign.denominations.filter((denom) => denom <= availableBalance).length > 0 ? ( // Only show denominations user can afford
-                  selectedCampaign.denominations
-                    .filter((denom) => denom <= availableBalance)
-                    .map((denomination) => (
-                      <option key={denomination} value={denomination}>
-                        ${denomination.toFixed(2)}
-                      </option>
-                    ))
-                ) : (
-                  <option disabled>Insufficient balance for any denomination</option>
-                )}
-              </select>
-            ) : (
-              <input
-                type="number"
-                id="amount"
-                name="amount"
-                value={formData.amount}
-                onChange={handleInputChange}
-                placeholder="Select a gift card type first"
-                min="0.01"
-                max={availableBalance}
-                step="0.01"
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.amount ? "border-red-500" : "border-gray-300"
-                }`}
-                disabled={true}
-              />
-            )}
+            <select
+              id="amount"
+              name="amount"
+              value={formData.amount}
+              onChange={handleInputChange}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.amount ? "border-red-500" : "border-gray-300"
+              }`}
+              disabled={loading}
+            >
+              <option value="">Select amount</option>
+              {(() => {
+                console.log("🎁 MODAL RENDER: Available balance:", availableBalance, typeof availableBalance);
+                console.log("🎁 MODAL RENDER: Denominations:", AVAILABLE_DENOMINATIONS);
+                
+                const affordableDenominations = AVAILABLE_DENOMINATIONS.filter((denom) => {
+                  const canAfford = Number(denom) <= Number(availableBalance);
+                  console.log(`🎁 MODAL RENDER: Can afford $${denom}? ${canAfford} (${denom} <= ${availableBalance})`);
+                  return canAfford;
+                });
+                
+                console.log("🎁 MODAL RENDER: Affordable denominations:", affordableDenominations);
+                console.log("🎁 MODAL RENDER: Affordable count:", affordableDenominations.length);
+                
+                return null;
+              })()}
+              {AVAILABLE_DENOMINATIONS.filter((denom) => Number(denom) <= Number(availableBalance)).length > 0 ? (
+                AVAILABLE_DENOMINATIONS
+                  .filter((denom) => Number(denom) <= Number(availableBalance))
+                  .sort((a, b) => a - b) // Sort denominations in ascending order
+                  .map((denomination) => (
+                    <option key={denomination} value={denomination}>
+                      ${Number(denomination).toFixed(2)}
+                    </option>
+                  ))
+              ) : (
+                <option disabled>
+                  Insufficient balance for any denomination
+                </option>
+              )}
+            </select>
             {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount}</p>}
-            {selectedCampaign && selectedCampaign.denominations && (
-              <div className="text-xs text-gray-500 mt-1">
-                <p>Available amounts: ${selectedCampaign.denominations.join(", $")}</p>
-                {selectedCampaign.denominations.filter((d) => d <= availableBalance).length === 0 && (
-                  <p className="text-red-600 mt-1">
-                    ⚠️ Your balance (${availableBalance?.toFixed(2)}) is insufficient for any denomination of this gift
-                    card.
-                  </p>
-                )}
-                {selectedCampaign.denominations.some((d) => d > availableBalance) &&
-                  selectedCampaign.denominations.filter((d) => d <= availableBalance).length > 0 && (
-                    <p className="text-yellow-600 mt-1">
-                      💡 Some higher amounts are not available due to insufficient balance.
+            <div className="text-xs text-gray-500 mt-1">
+              <p>Available amounts: ${AVAILABLE_DENOMINATIONS.map(d => Number(d).toFixed(2)).join(", $")}</p>
+              {(() => {
+                const numericBalance = Number(availableBalance) || 0;
+                const affordableDenominations = AVAILABLE_DENOMINATIONS.filter((d) => Number(d) <= numericBalance);
+                const affordableCount = affordableDenominations.length;
+                const totalCount = AVAILABLE_DENOMINATIONS.length;
+                
+                console.log("🎁 MODAL BALANCE VALIDATION:", {
+                  denominations: AVAILABLE_DENOMINATIONS,
+                  availableBalance: availableBalance,
+                  numericBalance: numericBalance,
+                  affordableDenominations: affordableDenominations,
+                  affordableCount: affordableCount,
+                  totalCount: totalCount
+                });
+                
+                if (affordableCount === 0) {
+                  const minDenomination = AVAILABLE_DENOMINATIONS.length > 0 
+                    ? Math.min(...AVAILABLE_DENOMINATIONS)
+                    : null;
+                  
+                  return (
+                    <p className="text-red-600 mt-1">
+                      ⚠️ Your balance (${numericBalance.toFixed(2)}) is insufficient for any denomination of this gift card.
+                      <br />
+                      <span className="text-xs">
+                        {minDenomination !== null 
+                          ? `Minimum required: $${minDenomination.toFixed(2)}`
+                          : "No denominations available"
+                        }
+                      </span>
                     </p>
-                  )}
-              </div>
-            )}
-          </div>
-
-          {/* Recipient Email */}
-          <div>
-            <label htmlFor="recipientEmail" className="block text-sm font-medium text-gray-700 mb-1">
-              Recipient Email *
-            </label>
-            <input
-              type="email"
-              id="recipientEmail"
-              name="recipientEmail"
-              value={formData.recipientEmail}
-              onChange={handleInputChange}
-              placeholder="recipient@example.com"
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.recipientEmail ? "border-red-500" : "border-gray-300"
-              }`}
-              disabled={loading}
-            />
-            {errors.recipientEmail && <p className="text-red-500 text-xs mt-1">{errors.recipientEmail}</p>}
-          </div>
-
-          {/* Recipient Name */}
-          <div>
-            <label htmlFor="recipientName" className="block text-sm font-medium text-gray-700 mb-1">
-              Recipient Name *
-            </label>
-            <input
-              type="text"
-              id="recipientName"
-              name="recipientName"
-              value={formData.recipientName}
-              onChange={handleInputChange}
-              placeholder="Full name of the recipient"
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.recipientName ? "border-red-500" : "border-gray-300"
-              }`}
-              disabled={loading}
-            />
-            {errors.recipientName && <p className="text-red-500 text-xs mt-1">{errors.recipientName}</p>}
+                  );
+                } else if (affordableCount < totalCount) {
+                  return (
+                    <p className="text-yellow-600 mt-1">
+                      💡 {affordableCount} of {totalCount} denominations available due to balance limit.
+                    </p>
+                  );
+                } else {
+                  return (
+                    <p className="text-green-600 mt-1">
+                      ✅ All denominations available with your current balance.
+                    </p>
+                  );
+                }
+              })()}
+            </div>
           </div>
 
           {/* Optional Message */}
@@ -524,7 +365,17 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              If no message is provided, a default message will be used.
+            </p>
           </div>
+
+          {/* Error Display */}
+          {errors.user && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-800">{errors.user}</p>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex space-x-3 pt-4">
@@ -539,7 +390,7 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
             <button
               type="submit"
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
-              disabled={loading || loadingCampaigns || campaigns.length === 0}
+              disabled={loading || !user}
             >
               {loading ? (
                 <>
@@ -553,13 +404,13 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
           </div>
         </form>
 
-        {campaigns.length === 0 && !loadingCampaigns && (
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
-              No gift card options are currently available. Please try again later or contact support.
-            </p>
-          </div>
-        )}
+        {/* Info Section */}
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <strong>Note:</strong> The gift card will be automatically generated and sent to your email address. 
+            You can then forward it to anyone you'd like to gift it to.
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -81,9 +81,10 @@ module.exports = {
 
   // Giftogram API Configuration
   giftogram: {
-    apiUrl: process.env.GIFTOGRAM_API_URL || "https://api.giftogram.com",
+    apiUrl: process.env.GIFTOGRAM_ENVIRONMENT === "sandbox" 
+      ? "https://sandbox-api.giftogram.com" 
+      : (process.env.GIFTOGRAM_API_URL || "https://api.giftogram.com"),
     apiKey: process.env.GIFTOGRAM_API_KEY,
-    apiSecret: process.env.GIFTOGRAM_API_SECRET,
     environment: process.env.GIFTOGRAM_ENVIRONMENT || "sandbox", // sandbox or production
   },
 

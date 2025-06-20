@@ -31,14 +31,12 @@ class GiftogramService {
       // Check if API credentials are configured - always use mock in development if no real credentials
       if (
         !this.apiKey ||
-        !this.apiSecret ||
         this.apiKey === "placeholder_api_key_for_testing" ||
         this.apiKey === "your_giftogram_api_key"
       ) {
         console.warn("🎁 GIFTOGRAM SERVICE: ⚠️ API credentials not configured properly, using mock data");
         console.warn("🎁 GIFTOGRAM SERVICE: API Key check failed:", {
           hasApiKey: !!this.apiKey,
-          hasApiSecret: !!this.apiSecret,
           apiKeyValue: this.apiKey,
           isPlaceholder: this.apiKey === "placeholder_api_key_for_testing",
           isDefaultValue: this.apiKey === "your_giftogram_api_key",
@@ -136,7 +134,7 @@ class GiftogramService {
       console.log("🎁 GIFTOGRAM SERVICE: === STARTING getCampaignById ===");
       console.log("🎁 GIFTOGRAM SERVICE: Campaign ID:", campaignId);
 
-      if (!this.apiKey || !this.apiSecret) {
+      if (!this.apiKey || this.apiKey === "placeholder_api_key_for_testing" || this.apiKey === "your_giftogram_api_key") {
         console.warn("🎁 GIFTOGRAM SERVICE: API credentials not configured, using mock data");
         const mockCampaigns = this.getMockCampaigns();
         const campaign = mockCampaigns.campaigns.find((c) => c.id === campaignId);
@@ -240,11 +238,10 @@ class GiftogramService {
       // Check if API credentials are configured - always use mock in development if no real credentials
       if (
         !this.apiKey ||
-        !this.apiSecret ||
         this.apiKey === "placeholder_api_key_for_testing" ||
         this.apiKey === "your_giftogram_api_key"
       ) {
-        console.warn("🎁 GIFTOGRAM SERVICE: API credentials not configured properly, creating mock order");
+        console.warn("�� GIFTOGRAM SERVICE: API credentials not configured properly, creating mock order");
         return this.createMockOrder(orderData);
       }
 
@@ -262,7 +259,7 @@ class GiftogramService {
             name: orderData.recipientName,
           },
         ],
-        denomination: orderData.amount, // Fixed: Using denomination instead of amount
+        denomination: orderData.amount.toString(), // Fixed: Convert to string as required by Giftogram API
       };
 
       console.log("🎁 GIFTOGRAM SERVICE: Sending order payload:", JSON.stringify(payload, null, 2));
@@ -341,7 +338,7 @@ class GiftogramService {
       console.log("🎁 GIFTOGRAM SERVICE: === STARTING getOrder ===");
       console.log("🎁 GIFTOGRAM SERVICE: Order ID:", orderId);
 
-      if (!this.apiKey || !this.apiSecret) {
+      if (!this.apiKey || this.apiKey === "placeholder_api_key_for_testing" || this.apiKey === "your_giftogram_api_key") {
         console.warn("🎁 GIFTOGRAM SERVICE: API credentials not configured, returning mock order");
         return {
           success: true,
@@ -383,7 +380,7 @@ class GiftogramService {
       console.log("🎁 GIFTOGRAM SERVICE: === STARTING getOrders ===");
       console.log("🎁 GIFTOGRAM SERVICE: Filters:", filters);
 
-      if (!this.apiKey || !this.apiSecret) {
+      if (!this.apiKey || this.apiKey === "placeholder_api_key_for_testing" || this.apiKey === "your_giftogram_api_key") {
         console.warn("🎁 GIFTOGRAM SERVICE: API credentials not configured, returning mock orders");
         return {
           success: true,
