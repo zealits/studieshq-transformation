@@ -41,7 +41,7 @@ import FreelancerProfile from "./pages/freelancer/ProfilePage";
 import SupportPage from "./pages/Support/MyTickets";
 import SubmitTicket from "./pages/Support/SubmitTicket";
 import TicketDetails from "./pages/Support/TicketDetails";
-// import FreelancerSettings from "./pages/freelancer/SettingsPage";
+import FreelancerSettings from "./pages/freelancer/SettingsPage";
 
 // Client Pages
 import ClientDashboard from "./pages/client/DashboardPage";
@@ -162,7 +162,7 @@ function App() {
           <Route path="support" element={<SupportPage />} />
           <Route path="support/submit" element={<SubmitTicket />} />
           <Route path="support/tickets/:id" element={<TicketDetails />} />
-          {/* <Route path="settings" element={<FreelancerSettings />} />  */}
+          <Route path="settings" element={<FreelancerSettings />} />
         </Route>
 
         {/* Client Routes */}
