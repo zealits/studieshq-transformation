@@ -86,14 +86,7 @@ exports.updateUserVerification = async (req, res) => {
       profile.checkVerificationStatus();
     }
 
-    await profile.save();
-
-    // Update user's isVerified status
-    const user = await User.findById(userId);
-    if (user) {
-      user.isVerified = profile.isVerified;
-      await user.save();
-    }
+    await profile.save({ validateModifiedOnly: true });
 
     res.json({
       success: true,
@@ -105,7 +98,6 @@ exports.updateUserVerification = async (req, res) => {
           verificationDate: profile.verificationDate,
           user: {
             id: userId,
-            isVerified: profile.isVerified,
           },
         },
       },

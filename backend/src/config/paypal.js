@@ -2,13 +2,32 @@ const paypal = require("@paypal/checkout-server-sdk");
 
 // Environment setup (sandbox vs production)
 function environment() {
-  const clientId = process.env.PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  // Use separate credentials for sandbox and production
+  let clientId, clientSecret;
 
-  // Use sandbox environment for development
   if (process.env.NODE_ENV === "production") {
+    // Production credentials
+    clientId = process.env.PAYPAL_PRODUCTION_CLIENT_ID;
+    clientSecret = process.env.PAYPAL_PRODUCTION_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      throw new Error(
+        "PayPal production credentials are missing. Please set PAYPAL_PRODUCTION_CLIENT_ID and PAYPAL_PRODUCTION_CLIENT_SECRET"
+      );
+    }
+
+    console.log("Using PayPal Live Environment with client ID:", clientId?.substring(0, 10) + "...");
     return new paypal.core.LiveEnvironment(clientId, clientSecret);
   } else {
+    // Sandbox credentials
+    clientId = process.env.PAYPAL_CLIENT_ID;
+    clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      throw new Error("PayPal sandbox credentials are missing. Please set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET");
+    }
+
+    console.log("Using PayPal Sandbox Environment with client ID:", clientId?.substring(0, 10) + "...");
     return new paypal.core.SandboxEnvironment(clientId, clientSecret);
   }
 }

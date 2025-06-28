@@ -45,7 +45,7 @@ const ExperienceSchema = new Schema({
     type: String,
   },
   from: {
-    type: Date,
+    type: Date, 
     required: true,
   },
   to: {
@@ -64,25 +64,34 @@ const ExperienceSchema = new Schema({
 const VerificationDocumentSchema = new Schema({
   type: {
     type: String,
-    required: true,
-    enum: [
-      // Address Proof Types
-      "electricity_bill",
-      "gas_bill",
-      "water_bill",
-      "bank_statement",
-      "rent_agreement",
-      // Identity Proof Types
-      "passport",
-      "driving_license",
-      "national_id",
-      "aadhar_card",
-      "pan_card",
-    ],
+    required: false, // Made optional to allow incomplete documents
+    validate: {
+      validator: function (v) {
+        // Allow null, undefined, or empty/whitespace string
+        if (!v || typeof v !== "string" || v.trim() === "") {
+          return true;
+        }
+        // Validate non-empty strings against allowed values
+        const validValues = [
+          "electricity_bill",
+          "gas_bill",
+          "water_bill",
+          "bank_statement",
+          "rent_agreement",
+          "passport",
+          "driving_license",
+          "national_id",
+          "aadhar_card",
+          "pan_card",
+        ];
+        return validValues.includes(v.trim());
+      },
+      message: "Invalid document type provided",
+    },
   },
   documentUrl: {
     type: String,
-    required: true,
+    required: false, // Made optional to allow incomplete documents
   },
   status: {
     type: String,
@@ -249,6 +258,51 @@ const ProfileSchema = new Schema({
 // Update the updatedAt field before saving
 ProfileSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
+
+  // Clean up empty strings in verification documents to prevent validation errors
+  if (this.verificationDocuments) {
+    if (this.verificationDocuments.identityProof) {
+      // Clean up type field
+      if (
+        this.verificationDocuments.identityProof.type === "" ||
+        this.verificationDocuments.identityProof.type === " " ||
+        (typeof this.verificationDocuments.identityProof.type === "string" &&
+          this.verificationDocuments.identityProof.type.trim() === "")
+      ) {
+        this.verificationDocuments.identityProof.type = undefined;
+      }
+      // Clean up documentUrl field
+      if (
+        this.verificationDocuments.identityProof.documentUrl === "" ||
+        this.verificationDocuments.identityProof.documentUrl === " " ||
+        (typeof this.verificationDocuments.identityProof.documentUrl === "string" &&
+          this.verificationDocuments.identityProof.documentUrl.trim() === "")
+      ) {
+        this.verificationDocuments.identityProof.documentUrl = undefined;
+      }
+    }
+    if (this.verificationDocuments.addressProof) {
+      // Clean up type field
+      if (
+        this.verificationDocuments.addressProof.type === "" ||
+        this.verificationDocuments.addressProof.type === " " ||
+        (typeof this.verificationDocuments.addressProof.type === "string" &&
+          this.verificationDocuments.addressProof.type.trim() === "")
+      ) {
+        this.verificationDocuments.addressProof.type = undefined;
+      }
+      // Clean up documentUrl field
+      if (
+        this.verificationDocuments.addressProof.documentUrl === "" ||
+        this.verificationDocuments.addressProof.documentUrl === " " ||
+        (typeof this.verificationDocuments.addressProof.documentUrl === "string" &&
+          this.verificationDocuments.addressProof.documentUrl.trim() === "")
+      ) {
+        this.verificationDocuments.addressProof.documentUrl = undefined;
+      }
+    }
+  }
+
   next();
 });
 

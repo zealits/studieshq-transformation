@@ -424,14 +424,14 @@ const SupportPage = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2 mb-1">
-                      <span className="text-xs font-mono text-gray-500">{ticket.ticketNumber}</span>
-                      {renderPriorityBadge(ticket.priority)}
+                      <span className="text-xs font-mono text-gray-500">{ticket?.ticketNumber}</span>
+                      {renderPriorityBadge(ticket?.priority)}
                     </div>
                       <p className="text-sm font-medium text-gray-900 truncate">{ticket.subject}</p>
                     <div className="flex items-center space-x-2 mt-1">
                       <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                         <span className="text-xs font-medium text-blue-600">
-                          {ticket.user.name.charAt(0).toUpperCase()}
+                          {ticket?.user.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <span className="text-xs text-gray-600">{ticket.user.name}</span>

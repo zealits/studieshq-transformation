@@ -80,11 +80,26 @@ const userManagementSlice = createSlice({
       })
       .addCase(updateUserVerification.fulfilled, (state, action) => {
         state.loading = false;
-        const { user, verificationDocuments } = action.payload.profile;
-        const index = state.users.findIndex((u) => u._id === user.id);
-        if (index !== -1) {
-          state.users[index].isVerified = user.isVerified;
-          state.users[index].verificationDocuments = verificationDocuments;
+        const profileData = action.payload.profile;
+        const userId = profileData.user?.id;
+
+        if (userId) {
+          const userIndex = state.users.findIndex((u) => u._id === userId);
+          if (userIndex !== -1) {
+            // Update verification documents
+            if (profileData.verificationDocuments) {
+              state.users[userIndex].verificationDocuments = profileData.verificationDocuments;
+            }
+            // Update profile verification status (not email verification)
+            if (profileData.isVerified !== undefined) {
+              state.users[userIndex].profile = {
+                ...state.users[userIndex].profile,
+                isVerified: profileData.isVerified,
+                verificationStatus: profileData.verificationStatus,
+                verificationDate: profileData.verificationDate,
+              };
+            }
+          }
         }
       })
       .addCase(updateUserVerification.rejected, (state, action) => {

@@ -11,6 +11,10 @@ const UserManagementPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [rejectionState, setRejectionState] = useState({
+    activeDocumentType: null, // Which document is currently being rejected
+    reason: "",
+  });
 
   useEffect(() => {
     dispatch(
@@ -44,23 +48,83 @@ const UserManagementPage = () => {
   // Handle verification update
   const handleVerificationUpdate = async (userId, documentType, status, rejectionReason) => {
     try {
-      if (status === "rejected" && !rejectionReason) {
-        const reason = prompt("Please enter rejection reason:");
-        if (!reason) return;
-        rejectionReason = reason;
+      if (status === "rejected") {
+        // Show inline rejection reason input
+        setRejectionState({
+          activeDocumentType: documentType,
+          reason: "",
+        });
+        return;
       }
-      await dispatch(updateUserVerification({ userId, documentType, status, rejectionReason })).unwrap();
-      // Refresh the users list instead of closing modal
-      dispatch(
-        fetchUsers({
-          page: currentPage,
-          limit: 10,
-          role: activeTab !== "all" ? activeTab : undefined,
-          search: searchQuery,
-        })
-      );
+
+      const result = await dispatch(updateUserVerification({ userId, documentType, status, rejectionReason })).unwrap();
+
+      // Update the selected user in the modal immediately
+      if (selectedUser && selectedUser._id === userId) {
+        setSelectedUser((prev) => ({
+          ...prev,
+          verificationDocuments: {
+            ...prev.verificationDocuments,
+            [documentType]: {
+              ...prev.verificationDocuments[documentType],
+              status: status,
+              verifiedAt: status === "approved" ? new Date().toISOString() : null,
+              rejectionReason: status === "rejected" ? rejectionReason : null,
+            },
+          },
+          // Update overall verification status based on profile verification, not email
+          profile: result.profile || prev.profile,
+        }));
+      }
     } catch (error) {
       console.error("Failed to update verification:", error);
+      // Show user-friendly error message
+      const errorMessage = error.message || "Failed to update verification status";
+      alert(`Error: ${errorMessage}`);
+    }
+  };
+
+  const handleRejectionSubmit = async (documentType) => {
+    if (!rejectionState.reason.trim()) {
+      alert("Please provide a rejection reason");
+      return;
+    }
+
+    try {
+      const result = await dispatch(
+        updateUserVerification({
+          userId: selectedUser._id,
+          documentType: documentType,
+          status: "rejected",
+          rejectionReason: rejectionState.reason,
+        })
+      ).unwrap();
+
+      // Update the selected user in the modal immediately
+      if (selectedUser) {
+        setSelectedUser((prev) => ({
+          ...prev,
+          verificationDocuments: {
+            ...prev.verificationDocuments,
+            [documentType]: {
+              ...prev.verificationDocuments[documentType],
+              status: "rejected",
+              verifiedAt: null,
+              rejectionReason: rejectionState.reason,
+            },
+          },
+          profile: result.profile || prev.profile,
+        }));
+      }
+
+      // Reset rejection state
+      setRejectionState({
+        activeDocumentType: null,
+        reason: "",
+      });
+    } catch (error) {
+      console.error("Failed to reject verification:", error);
+      alert(`Error: ${error.message || "Failed to reject verification"}`);
     }
   };
 
@@ -92,15 +156,18 @@ const UserManagementPage = () => {
     }
   };
 
-  // Render verification badge
-  const renderVerificationBadge = (isVerified) => {
-    if (isVerified) {
+  // Render verification badge (for document verification, not email)
+  const renderVerificationBadge = (user) => {
+    const profile = user.profile || {};
+    const isDocumentVerified = profile.isVerified || false;
+
+    if (isDocumentVerified) {
       return (
         <span className="flex items-center px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
           </svg>
-          Verified
+          Doc Verified
         </span>
       );
     }
@@ -114,7 +181,7 @@ const UserManagementPage = () => {
             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        Pending
+        Doc Pending
       </span>
     );
   };
@@ -286,7 +353,7 @@ const UserManagementPage = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">{renderRoleBadge(user.role)}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{renderStatusBadge(user.status)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{renderVerificationBadge(user.isVerified)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{renderVerificationBadge(user)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(user.createdAt).toLocaleDateString()}
                   </td>
@@ -395,7 +462,7 @@ const UserManagementPage = () => {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Verification Status</label>
-                          <div>{renderVerificationBadge(selectedUser.isVerified)}</div>
+                          <div>{renderVerificationBadge(selectedUser)}</div>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Join Date</label>
@@ -482,43 +549,82 @@ const UserManagementPage = () => {
                                     </span>
                                   )}
                                 </div>
-                                {selectedUser.verificationDocuments?.identityProof?.status !== "approved" && (
-                                  <div className="flex items-center space-x-2">
-                                    <button
-                                      onClick={() =>
-                                        handleVerificationUpdate(selectedUser._id, "identityProof", "approved")
-                                      }
-                                      className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
-                                      title="Approve"
-                                    >
-                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth="2"
-                                          d="M5 13l4 4L19 7"
-                                        />
-                                      </svg>
-                                    </button>
-                                    <button
-                                      onClick={() =>
-                                        handleVerificationUpdate(selectedUser._id, "identityProof", "rejected")
-                                      }
-                                      className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                                      title="Reject"
-                                    >
-                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth="2"
-                                          d="M6 18L18 6M6 6l12 12"
-                                        />
-                                      </svg>
-                                    </button>
+                                {selectedUser.verificationDocuments?.identityProof?.status !== "approved" &&
+                                  selectedUser.verificationDocuments?.identityProof?.documentUrl &&
+                                  selectedUser.verificationDocuments?.identityProof?.type &&
+                                  rejectionState.activeDocumentType !== "identityProof" && (
+                                    <div className="flex items-center space-x-2">
+                                      <button
+                                        onClick={() =>
+                                          handleVerificationUpdate(selectedUser._id, "identityProof", "approved")
+                                        }
+                                        className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                                        title="Approve"
+                                      >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M5 13l4 4L19 7"
+                                          />
+                                        </svg>
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          handleVerificationUpdate(selectedUser._id, "identityProof", "rejected")
+                                        }
+                                        className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                        title="Reject"
+                                      >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M6 18L18 6M6 6l12 12"
+                                          />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  )}
+                                {(!selectedUser.verificationDocuments?.identityProof?.documentUrl ||
+                                  !selectedUser.verificationDocuments?.identityProof?.type) && (
+                                  <div className="text-sm text-gray-500 italic">
+                                    Document must be uploaded before approval/rejection
                                   </div>
                                 )}
                               </div>
+
+                              {/* Inline Rejection Reason Input for Identity Proof */}
+                              {rejectionState.activeDocumentType === "identityProof" && (
+                                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                                  <label className="block text-sm font-medium text-red-800 mb-2">
+                                    Why are you rejecting this identity proof?
+                                  </label>
+                                  <textarea
+                                    rows={3}
+                                    className="block w-full px-3 py-2 border border-red-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                                    placeholder="Please explain why this document is being rejected..."
+                                    value={rejectionState.reason}
+                                    onChange={(e) => setRejectionState((prev) => ({ ...prev, reason: e.target.value }))}
+                                  />
+                                  <div className="mt-2 flex space-x-2">
+                                    <button
+                                      onClick={() => handleRejectionSubmit("identityProof")}
+                                      className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700"
+                                    >
+                                      Submit Rejection
+                                    </button>
+                                    <button
+                                      onClick={() => setRejectionState({ activeDocumentType: null, reason: "" })}
+                                      className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-400"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                           <div>
@@ -589,43 +695,82 @@ const UserManagementPage = () => {
                                     </span>
                                   )}
                                 </div>
-                                {selectedUser.verificationDocuments?.addressProof?.status !== "approved" && (
-                                  <div className="flex items-center space-x-2">
-                                    <button
-                                      onClick={() =>
-                                        handleVerificationUpdate(selectedUser._id, "addressProof", "approved")
-                                      }
-                                      className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
-                                      title="Approve"
-                                    >
-                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth="2"
-                                          d="M5 13l4 4L19 7"
-                                        />
-                                      </svg>
-                                    </button>
-                                    <button
-                                      onClick={() =>
-                                        handleVerificationUpdate(selectedUser._id, "addressProof", "rejected")
-                                      }
-                                      className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                                      title="Reject"
-                                    >
-                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth="2"
-                                          d="M6 18L18 6M6 6l12 12"
-                                        />
-                                      </svg>
-                                    </button>
+                                {selectedUser.verificationDocuments?.addressProof?.status !== "approved" &&
+                                  selectedUser.verificationDocuments?.addressProof?.documentUrl &&
+                                  selectedUser.verificationDocuments?.addressProof?.type &&
+                                  rejectionState.activeDocumentType !== "addressProof" && (
+                                    <div className="flex items-center space-x-2">
+                                      <button
+                                        onClick={() =>
+                                          handleVerificationUpdate(selectedUser._id, "addressProof", "approved")
+                                        }
+                                        className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                                        title="Approve"
+                                      >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M5 13l4 4L19 7"
+                                          />
+                                        </svg>
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          handleVerificationUpdate(selectedUser._id, "addressProof", "rejected")
+                                        }
+                                        className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                        title="Reject"
+                                      >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M6 18L18 6M6 6l12 12"
+                                          />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  )}
+                                {(!selectedUser.verificationDocuments?.addressProof?.documentUrl ||
+                                  !selectedUser.verificationDocuments?.addressProof?.type) && (
+                                  <div className="text-sm text-gray-500 italic">
+                                    Document must be uploaded before approval/rejection
                                   </div>
                                 )}
                               </div>
+
+                              {/* Inline Rejection Reason Input for Address Proof */}
+                              {rejectionState.activeDocumentType === "addressProof" && (
+                                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                                  <label className="block text-sm font-medium text-red-800 mb-2">
+                                    Why are you rejecting this address proof?
+                                  </label>
+                                  <textarea
+                                    rows={3}
+                                    className="block w-full px-3 py-2 border border-red-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                                    placeholder="Please explain why this document is being rejected..."
+                                    value={rejectionState.reason}
+                                    onChange={(e) => setRejectionState((prev) => ({ ...prev, reason: e.target.value }))}
+                                  />
+                                  <div className="mt-2 flex space-x-2">
+                                    <button
+                                      onClick={() => handleRejectionSubmit("addressProof")}
+                                      className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700"
+                                    >
+                                      Submit Rejection
+                                    </button>
+                                    <button
+                                      onClick={() => setRejectionState({ activeDocumentType: null, reason: "" })}
+                                      className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-400"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>

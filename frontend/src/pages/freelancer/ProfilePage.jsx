@@ -1268,6 +1268,34 @@ const ProfilePage = () => {
                             formData.verificationDocuments.addressProof.status.slice(1)}
                         </span>
                       </div>
+
+                      {/* Show rejection reason if document is rejected */}
+                      {formData.verificationDocuments.addressProof.status === "rejected" &&
+                        data?.data?.profile?.verificationDocuments?.addressProof?.rejectionReason && (
+                          <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                            <div className="flex items-start">
+                              <svg
+                                className="w-5 h-5 text-red-400 mt-0.5 mr-2"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-medium text-red-800">Rejection Reason:</p>
+                                <p className="text-sm text-red-700 mt-1">
+                                  {data.data.profile.verificationDocuments.addressProof.rejectionReason}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                     </div>
                   </div>
 
@@ -1351,6 +1379,34 @@ const ProfilePage = () => {
                             formData.verificationDocuments.identityProof.status.slice(1)}
                         </span>
                       </div>
+
+                      {/* Show rejection reason if document is rejected */}
+                      {formData.verificationDocuments.identityProof.status === "rejected" &&
+                        data?.data?.profile?.verificationDocuments?.identityProof?.rejectionReason && (
+                          <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                            <div className="flex items-start">
+                              <svg
+                                className="w-5 h-5 text-red-400 mt-0.5 mr-2"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-medium text-red-800">Rejection Reason:</p>
+                                <p className="text-sm text-red-700 mt-1">
+                                  {data.data.profile.verificationDocuments.identityProof.rejectionReason}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                     </div>
                   </div>
                 </div>
