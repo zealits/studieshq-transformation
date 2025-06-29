@@ -520,11 +520,22 @@ exports.releaseMilestonePayment = async (req, res) => {
     );
     console.log(`  └─ Platform Fee Deducted: $${escrowMilestone.platformFee}`);
 
+    // Calculate base work value (what the work is worth before platform fees)
+    const baseWorkValue = escrowMilestone.freelancerReceives + escrowMilestone.platformFee;
+    const clientPlatformFee = escrowMilestone.platformFee; // Client also pays 10% platform fee
+
+    console.log(`💰 TRANSACTION AMOUNTS CALCULATION:`);
+    console.log(`  ├─ Base Work Value: $${baseWorkValue}`);
+    console.log(`  ├─ Freelancer Platform Fee: $${escrowMilestone.platformFee}`);
+    console.log(`  ├─ Client Platform Fee: $${clientPlatformFee}`);
+    console.log(`  ├─ Freelancer Receives: $${escrowMilestone.freelancerReceives}`);
+    console.log(`  └─ Client Pays Total: $${escrowMilestone.amount}`);
+
     // Create transaction record for freelancer payment
     const freelancerTransaction = new Transaction({
       transactionId: `MIL-${uuidv4().substring(0, 8)}`,
       user: escrowToUse.freelancer,
-      amount: escrowMilestone.amount,
+      amount: baseWorkValue, // Show base work value, not total charged to client
       fee: escrowMilestone.platformFee,
       netAmount: escrowMilestone.freelancerReceives,
       type: "milestone",
@@ -548,9 +559,9 @@ exports.releaseMilestonePayment = async (req, res) => {
     const clientTransaction = new Transaction({
       transactionId: `MIL-CLT-${uuidv4().substring(0, 8)}`,
       user: escrowToUse.client,
-      amount: escrowMilestone.amount,
-      fee: 0, // Client doesn't pay additional fee at milestone release
-      netAmount: escrowMilestone.amount,
+      amount: baseWorkValue, // Show base work value
+      fee: clientPlatformFee, // Show client platform fee
+      netAmount: escrowMilestone.amount, // Total amount client actually pays
       type: "milestone",
       status: "completed",
       project: projectId,
@@ -988,7 +999,7 @@ exports.getClientEscrowData = async (req, res) => {
       }
     }, 0);
 
-    console.log(`💸 CLIENT TOTAL SPENT: $${totalSpent}`);
+    // console.log(`💸 CLIENT TOTAL SPENT: $${totalSpent}`);
 
     // FIXED: Calculate total in escrow (only pending milestones from active projects)
     const inEscrow = activeEscrows.reduce((total, escrow) => {
@@ -1025,12 +1036,12 @@ exports.getClientEscrowData = async (req, res) => {
       status: "in_progress",
     });
 
-    console.log(`💰 CLIENT PAYMENT SUMMARY:`);
-    console.log(`  ├─ Available Balance: $${availableBalance}`);
-    console.log(`  ├─ Total Spent: $${totalSpent}`);
-    console.log(`  ├─ In Escrow: $${inEscrow}`);
-    console.log(`  ├─ Platform Fees Paid: $${platformFeesPaid}`);
-    console.log(`  └─ Active Projects: ${activeProjects}`);
+    // console.log(`💰 CLIENT PAYMENT SUMMARY:`);
+    // console.log(`  ├─ Available Balance: $${availableBalance}`);
+    // console.log(`  ├─ Total Spent: $${totalSpent}`);
+    // console.log(`  ├─ In Escrow: $${inEscrow}`);
+    // console.log(`  ├─ Platform Fees Paid: $${platformFeesPaid}`);
+    // console.log(`  └─ Active Projects: ${activeProjects}`);
 
     // Get recent transactions
     const recentTransactions = await Transaction.find({

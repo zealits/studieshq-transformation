@@ -48,16 +48,16 @@ const PaymentsPage = () => {
   }, [user]);
 
   // Auto-refresh payment data every 30 seconds to catch updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (user && !loading) {
-        console.log("🔄 FREELANCER PAYMENTS: Auto-refreshing payment data...");
-        loadData();
-      }
-    }, 30000);
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     if (user && !loading) {
+  //       console.log("🔄 FREELANCER PAYMENTS: Auto-refreshing payment data...");
+  //       loadData();
+  //     }
+  //   }, 30000);
 
-    return () => clearInterval(interval);
-  }, [user, loading]);
+  //   return () => clearInterval(interval);
+  // }, [user, loading]);
 
   const handleWithdraw = async (amount) => {
     try {
