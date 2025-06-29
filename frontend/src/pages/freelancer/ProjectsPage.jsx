@@ -342,8 +342,10 @@ const ProjectsPage = () => {
                       <h3 className="font-medium mb-3">Milestones</h3>
                       <div className="space-y-3">
                         {project.milestones.map((milestone) => {
-                          // Calculate amount based on percentage and project budget
-                          const calculatedAmount = (milestone.percentage / 100) * (project.budget || 0);
+                          // FIXED: Calculate what freelancer actually receives after 10% platform fee
+                          const grossAmount = (milestone.percentage / 100) * (project.budget || 0);
+                          const platformFee = grossAmount * 0.1; // 10% platform fee
+                          const netAmountToFreelancer = grossAmount - platformFee;
 
                           return (
                             <div key={milestone._id} className="border rounded-lg p-4">
@@ -370,13 +372,23 @@ const ProjectsPage = () => {
                                     <span className="mx-2">•</span>
                                     <span className="font-medium text-primary">{milestone.percentage}%</span>
                                     <span className="mx-2">•</span>
-                                    <span className="font-medium text-green-600">
-                                      $
-                                      {calculatedAmount.toLocaleString(undefined, {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      })}
-                                    </span>
+                                    <div className="flex flex-col">
+                                      <span className="font-semibold text-green-600">
+                                        $
+                                        {netAmountToFreelancer.toLocaleString(undefined, {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        })}
+                                      </span>
+                                      <span className="text-xs text-gray-400">
+                                        ($
+                                        {grossAmount.toLocaleString(undefined, {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        })}{" "}
+                                        - 10% fee)
+                                      </span>
+                                    </div>
                                   </div>
                                   {/* Milestone progress bar */}
                                   <div className="mt-3">
@@ -455,7 +467,11 @@ const ProjectsPage = () => {
                               $
                               {project.milestones
                                 .filter((m) => m.status === "completed")
-                                .reduce((sum, m) => sum + (m.percentage / 100) * (project.budget || 0), 0)
+                                .reduce((sum, m) => {
+                                  const grossAmount = (m.percentage / 100) * (project.budget || 0);
+                                  const netAmount = grossAmount - grossAmount * 0.1; // Subtract 10% platform fee
+                                  return sum + netAmount;
+                                }, 0)
                                 .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                           </div>

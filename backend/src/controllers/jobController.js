@@ -163,7 +163,6 @@ exports.createJob = async (req, res) => {
           : "Job created successfully. Please confirm budget blocking to make it live.",
     });
   } catch (err) {
-    console.error("Error in createJob:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -174,7 +173,6 @@ exports.createJob = async (req, res) => {
  * @access  Public
  */
 exports.getJobs = async (req, res) => {
-  console.log("req.query", req.query);
   try {
     const { category, skills, min_budget, max_budget, experience, duration, location, status, mine, clientId } =
       req.query;
@@ -205,26 +203,23 @@ exports.getJobs = async (req, res) => {
     // If auth fails, the middleware sets req.user to undefined but allows the request to continue
     if (req.user) {
       // Log the authenticated user
-      console.log(`Authenticated user: ${req.user.id}, role: ${req.user.role}`);
+      // console.log(`Authenticated user: ${req.user.id}, role: ${req.user.role}`);
 
       if (req.user.role === "client") {
-        console.log("Client user detected");
         if (mine === "true") {
-          console.log("mine is true");
           // IMPORTANT: Filter to only show the client's own jobs by exact ID match
           // If clientId is passed, use it for additional validation
           const filterClientId = clientId || req.user.id;
 
           // Verify the requesting user owns these jobs
           if (clientId && clientId !== req.user.id) {
-            console.log(`Warning: Client ${req.user.id} attempted to access jobs for client ${clientId}`);
             return res.status(403).json({
               success: false,
               message: "Not authorized to view jobs from another client",
             });
           }
 
-          console.log(`Filtering jobs for client ID: ${filterClientId}`);
+          // console.log(`Filtering jobs for client ID: ${filterClientId}`);
           query.client = new mongoose.Types.ObjectId(filterClientId);
 
           // If status is provided, filter by status
@@ -250,7 +245,6 @@ exports.getJobs = async (req, res) => {
     } else {
       // For unauthenticated requests with mine=true parameter, return an error
       if (mine === "true") {
-        console.log("Unauthorized request tried to access client-specific jobs");
         return res.status(401).json({
           success: false,
           message: "Authentication required to view your jobs",
@@ -262,7 +256,7 @@ exports.getJobs = async (req, res) => {
     }
 
     // Log the final query for debugging
-    console.log("Final query:", JSON.stringify(query));
+    // console.log("Final query:", JSON.stringify(query));
 
     const jobs = await Job.find(query)
       .populate("client", "name avatar email")
@@ -284,7 +278,7 @@ exports.getJobs = async (req, res) => {
     );
 
     // Log the number of jobs found
-    console.log(`Found ${jobsWithProposalCounts.length} jobs matching the query`);
+    // console.log(`Found ${jobsWithProposalCounts.length} jobs matching the query`);
 
     // Always return an array of jobs, even if empty
     res.json({
@@ -293,7 +287,6 @@ exports.getJobs = async (req, res) => {
       data: { jobs: jobsWithProposalCounts || [] },
     });
   } catch (err) {
-    console.error("Error in getJobs:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -318,7 +311,7 @@ exports.getJob = async (req, res) => {
     // Check if user is authenticated
     if (req.user) {
       // Log for debugging
-      console.log(`Job client ID: ${job.client._id}, User ID: ${req.user.id}`);
+      // console.log(`Job client ID: ${job.client._id}, User ID: ${req.user.id}`);
 
       // If user is a client, they should only access their own jobs
       if (req.user.role === "client") {
@@ -329,7 +322,6 @@ exports.getJob = async (req, res) => {
         if (jobClientId !== userId) {
           // If it's not the client's job and it's not an open job, deny access
           if (job.status !== "open") {
-            console.log("Access denied: Client attempting to view another client's non-open job");
             return res.status(403).json({
               success: false,
               message: "Not authorized to view this job",
@@ -337,7 +329,6 @@ exports.getJob = async (req, res) => {
           }
 
           // If it's an open job from another client, they can see basic details but not proposals
-          console.log("Returning limited job info for another client's open job");
           const basicJobInfo = {
             _id: job._id,
             title: job.title,
@@ -390,7 +381,6 @@ exports.getJob = async (req, res) => {
       data: { job: responseJob },
     });
   } catch (err) {
-    console.error("Error in getJob:", err.message);
 
     if (err.kind === "ObjectId") {
       return res.status(404).json({
@@ -490,7 +480,6 @@ exports.updateJob = async (req, res) => {
       data: { job },
     });
   } catch (err) {
-    console.error("Error in updateJob:", err.message);
 
     if (err.kind === "ObjectId") {
       return res.status(404).json({ success: false, message: "Job not found" });
@@ -533,7 +522,6 @@ exports.deleteJob = async (req, res) => {
       data: {},
     });
   } catch (err) {
-    console.error("Error in deleteJob:", err.message);
 
     if (err.kind === "ObjectId") {
       return res.status(404).json({ success: false, message: "Job not found" });
@@ -644,7 +632,6 @@ exports.submitProposal = async (req, res) => {
         await emailService.sendNewProposalNotification(client, freelancer, job, newProposal);
       }
     } catch (emailError) {
-      console.error("Error sending new proposal notification:", emailError);
       // Don't fail the proposal submission if email fails
     }
 
@@ -653,7 +640,6 @@ exports.submitProposal = async (req, res) => {
       data: { proposal: newProposal },
     });
   } catch (err) {
-    console.error("Error in submitProposal:", err.message);
 
     if (err.kind === "ObjectId") {
       return res.status(404).json({ success: false, message: "Job not found" });
@@ -692,7 +678,6 @@ exports.getProposals = async (req, res) => {
       data: { proposals },
     });
   } catch (err) {
-    console.error("Error in getProposals:", err.message);
 
     if (err.kind === "ObjectId") {
       return res.status(404).json({ success: false, message: "Job not found" });
@@ -751,7 +736,7 @@ exports.updateProposalStatus = async (req, res) => {
         });
       }
 
-      // Create a project for the accepted freelancer
+      // Create a project for the accepted freelancer WITHOUT default milestones
       const project = new Project({
         title: job.title,
         description: job.description,
@@ -765,9 +750,10 @@ exports.updateProposalStatus = async (req, res) => {
         status: "pending", // Start as pending until escrow is created
         job: job._id,
         escrowStatus: "none",
+        milestones: [], // Initialize with empty milestones - client will create them manually
       });
 
-      console.log("project", project);
+      // console.log("project", project);
       await project.save();
 
       // Call the escrow service to create escrow and handle refund
@@ -796,7 +782,6 @@ exports.updateProposalStatus = async (req, res) => {
         await escrowController.createEscrow(escrowReq, escrowRes);
 
         if (escrowResult && escrowResult.success) {
-          console.log("✅ Escrow created successfully with refund handling");
 
           // Update project status to in_progress since escrow is now created
           project.status = "in_progress";
@@ -806,7 +791,6 @@ exports.updateProposalStatus = async (req, res) => {
           throw new Error("Escrow creation failed");
         }
       } catch (escrowError) {
-        console.error("❌ Escrow creation failed:", escrowError);
         // Delete the project since escrow creation failed
         await Project.findByIdAndDelete(project._id);
         throw new Error("Failed to create escrow for project");
@@ -836,7 +820,6 @@ exports.updateProposalStatus = async (req, res) => {
           await emailService.sendFreelancerHiredNotification(client, freelancer, project);
         }
       } catch (emailError) {
-        console.error("Error sending proposal acceptance notifications:", emailError);
         // Don't fail the proposal acceptance if email fails
       }
 
@@ -864,7 +847,6 @@ exports.updateProposalStatus = async (req, res) => {
         await emailService.sendProposalStatusNotification(freelancer, job, proposal, oldStatus);
       }
     } catch (emailError) {
-      console.error("Error sending proposal status notification:", emailError);
       // Don't fail the proposal update if email fails
     }
 
@@ -873,7 +855,6 @@ exports.updateProposalStatus = async (req, res) => {
       data: { proposal },
     });
   } catch (err) {
-    console.error("Error in updateProposalStatus:", err.message);
 
     if (err.kind === "ObjectId") {
       return res.status(404).json({ success: false, message: "Job or proposal not found" });
@@ -968,7 +949,6 @@ exports.publishJob = async (req, res) => {
         });
       }
     } catch (budgetError) {
-      console.error("Budget blocking error:", budgetError);
       return res.status(400).json({
         success: false,
         message: "Failed to block budget for job publication",
@@ -976,7 +956,6 @@ exports.publishJob = async (req, res) => {
       });
     }
   } catch (err) {
-    console.error("Error in publishJob:", err.message);
 
     if (err.kind === "ObjectId") {
       return res.status(404).json({ success: false, message: "Job not found" });
@@ -1061,7 +1040,6 @@ exports.getAllJobsForAdmin = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error in getAllJobsForAdmin:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching jobs for admin",
@@ -1095,7 +1073,6 @@ exports.getJobCountsByCategory = async (req, res) => {
       data: formattedCounts,
     });
   } catch (error) {
-    console.error("Error in getJobCountsByCategory:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching job counts by category",
@@ -1182,7 +1159,6 @@ const getAllJobs = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error in getAllJobs:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching jobs",

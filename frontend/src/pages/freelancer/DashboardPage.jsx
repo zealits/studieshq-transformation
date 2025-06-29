@@ -39,6 +39,7 @@ const DashboardPage = () => {
     allProjects?.filter((p) => p.status === "completed")?.reduce((sum, project) => sum + (project.budget || 0), 0) || 0;
 
   // Calculate pending earnings from completed milestones in active projects
+  // FIXED: Use net amounts that freelancer actually receives after platform fees
   const pendingEarnings =
     allProjects
       ?.filter((p) => p.status === "in_progress")
@@ -48,7 +49,11 @@ const DashboardPage = () => {
             sum +
             project.milestones
               .filter((m) => m.status === "completed")
-              .reduce((milestoneSum, m) => milestoneSum + (m.percentage / 100) * (project.budget || 0), 0)
+              .reduce((milestoneSum, m) => {
+                const grossAmount = (m.percentage / 100) * (project.budget || 0);
+                const netAmount = grossAmount - grossAmount * 0.1; // Subtract 10% platform fee
+                return milestoneSum + netAmount;
+              }, 0)
           );
         }
         return sum;

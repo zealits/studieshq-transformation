@@ -12,38 +12,50 @@ const PaymentsPage = () => {
   const { user } = useSelector((state) => state.auth);
 
   // Load real escrow and transaction data
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        console.log("🖥️ CLIENT PAYMENTS PAGE: Loading data for user:", user?.id);
-        setLoading(true);
-        const response = await escrowService.getClientEscrowData();
-        console.log("🖥️ CLIENT PAYMENTS PAGE: Data loaded successfully:", response.data);
-        setEscrowData(response.data);
-      } catch (error) {
-        console.error("🖥️ CLIENT PAYMENTS PAGE: Error loading payment data:", error);
-        toast.error("❌ Failed to load payment data", {
-          duration: 4000,
-        });
-        // Set default empty data on error
-        setEscrowData({
-          availableBalance: 0,
-          totalSpent: 0,
-          inEscrow: 0,
-          platformFeesPaid: 0,
-          pendingProjects: 0,
-          activeEscrows: [],
-          recentTransactions: [],
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadData = async () => {
+    try {
+      console.log("🖥️ CLIENT PAYMENTS PAGE: Loading data for user:", user?.id);
+      setLoading(true);
+      const response = await escrowService.getClientEscrowData();
+      console.log("🖥️ CLIENT PAYMENTS PAGE: Data loaded successfully:", response.data);
+      setEscrowData(response.data);
+    } catch (error) {
+      console.error("🖥️ CLIENT PAYMENTS PAGE: Error loading payment data:", error);
+      toast.error("❌ Failed to load payment data", {
+        duration: 4000,
+      });
+      // Set default empty data on error
+      setEscrowData({
+        availableBalance: 0,
+        totalSpent: 0,
+        inEscrow: 0,
+        platformFeesPaid: 0,
+        activeProjects: 0,
+        activeEscrows: [],
+        recentTransactions: [],
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     if (user) {
       loadData();
     }
   }, [user]);
+
+  // Auto-refresh payment data every 30 seconds to catch updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (user && !loading) {
+        console.log("🔄 CLIENT PAYMENTS: Auto-refreshing payment data...");
+        loadData();
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [user, loading]);
 
   const handleAddFundsSuccess = async (result) => {
     try {
@@ -129,9 +141,18 @@ const PaymentsPage = () => {
             <span className="block text-sm text-gray-500">In Escrow</span>
             <span className="block text-xl font-bold text-blue-600">{formatCurrency(escrowData?.inEscrow)}</span>
           </div>
-          <button className="btn-primary" onClick={() => setShowAddFundsModal(true)}>
-            Add Funds
-          </button>
+          <div className="flex space-x-3">
+            <button
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              onClick={() => loadData()}
+              disabled={loading}
+            >
+              {loading ? "Refreshing..." : "🔄 Refresh"}
+            </button>
+            <button className="btn-primary" onClick={() => setShowAddFundsModal(true)}>
+              Add Funds
+            </button>
+          </div>
         </div>
       </div>
 
@@ -154,7 +175,7 @@ const PaymentsPage = () => {
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-sm font-medium text-gray-500 mb-1">Active Projects</h3>
-          <p className="text-2xl font-bold text-green-600">{escrowData?.pendingProjects || 0}</p>
+          <p className="text-2xl font-bold text-green-600">{escrowData?.activeProjects || 0}</p>
           <p className="text-xs text-gray-500 mt-1">Projects in progress</p>
         </div>
       </div>

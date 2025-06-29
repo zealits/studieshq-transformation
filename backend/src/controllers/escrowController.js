@@ -237,6 +237,7 @@ exports.createEscrow = async (req, res) => {
     console.log(`🎯 MILESTONE PROCESSING:`);
     console.log(`  ├─ Project has ${project.milestones ? project.milestones.length : 0} milestones`);
 
+    // FIXED: Do not create default milestones - let client create them manually
     if (project.milestones && project.milestones.length > 0) {
       console.log(
         `  ├─ Existing milestones:`,
@@ -247,25 +248,12 @@ exports.createEscrow = async (req, res) => {
         }))
       );
     } else {
-      console.log(`  ├─ No milestones found - creating default milestone`);
-
-      // Create a default milestone for the project if none exist
-      const defaultMilestone = {
-        _id: new mongoose.Types.ObjectId(),
-        title: "Project Completion",
-        description: "Complete the project deliverables",
-        percentage: 100,
-        status: "pending",
-        amount: agreedAmount,
-        createdBy: req.user.id,
-        dueDate: project.deadline || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      };
-
-      project.milestones = [defaultMilestone];
-      console.log(`  ├─ Created default milestone: ${defaultMilestone.title}`);
+      console.log(`  ├─ No milestones found - client will create them manually`);
+      // Initialize empty milestones array - no default milestone creation
+      project.milestones = [];
     }
 
-    // Calculate milestone amounts based on percentages
+    // Calculate milestone amounts based on percentages (empty array if no milestones)
     const milestones = (project.milestones || []).map((milestone) => ({
       milestoneId: milestone._id,
       title: milestone.title,
@@ -275,7 +263,9 @@ exports.createEscrow = async (req, res) => {
       status: "pending",
     }));
 
-    console.log(`  └─ Created ${milestones.length} escrow milestones from project milestones`);
+    console.log(
+      `  └─ Created ${milestones.length} escrow milestones from project milestones (${project.milestones.length} project milestones)`
+    );
 
     // Create escrow record
     const escrow = new Escrow({
@@ -401,6 +391,22 @@ exports.releaseMilestonePayment = async (req, res) => {
 
     console.log(`✅ Found project: ${project.title}, Status: ${project.status}`);
 
+    // Authorization check: Only project client or admin can release milestone payments
+    const isProjectClient = project.client.toString() === req.user.id;
+    const isAdmin = req.user.role === "admin";
+
+    if (!isProjectClient && !isAdmin) {
+      console.log(
+        `❌ Unauthorized: User ${req.user.id} is not the client of project ${projectId} (client: ${project.client})`
+      );
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized. Only the project client or admin can release milestone payments.",
+      });
+    }
+
+    console.log(`✅ Authorization passed: ${isAdmin ? "Admin" : "Project Client"} access`);
+
     const escrow = await Escrow.findOne({ project: projectId }).session(session);
     if (!escrow) {
       console.log(`❌ Escrow not found for project: ${projectId}`);
@@ -412,39 +418,54 @@ exports.releaseMilestonePayment = async (req, res) => {
     // CRITICAL FIX: Sync escrow milestones with project milestones BEFORE payment release
     console.log(`🔄 CRITICAL: Syncing escrow milestones with project milestones BEFORE payment release...`);
     const syncResult = await syncEscrowMilestones(projectId, session);
+
+    // ALWAYS get fresh escrow data after sync attempt to avoid version conflicts
+    console.log(`🔄 Getting fresh escrow data to avoid version conflicts...`);
+    const freshEscrow = await Escrow.findOne({ project: projectId }).session(session);
+    if (!freshEscrow) {
+      console.log(`❌ Failed to get fresh escrow data`);
+      return res.status(404).json({ success: false, message: "Escrow not found after sync" });
+    }
+
+    // Use the fresh escrow document for the rest of the operation
+    const escrowToUse = freshEscrow;
+    console.log(
+      `📊 Fresh escrow data loaded - Version: ${escrowToUse.__v}, Milestones: ${escrowToUse.milestones.length}`
+    );
+
     if (syncResult) {
-      console.log(`✅ Escrow milestones synchronized - refreshing escrow data`);
-      // Refresh escrow data after sync
-      const refreshedEscrow = await Escrow.findOne({ project: projectId }).session(session);
-      if (refreshedEscrow) {
-        // Update the escrow object with fresh data
-        escrow.milestones = refreshedEscrow.milestones;
-        escrow.amountToFreelancer = refreshedEscrow.amountToFreelancer;
-        escrow.platformRevenue = refreshedEscrow.platformRevenue;
-        console.log(`📊 Escrow data refreshed - now has ${escrow.milestones.length} milestones`);
-      }
+      console.log(`✅ Escrow milestones synchronized successfully`);
     } else {
-      console.log(`✅ No sync needed - escrow already has correct milestone structure`);
+      console.log(`✅ No sync needed - escrow already had correct milestone structure`);
+    }
+
+    // Check if project/escrow has any milestones
+    if (!escrowToUse.milestones || escrowToUse.milestones.length === 0) {
+      console.log(`❌ No milestones found in escrow - client must create milestones first`);
+      return res.status(400).json({
+        success: false,
+        message: "No milestones found. Please create project milestones before attempting to release payments.",
+      });
     }
 
     // Find the milestone in escrow
     console.log(`🔍 SEARCHING FOR MILESTONE IN ESCROW:`);
     console.log(`  ├─ Looking for milestone ID: ${milestoneId}`);
-    console.log(`  ├─ Escrow has ${escrow.milestones.length} milestones`);
+    console.log(`  ├─ Escrow has ${escrowToUse.milestones.length} milestones`);
 
-    escrow.milestones.forEach((m, index) => {
+    escrowToUse.milestones.forEach((m, index) => {
       console.log(
         `  ├─ Milestone ${index}: ${m.milestoneId.toString()} (${m.title || "No title"}) - Status: ${m.status}`
       );
       console.log(`  │   └─ Match: ${m.milestoneId.toString() === milestoneId ? "YES" : "NO"}`);
     });
 
-    const escrowMilestone = escrow.milestones.find((m) => m.milestoneId.toString() === milestoneId);
+    const escrowMilestone = escrowToUse.milestones.find((m) => m.milestoneId.toString() === milestoneId);
     if (!escrowMilestone) {
       console.log(`❌ Milestone not found in escrow: ${milestoneId}`);
       console.log(
         `Available milestones:`,
-        escrow.milestones.map((m) => ({
+        escrowToUse.milestones.map((m) => ({
           id: m.milestoneId.toString(),
           title: m.title || "No title",
           status: m.status,
@@ -478,13 +499,13 @@ exports.releaseMilestonePayment = async (req, res) => {
     }
 
     // Update freelancer wallet
-    let freelancerWallet = await Wallet.findOne({ user: escrow.freelancer }).session(session);
+    let freelancerWallet = await Wallet.findOne({ user: escrowToUse.freelancer }).session(session);
     const oldBalance = freelancerWallet ? freelancerWallet.balance : 0;
     const oldEarned = freelancerWallet ? freelancerWallet.totalEarned : 0;
 
     if (!freelancerWallet) {
-      freelancerWallet = new Wallet({ user: escrow.freelancer });
-      console.log(`💳 Created new wallet for freelancer ${escrow.freelancer}`);
+      freelancerWallet = new Wallet({ user: escrowToUse.freelancer });
+      console.log(`💳 Created new wallet for freelancer ${escrowToUse.freelancer}`);
     }
 
     freelancerWallet.balance += escrowMilestone.freelancerReceives;
@@ -502,7 +523,7 @@ exports.releaseMilestonePayment = async (req, res) => {
     // Create transaction record for freelancer payment
     const freelancerTransaction = new Transaction({
       transactionId: `MIL-${uuidv4().substring(0, 8)}`,
-      user: escrow.freelancer,
+      user: escrowToUse.freelancer,
       amount: escrowMilestone.amount,
       fee: escrowMilestone.platformFee,
       netAmount: escrowMilestone.freelancerReceives,
@@ -510,11 +531,11 @@ exports.releaseMilestonePayment = async (req, res) => {
       status: "completed",
       project: projectId,
       milestone: milestoneId,
-      recipient: escrow.freelancer,
-      relatedUser: escrow.client,
+      recipient: escrowToUse.freelancer,
+      relatedUser: escrowToUse.client,
       description: `Milestone payment: ${projectMilestone.title}`,
       metadata: {
-        escrowId: escrow.escrowId,
+        escrowId: escrowToUse.escrowId,
         milestoneTitle: projectMilestone.title,
         percentage: projectMilestone.percentage,
       },
@@ -526,7 +547,7 @@ exports.releaseMilestonePayment = async (req, res) => {
     // Create transaction record for client (milestone payment deduction from escrow)
     const clientTransaction = new Transaction({
       transactionId: `MIL-CLT-${uuidv4().substring(0, 8)}`,
-      user: escrow.client,
+      user: escrowToUse.client,
       amount: escrowMilestone.amount,
       fee: 0, // Client doesn't pay additional fee at milestone release
       netAmount: escrowMilestone.amount,
@@ -534,11 +555,11 @@ exports.releaseMilestonePayment = async (req, res) => {
       status: "completed",
       project: projectId,
       milestone: milestoneId,
-      recipient: escrow.freelancer,
-      relatedUser: escrow.freelancer,
+      recipient: escrowToUse.freelancer,
+      relatedUser: escrowToUse.freelancer,
       description: `Milestone payment released: ${projectMilestone.title}`,
       metadata: {
-        escrowId: escrow.escrowId,
+        escrowId: escrowToUse.escrowId,
         milestoneTitle: projectMilestone.title,
         percentage: projectMilestone.percentage,
         freelancerReceived: escrowMilestone.freelancerReceives,
@@ -557,10 +578,10 @@ exports.releaseMilestonePayment = async (req, res) => {
     console.log(`✅ Updated milestone status to 'released'`);
 
     // Update escrow totals
-    const oldReleasedAmount = escrow.releasedAmount;
-    escrow.releasedAmount += escrowMilestone.amount;
+    const oldReleasedAmount = escrowToUse.releasedAmount;
+    escrowToUse.releasedAmount += escrowMilestone.amount;
     console.log(
-      `📊 Escrow released amount: $${oldReleasedAmount} + $${escrowMilestone.amount} = $${escrow.releasedAmount}`
+      `📊 Escrow released amount: $${oldReleasedAmount} + $${escrowMilestone.amount} = $${escrowToUse.releasedAmount}`
     );
 
     // Check if all PROJECT milestones are completed using the new completion check
@@ -573,7 +594,7 @@ exports.releaseMilestonePayment = async (req, res) => {
       console.log(`🎯 ALL MILESTONES RELEASED - Completing escrow and project`);
 
       // Mark escrow as completed
-      escrow.status = "completed";
+      escrowToUse.status = "completed";
       console.log(`✅ Escrow status updated to 'completed'`);
 
       // Mark project as completed
@@ -585,33 +606,33 @@ exports.releaseMilestonePayment = async (req, res) => {
       // Create final transaction record showing escrow completion
       const escrowCompletionTransaction = new Transaction({
         transactionId: `ESC-COMP-${uuidv4().substring(0, 8)}`,
-        user: escrow.client,
-        amount: escrow.totalAmount,
-        fee: escrow.platformRevenue,
-        netAmount: escrow.amountToFreelancer,
+        user: escrowToUse.client,
+        amount: escrowToUse.totalAmount,
+        fee: escrowToUse.platformRevenue,
+        netAmount: escrowToUse.amountToFreelancer,
         type: "escrow_completion",
         status: "completed",
         project: projectId,
-        recipient: escrow.freelancer,
-        relatedUser: escrow.freelancer,
+        recipient: escrowToUse.freelancer,
+        relatedUser: escrowToUse.freelancer,
         description: `Escrow completed - Project: ${project.title}`,
         metadata: {
-          escrowId: escrow.escrowId,
+          escrowId: escrowToUse.escrowId,
           projectTitle: project.title,
-          totalMilestones: escrow.milestones.length,
-          platformRevenue: escrow.platformRevenue,
-          freelancerTotalReceived: escrow.amountToFreelancer,
+          totalMilestones: escrowToUse.milestones.length,
+          platformRevenue: escrowToUse.platformRevenue,
+          freelancerTotalReceived: escrowToUse.amountToFreelancer,
         },
       });
 
       await escrowCompletionTransaction.save({ session });
       console.log(`📋 Created escrow completion transaction: ${escrowCompletionTransaction.transactionId}`);
     } else {
-      escrow.status = "partially_released";
+      escrowToUse.status = "partially_released";
       console.log(`🔄 Escrow status updated to 'partially_released'`);
     }
 
-    await escrow.save({ session });
+    await escrowToUse.save({ session });
     await project.save({ session });
     console.log(`💾 Saved escrow and project changes`);
 
@@ -622,8 +643,8 @@ exports.releaseMilestonePayment = async (req, res) => {
     // Send email notifications after successful payment release
     try {
       // Get client and freelancer details
-      const client = await User.findById(escrow.client);
-      const freelancer = await User.findById(escrow.freelancer);
+      const client = await User.findById(escrowToUse.client);
+      const freelancer = await User.findById(escrowToUse.freelancer);
 
       if (client && freelancer) {
         console.log(`📧 Sending email notifications for payment release...`);
@@ -631,36 +652,31 @@ exports.releaseMilestonePayment = async (req, res) => {
         // Send escrow payment release notifications
         await Promise.all([
           emailService.sendEscrowPaymentReleaseNotification(
-            freelancer, 
-            client, 
-            project, 
-            projectMilestone, 
+            freelancer,
+            client,
+            project,
+            projectMilestone,
             freelancerTransaction
           ),
           emailService.sendClientEscrowPaymentNotification(
-            client, 
-            freelancer, 
-            project, 
-            projectMilestone, 
+            client,
+            freelancer,
+            project,
+            projectMilestone,
             clientTransaction
-          )
+          ),
         ]);
 
         // If project is completed, send completion notifications
         if (allMilestonesReleased) {
           const escrowData = {
-            totalAmount: escrow.totalAmount,
-            amountToFreelancer: escrow.amountToFreelancer,
-            platformRevenue: escrow.platformRevenue
+            totalAmount: escrowToUse.totalAmount,
+            amountToFreelancer: escrowToUse.amountToFreelancer,
+            platformRevenue: escrowToUse.platformRevenue,
           };
 
-          await emailService.sendEscrowCompletionNotification(
-            client, 
-            freelancer, 
-            project, 
-            escrowData
-          );
-          
+          await emailService.sendEscrowCompletionNotification(client, freelancer, project, escrowData);
+
           console.log(`📧 Project completion notifications sent`);
         }
 
@@ -672,12 +688,12 @@ exports.releaseMilestonePayment = async (req, res) => {
     }
 
     const finalStatus = {
-      escrowStatus: escrow.status,
+      escrowStatus: escrowToUse.status,
       projectCompleted: allMilestonesReleased,
-      totalReleasedToFreelancer: escrow.milestones
+      totalReleasedToFreelancer: escrowToUse.milestones
         .filter((m) => m.status === "released")
         .reduce((sum, m) => sum + m.freelancerReceives, 0),
-      remainingInEscrow: escrow.milestones
+      remainingInEscrow: escrowToUse.milestones
         .filter((m) => m.status === "pending")
         .reduce((sum, m) => sum + m.freelancerReceives, 0),
     };
@@ -691,12 +707,12 @@ exports.releaseMilestonePayment = async (req, res) => {
         : "Milestone payment released successfully",
       data: {
         transaction: freelancerTransaction,
-        escrowStatus: escrow.status,
+        escrowStatus: escrowToUse.status,
         projectCompleted: allMilestonesReleased,
-        totalReleasedToFreelancer: escrow.milestones
+        totalReleasedToFreelancer: escrowToUse.milestones
           .filter((m) => m.status === "released")
           .reduce((sum, m) => sum + m.freelancerReceives, 0),
-        remainingInEscrow: escrow.milestones
+        remainingInEscrow: escrowToUse.milestones
           .filter((m) => m.status === "pending")
           .reduce((sum, m) => sum + m.freelancerReceives, 0),
       },
@@ -818,11 +834,14 @@ exports.getFreelancerEscrowData = async (req, res) => {
       (escrow) => escrow.status === "active" || escrow.status === "partially_released"
     );
 
-    // Calculate total in escrow (what freelancer will receive for pending milestones)
+    // FIXED: Calculate total in escrow (what freelancer will receive for pending milestones)
     const inEscrow = activeEscrows.reduce((total, escrow) => {
-      const unreleased = escrow.milestones
-        .filter((m) => m.status === "pending")
-        .reduce((sum, m) => sum + (m.freelancerReceives || 0), 0);
+      const pendingMilestones = escrow.milestones.filter((m) => m.status === "pending");
+      const unreleased = pendingMilestones.reduce((sum, m) => sum + (m.freelancerReceives || 0), 0);
+
+      console.log(
+        `Freelancer Escrow ${escrow.escrowId}: ${pendingMilestones.length} pending milestones = $${unreleased}`
+      );
       return total + unreleased;
     }, 0);
 
@@ -855,10 +874,20 @@ exports.getFreelancerEscrowData = async (req, res) => {
       // console.log(`  └─ Status: ${escrow.status}`);
     });
 
-    // Count pending milestones
+    // FIXED: Count pending milestones (only from active escrows)
     const pendingMilestones = activeEscrows.reduce((count, escrow) => {
-      return count + escrow.milestones.filter((m) => m.status === "pending").length;
+      const pending = escrow.milestones.filter((m) => m.status === "pending").length;
+      console.log(`Escrow ${escrow.escrowId}: ${pending} pending milestones`);
+      return count + pending;
     }, 0);
+
+    console.log(`💼 FREELANCER PAYMENT SUMMARY:`);
+    console.log(`  ├─ Available Balance: $${availableBalance}`);
+    console.log(`  ├─ Total Earned: $${totalEarned}`);
+    console.log(`  ├─ In Escrow: $${inEscrow}`);
+    console.log(`  ├─ Platform Fees Paid: $${platformFeesPaid}`);
+    console.log(`  ├─ Pending Milestones: ${pendingMilestones}`);
+    console.log(`  └─ Active Escrows: ${activeEscrows.length}`);
 
     // Get recent transactions
     const recentTransactions = await Transaction.find({
@@ -922,7 +951,7 @@ exports.getClientEscrowData = async (req, res) => {
     const wallet = await Wallet.findOne({ user: clientId });
     const availableBalance = wallet ? wallet.balance : 0;
 
-    console.log(`📊 CLIENT ESCROW DATA REQUEST for user: ${clientId}`);
+    // console.log(`📊 CLIENT ESCROW DATA REQUEST for user: ${clientId}`);
 
     // Get all escrows for client with freelancer data populated
     const allEscrows = await Escrow.find({
@@ -931,39 +960,42 @@ exports.getClientEscrowData = async (req, res) => {
       .populate("project", "title status")
       .populate("freelancer", "name email");
 
-    console.log(`📋 Found ${allEscrows.length} total escrows for client`);
+    // console.log(`📋 Found ${allEscrows.length} total escrows for client`);
 
     // Get active escrows for client
     const activeEscrows = allEscrows.filter(
       (escrow) => escrow.status === "active" || escrow.status === "partially_released"
     );
 
-    console.log(
-      `🔄 Active escrows: ${activeEscrows.length}, Completed escrows: ${
-        allEscrows.filter((e) => e.status === "completed").length
-      }`
-    );
+    // console.log(
+    //   `🔄 Active escrows: ${activeEscrows.length}, Completed escrows: ${
+    //     allEscrows.filter((e) => e.status === "completed").length
+    //   }`
+    // );
 
-    // Calculate total spent (completed escrows)
-    const totalSpent = allEscrows
-      .filter((escrow) => escrow.status === "completed")
-      .reduce((total, escrow) => total + (escrow.totalAmount || 0), 0);
+    // FIXED: Calculate total spent (all escrows where client has paid money)
+    // This includes completed projects AND released amounts from active projects
+    const totalSpent = allEscrows.reduce((total, escrow) => {
+      if (escrow.status === "completed") {
+        // For completed projects, count the full amount
+        return total + (escrow.totalAmount || 0);
+      } else {
+        // For active projects, count only the released amount so far
+        const releasedAmount = escrow.milestones
+          .filter((m) => m.status === "released")
+          .reduce((sum, m) => sum + (m.amount || 0), 0);
+        return total + releasedAmount;
+      }
+    }, 0);
 
-    console.log(`💸 Total spent calculation: $${totalSpent}`);
+    console.log(`💸 CLIENT TOTAL SPENT: $${totalSpent}`);
 
-    // Calculate total in escrow (pending payments that client has committed)
-    // This represents money the client has committed but not yet released to freelancers
+    // FIXED: Calculate total in escrow (only pending milestones from active projects)
     const inEscrow = activeEscrows.reduce((total, escrow) => {
       const pendingMilestones = escrow.milestones.filter((m) => m.status === "pending");
-      const releasedMilestones = escrow.milestones.filter((m) => m.status === "released");
       const unreleased = pendingMilestones.reduce((sum, m) => sum + (m.amount || 0), 0);
-      const released = releasedMilestones.reduce((sum, m) => sum + (m.amount || 0), 0);
 
-      console.log(`Escrow ${escrow.escrowId}: ${escrow.milestones.length} total milestones`);
-      console.log(`  ├─ ${pendingMilestones.length} pending milestones = $${unreleased}`);
-      console.log(`  ├─ ${releasedMilestones.length} released milestones = $${released}`);
-      console.log(`  └─ Status: ${escrow.status}`);
-
+      console.log(`Client Escrow ${escrow.escrowId}: ${pendingMilestones.length} pending milestones = $${unreleased}`);
       return total + unreleased;
     }, 0);
 
@@ -973,16 +1005,32 @@ exports.getClientEscrowData = async (req, res) => {
     // console.log(`  ├─ In Escrow: $${inEscrow}`);
     // console.log(`  └─ Active Escrows: ${activeEscrows.length}`);
 
-    // Calculate platform fees paid (both client and total platform revenue)
-    const platformFeesPaid = allEscrows
-      .filter((escrow) => escrow.status === "completed")
-      .reduce((total, escrow) => total + (escrow.platformRevenue || 0), 0);
+    // FIXED: Calculate platform fees paid (from all released milestones + completed escrows)
+    const platformFeesPaid = allEscrows.reduce((total, escrow) => {
+      if (escrow.status === "completed") {
+        // For completed projects, count full platform revenue
+        return total + (escrow.platformRevenue || 0);
+      } else {
+        // For active projects, count platform fees from released milestones only
+        const releasedPlatformFees = escrow.milestones
+          .filter((m) => m.status === "released")
+          .reduce((sum, m) => sum + (m.platformFee || 0), 0);
+        return total + releasedPlatformFees;
+      }
+    }, 0);
 
-    // Count pending projects
-    const pendingProjects = await Project.countDocuments({
+    // FIXED: Count active projects (in_progress status)
+    const activeProjects = await Project.countDocuments({
       client: clientId,
       status: "in_progress",
     });
+
+    console.log(`💰 CLIENT PAYMENT SUMMARY:`);
+    console.log(`  ├─ Available Balance: $${availableBalance}`);
+    console.log(`  ├─ Total Spent: $${totalSpent}`);
+    console.log(`  ├─ In Escrow: $${inEscrow}`);
+    console.log(`  ├─ Platform Fees Paid: $${platformFeesPaid}`);
+    console.log(`  └─ Active Projects: ${activeProjects}`);
 
     // Get recent transactions
     const recentTransactions = await Transaction.find({
@@ -1001,7 +1049,7 @@ exports.getClientEscrowData = async (req, res) => {
         totalSpent,
         inEscrow,
         platformFeesPaid,
-        pendingProjects,
+        activeProjects,
         activeEscrows: activeEscrows.map((escrow) => ({
           escrowId: escrow.escrowId,
           projectTitle: escrow.project?.title || "Unknown Project",

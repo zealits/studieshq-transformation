@@ -35,7 +35,7 @@ const checkProjectCompletion = (project) => {
  * @param {string} operation - Type of operation (freelancer, client, both)
  * @returns {Object} - { authorized: boolean, message: string, role: string }
  */
-const checkProjectAuthorization = (project, user, operation = 'freelancer') => {
+const checkProjectAuthorization = (project, user, operation = "freelancer") => {
   if (!project) {
     return { authorized: false, message: "Project not found", role: null };
   }
@@ -46,72 +46,72 @@ const checkProjectAuthorization = (project, user, operation = 'freelancer') => {
 
   const isClient = project.client && project.client.toString() === user.id;
   const isFreelancer = project.freelancer && project.freelancer.toString() === user.id;
-  const isAdmin = user.role === 'admin';
+  const isAdmin = user.role === "admin";
 
   console.log(`🔐 AUTHORIZATION CHECK:`);
   console.log(`  ├─ Operation: ${operation}`);
   console.log(`  ├─ User ID: ${user.id} (${user.role})`);
   console.log(`  ├─ Project Client: ${project.client}`);
-  console.log(`  ├─ Project Freelancer: ${project.freelancer || 'Not assigned'}`);
+  console.log(`  ├─ Project Freelancer: ${project.freelancer || "Not assigned"}`);
   console.log(`  ├─ Is Client: ${isClient}`);
   console.log(`  ├─ Is Freelancer: ${isFreelancer}`);
   console.log(`  └─ Is Admin: ${isAdmin}`);
 
   switch (operation) {
-    case 'freelancer':
+    case "freelancer":
       if (!project.freelancer) {
-        return { 
-          authorized: false, 
-          message: "No freelancer assigned to this project yet", 
-          role: null 
+        return {
+          authorized: false,
+          message: "No freelancer assigned to this project yet",
+          role: null,
         };
       }
       if (isFreelancer || isAdmin) {
-        return { 
-          authorized: true, 
-          message: "Authorized", 
-          role: isAdmin ? 'admin' : 'freelancer' 
+        return {
+          authorized: true,
+          message: "Authorized",
+          role: isAdmin ? "admin" : "freelancer",
         };
       }
-      return { 
-        authorized: false, 
-        message: `Not authorized. You are not the assigned freelancer for this project. Expected: ${project.freelancer}, Got: ${user.id}`, 
-        role: user.role 
+      return {
+        authorized: false,
+        message: `Not authorized. You are not the assigned freelancer for this project. Expected: ${project.freelancer}, Got: ${user.id}`,
+        role: user.role,
       };
 
-    case 'client':
+    case "client":
       if (isClient || isAdmin) {
-        return { 
-          authorized: true, 
-          message: "Authorized", 
-          role: isAdmin ? 'admin' : 'client' 
+        return {
+          authorized: true,
+          message: "Authorized",
+          role: isAdmin ? "admin" : "client",
         };
       }
-      return { 
-        authorized: false, 
-        message: "Not authorized. You are not the client for this project.", 
-        role: user.role 
+      return {
+        authorized: false,
+        message: "Not authorized. You are not the client for this project.",
+        role: user.role,
       };
 
-    case 'both':
+    case "both":
       if (isClient || isFreelancer || isAdmin) {
-        return { 
-          authorized: true, 
-          message: "Authorized", 
-          role: isAdmin ? 'admin' : (isClient ? 'client' : 'freelancer') 
+        return {
+          authorized: true,
+          message: "Authorized",
+          role: isAdmin ? "admin" : isClient ? "client" : "freelancer",
         };
       }
-      return { 
-        authorized: false, 
-        message: "Not authorized to access this project.", 
-        role: user.role 
+      return {
+        authorized: false,
+        message: "Not authorized to access this project.",
+        role: user.role,
       };
 
     default:
-      return { 
-        authorized: false, 
-        message: "Invalid operation type", 
-        role: user.role 
+      return {
+        authorized: false,
+        message: "Invalid operation type",
+        role: user.role,
       };
   }
 };
@@ -482,10 +482,27 @@ exports.updateMilestone = async (req, res) => {
     // Update milestone fields
     if (title) milestone.title = title;
     if (description) milestone.description = description;
-    if (percentage) milestone.percentage = percentage;
+    if (percentage) {
+      milestone.percentage = percentage;
+      // Recalculate amount based on new percentage
+      milestone.amount = (project.budget * percentage) / 100;
+    }
     if (dueDate) milestone.dueDate = dueDate;
 
     await project.save();
+
+    // CRITICAL FIX: Sync escrow milestones after project milestone update
+    try {
+      const { syncEscrowMilestones } = require("../utils/escrowSync");
+      console.log(`🔄 MILESTONE UPDATE: Syncing escrow after milestone update for project ${req.params.id}`);
+      const syncResult = await syncEscrowMilestones(req.params.id);
+      if (syncResult) {
+        console.log(`✅ Escrow milestones synchronized after milestone update`);
+      }
+    } catch (syncError) {
+      console.error("Error syncing escrow milestones after update:", syncError);
+      // Don't fail the milestone update if escrow sync fails, just log it
+    }
 
     res.json({
       success: true,
@@ -534,6 +551,19 @@ exports.addMilestone = async (req, res) => {
     project.milestones.push(milestone);
     await project.save();
 
+    // CRITICAL FIX: Sync escrow milestones after adding new milestone
+    try {
+      const { syncEscrowMilestones } = require("../utils/escrowSync");
+      console.log(`🔄 MILESTONE ADD: Syncing escrow after adding milestone to project ${req.params.id}`);
+      const syncResult = await syncEscrowMilestones(req.params.id);
+      if (syncResult) {
+        console.log(`✅ Escrow milestones synchronized after adding milestone`);
+      }
+    } catch (syncError) {
+      console.error("Error syncing escrow milestones after add:", syncError);
+      // Don't fail the milestone creation if escrow sync fails, just log it
+    }
+
     res.status(201).json({
       success: true,
       data: { milestone },
@@ -578,6 +608,19 @@ exports.deleteMilestone = async (req, res) => {
 
     project.milestones.pull(req.params.milestoneId);
     await project.save();
+
+    // CRITICAL FIX: Sync escrow milestones after deleting milestone
+    try {
+      const { syncEscrowMilestones } = require("../utils/escrowSync");
+      console.log(`🔄 MILESTONE DELETE: Syncing escrow after deleting milestone from project ${req.params.id}`);
+      const syncResult = await syncEscrowMilestones(req.params.id);
+      if (syncResult) {
+        console.log(`✅ Escrow milestones synchronized after deleting milestone`);
+      }
+    } catch (syncError) {
+      console.error("Error syncing escrow milestones after delete:", syncError);
+      // Don't fail the milestone deletion if escrow sync fails, just log it
+    }
 
     res.json({
       success: true,
@@ -638,6 +681,27 @@ exports.createMilestone = async (req, res) => {
 
     project.milestones.push(milestone);
     await project.save();
+
+    // CRITICAL FIX: Sync escrow milestones after creating new milestone
+    try {
+      const { syncEscrowMilestones } = require("../utils/escrowSync");
+      console.log(`🔄 MILESTONE CREATE: Syncing escrow after creating milestone for project ${req.params.id}`);
+
+      // Special handling for first milestone creation
+      const Escrow = require("../models/Escrow");
+      const escrow = await Escrow.findOne({ project: req.params.id });
+      if (escrow && escrow.milestones.length === 0) {
+        console.log(`📝 First milestone created - initializing escrow milestone structure`);
+      }
+
+      const syncResult = await syncEscrowMilestones(req.params.id);
+      if (syncResult) {
+        console.log(`✅ Escrow milestones synchronized after creating milestone`);
+      }
+    } catch (syncError) {
+      console.error("Error syncing escrow milestones after create:", syncError);
+      // Don't fail the milestone creation if escrow sync fails, just log it
+    }
 
     // Send email notification to freelancer about new milestone
     try {
@@ -743,17 +807,17 @@ exports.startMilestone = async (req, res) => {
     }
 
     // Use the robust authorization check
-    const authCheck = checkProjectAuthorization(project, req.user, 'freelancer');
+    const authCheck = checkProjectAuthorization(project, req.user, "freelancer");
     if (!authCheck.authorized) {
-      return res.status(403).json({ 
-        success: false, 
+      return res.status(403).json({
+        success: false,
         message: authCheck.message,
         debug: {
           projectFreelancer: project.freelancer?.toString() || null,
           currentUser: req.user.id,
           userRole: req.user.role,
-          operation: 'freelancer'
-        }
+          operation: "freelancer",
+        },
       });
     }
 
@@ -764,9 +828,9 @@ exports.startMilestone = async (req, res) => {
 
     // Check if milestone is in pending status
     if (milestone.status !== "pending") {
-      return res.status(400).json({ 
-        success: false, 
-        message: `Milestone is already ${milestone.status}. Only pending milestones can be started.` 
+      return res.status(400).json({
+        success: false,
+        message: `Milestone is already ${milestone.status}. Only pending milestones can be started.`,
       });
     }
 
@@ -1198,14 +1262,14 @@ exports.getMilestoneAttachments = async (req, res) => {
 
     const populatedMilestone = project.milestones.id(req.params.milestoneId);
 
-    console.log("Populated attachments:", {
-      attachmentCount: populatedMilestone.attachments?.length || 0,
-      attachments: populatedMilestone.attachments?.map((att) => ({
-        id: att._id,
-        filename: att.filename,
-        originalname: att.originalname,
-      })),
-    });
+    // console.log("Populated attachments:", {
+    //   attachmentCount: populatedMilestone.attachments?.length || 0,
+    //   attachments: populatedMilestone.attachments?.map((att) => ({
+    //     id: att._id,
+    //     filename: att.filename,
+    //     originalname: att.originalname,
+    //   })),
+    // });
 
     res.json({
       success: true,
@@ -1232,7 +1296,7 @@ exports.debugProjectAuth = async (req, res) => {
     const project = await Project.findById(req.params.id)
       .populate("client", "name email role")
       .populate("freelancer", "name email role");
-    
+
     if (!project) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
@@ -1244,12 +1308,12 @@ exports.debugProjectAuth = async (req, res) => {
         status: project.status,
         client: project.client,
         freelancer: project.freelancer,
-        createdAt: project.createdAt
+        createdAt: project.createdAt,
       },
       currentUser: {
         id: req.user.id,
         role: req.user.role,
-        email: req.user.email
+        email: req.user.email,
       },
       authorization: {
         isClient: project.client._id.toString() === req.user.id,
@@ -1259,20 +1323,22 @@ exports.debugProjectAuth = async (req, res) => {
           projectClientId: project.client._id.toString(),
           userIdType: typeof req.user.id,
           userId: req.user.id,
-          match: project.client._id.toString() === req.user.id
+          match: project.client._id.toString() === req.user.id,
         },
-        freelancerMatch: project.freelancer ? {
-          projectFreelancerId: project.freelancer._id.toString(),
-          userIdType: typeof req.user.id,
-          userId: req.user.id,
-          match: project.freelancer._id.toString() === req.user.id
-        } : null
-      }
+        freelancerMatch: project.freelancer
+          ? {
+              projectFreelancerId: project.freelancer._id.toString(),
+              userIdType: typeof req.user.id,
+              userId: req.user.id,
+              match: project.freelancer._id.toString() === req.user.id,
+            }
+          : null,
+      },
     };
 
     res.json({
       success: true,
-      data: debugInfo
+      data: debugInfo,
     });
   } catch (err) {
     console.error("Error in debugProjectAuth:", err.message);
@@ -1288,7 +1354,7 @@ exports.debugProjectAuth = async (req, res) => {
 exports.reassignProjectFreelancer = async (req, res) => {
   try {
     const { newFreelancerId } = req.body;
-    
+
     if (!newFreelancerId) {
       return res.status(400).json({ success: false, message: "New freelancer ID is required" });
     }
@@ -1305,7 +1371,7 @@ exports.reassignProjectFreelancer = async (req, res) => {
     }
 
     const oldFreelancerId = project.freelancer;
-    
+
     // Update project freelancer
     project.freelancer = newFreelancerId;
     await project.save();
@@ -1318,10 +1384,8 @@ exports.reassignProjectFreelancer = async (req, res) => {
 
     // Get user details for response
     const [oldFreelancer, updatedProject] = await Promise.all([
-      User.findById(oldFreelancerId).select('name email'),
-      Project.findById(req.params.id)
-        .populate("client", "name email")
-        .populate("freelancer", "name email")
+      User.findById(oldFreelancerId).select("name email"),
+      Project.findById(req.params.id).populate("client", "name email").populate("freelancer", "name email"),
     ]);
 
     res.json({
@@ -1330,8 +1394,8 @@ exports.reassignProjectFreelancer = async (req, res) => {
       data: {
         project: updatedProject,
         oldFreelancer: oldFreelancer,
-        newFreelancer: newFreelancer
-      }
+        newFreelancer: newFreelancer,
+      },
     });
   } catch (err) {
     console.error("Error in reassignProjectFreelancer:", err.message);

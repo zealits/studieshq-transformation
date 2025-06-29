@@ -39,10 +39,10 @@ router.post(
 
 // @route   POST /api/escrow/:projectId/milestones/:milestoneId/release
 // @desc    Release milestone payment from escrow
-// @access  Private (Admin only)
+// @access  Private (Client and Admin)
 router.post(
   "/:projectId/milestones/:milestoneId/release",
-  [auth, checkRole(["admin"])],
+  [auth, checkRole(["client", "admin"])],
   escrowController.releaseMilestonePayment
 );
 

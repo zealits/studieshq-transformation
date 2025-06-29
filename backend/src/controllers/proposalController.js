@@ -8,7 +8,7 @@ const proposalController = {
    * @access  Private (Freelancer only)
    */
   getFreelancerProposals: async (req, res) => {
-    console.log("hit");
+    // console.log("hit");
     try {
       const proposals = await Proposal.find({ freelancer: req.user.id })
         .populate({
@@ -26,7 +26,6 @@ const proposalController = {
         data: { proposals },
       });
     } catch (err) {
-      console.error("Error in getFreelancerProposals:", err.message);
       res.status(500).json({ success: false, message: "Server error" });
     }
   },
@@ -71,7 +70,6 @@ const proposalController = {
         data: {},
       });
     } catch (err) {
-      console.error("Error in withdrawProposal:", err.message);
       res.status(500).json({ success: false, message: "Server error" });
     }
   },

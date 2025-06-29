@@ -20,7 +20,6 @@ exports.getPaymentMethods = async (req, res) => {
       data: paymentMethods,
     });
   } catch (error) {
-    console.error("Error fetching payment methods:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -43,7 +42,6 @@ exports.addPaymentMethod = async (req, res) => {
       data: paymentMethod,
     });
   } catch (error) {
-    console.error("Error adding payment method:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -82,7 +80,6 @@ exports.deletePaymentMethod = async (req, res) => {
       data: {},
     });
   } catch (error) {
-    console.error("Error deleting payment method:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -113,7 +110,6 @@ exports.setDefaultPaymentMethod = async (req, res) => {
       data: paymentMethod,
     });
   } catch (error) {
-    console.error("Error setting default payment method:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -175,7 +171,6 @@ exports.createPayPalOrder = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating PayPal order:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -259,7 +254,6 @@ exports.capturePayPalPayment = async (req, res) => {
         await emailService.sendClientPaymentNotification(user, transaction);
       }
     } catch (emailError) {
-      console.error("Error sending payment notification:", emailError);
       // Don't fail the payment if email fails
     }
 
@@ -276,7 +270,6 @@ exports.capturePayPalPayment = async (req, res) => {
     await session.abortTransaction();
     session.endSession();
 
-    console.error("Error capturing PayPal payment:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -347,7 +340,6 @@ exports.addFunds = async (req, res) => {
         await emailService.sendClientPaymentNotification(user, transaction);
       }
     } catch (emailError) {
-      console.error("Error sending payment notification:", emailError);
       // Don't fail the payment if email fails
     }
 
@@ -360,7 +352,6 @@ exports.addFunds = async (req, res) => {
     await session.abortTransaction();
     session.endSession();
 
-    console.error("Error adding funds:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -433,7 +424,6 @@ exports.withdrawFunds = async (req, res) => {
         await emailService.sendFreelancerPaymentNotification(user, transaction);
       }
     } catch (emailError) {
-      console.error("Error sending withdrawal notification:", emailError);
       // Don't fail the withdrawal if email fails
     }
 
@@ -446,127 +436,23 @@ exports.withdrawFunds = async (req, res) => {
     await session.abortTransaction();
     session.endSession();
 
-    console.error("Error withdrawing funds:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// Release milestone payment
+// Release milestone payment - FIXED: Now properly handles escrow-based milestone payments
 exports.releaseMilestonePayment = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-    const { projectId, milestoneId } = req.params;
+    // Import escrow controller to delegate the request
+    const escrowController = require("./escrowController");
 
-    // Verify project exists and user is the client
-    const project = await Project.findOne({
-      _id: projectId,
-      client: req.user.id,
-    }).session(session);
-
-    if (!project) {
-      return res.status(404).json({ success: false, message: "Project not found" });
-    }
-
-    // Find the milestone
-    const milestone = project.milestones.id(milestoneId);
-    if (!milestone) {
-      return res.status(404).json({ success: false, message: "Milestone not found" });
-    }
-
-    if (milestone.status !== "completed") {
-      return res.status(400).json({ success: false, message: "Milestone is not marked as completed" });
-    }
-
-    if (milestone.isPaid) {
-      return res.status(400).json({ success: false, message: "Milestone has already been paid" });
-    }
-
-    const amount = milestone.amount;
-
-    // Calculate platform fee (example: 10%)
-    const platformFee = amount * 0.1;
-    const netAmount = amount - platformFee;
-
-    // Get client and freelancer wallets
-    let clientWallet = await Wallet.findOne({ user: req.user.id }).session(session);
-    if (!clientWallet || clientWallet.balance < amount) {
-      return res.status(400).json({ success: false, message: "Insufficient funds" });
-    }
-
-    let freelancerWallet = await Wallet.findOne({ user: project.freelancer }).session(session);
-    if (!freelancerWallet) {
-      freelancerWallet = new Wallet({ user: project.freelancer });
-    }
-
-    // Update wallets
-    clientWallet.balance -= amount;
-    clientWallet.totalSpent += amount;
-    await clientWallet.save({ session });
-
-    freelancerWallet.balance += netAmount;
-    freelancerWallet.totalEarned += netAmount;
-    await freelancerWallet.save({ session });
-
-    // Update milestone
-    milestone.isPaid = true;
-    milestone.paidAt = Date.now();
-    await project.save({ session });
-
-    // Create transaction record
-    const transaction = new Transaction({
-      transactionId: `MSP-${uuidv4().substring(0, 8)}`,
-      user: req.user.id,
-      relatedUser: project.freelancer,
-      amount,
-      fee: platformFee,
-      netAmount,
-      type: "milestone",
-      status: "completed",
-      project: projectId,
-      milestone: milestoneId,
-      description: `Payment for milestone: ${milestone.title}`,
-      metadata: {
-        projectTitle: project.title,
-        milestoneTitle: milestone.title,
-      },
-    });
-
-    await transaction.save({ session });
-
-    // Create platform fee transaction
-    const feeTransaction = new Transaction({
-      transactionId: `FEE-${uuidv4().substring(0, 8)}`,
-      user: project.freelancer,
-      amount: platformFee,
-      netAmount: platformFee,
-      type: "fee",
-      status: "completed",
-      project: projectId,
-      milestone: milestoneId,
-      description: "Platform fee for milestone payment",
-      metadata: {
-        originalTransactionId: transaction.transactionId,
-      },
-    });
-
-    await feeTransaction.save({ session });
-
-    await session.commitTransaction();
-    session.endSession();
-
-    res.json({
-      success: true,
-      message: "Milestone payment released",
-      data: { transaction },
-    });
+    // Delegate to the proper escrow controller which handles milestone-based payments correctly
+    await escrowController.releaseMilestonePayment(req, res);
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-
-    console.error("Error releasing milestone payment:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({
+      success: false,
+      message: "Server error while processing milestone payment release",
+    });
   }
 };
 
@@ -653,7 +539,6 @@ exports.createInvoice = async (req, res) => {
       data: invoice,
     });
   } catch (err) {
-    console.error("Error creating invoice:", err);
     return res.status(500).json({
       success: false,
       message: "Server error",
@@ -681,7 +566,6 @@ exports.getInvoices = async (req, res) => {
 
     res.json({ success: true, data: invoices });
   } catch (error) {
-    console.error("Error fetching invoices:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -719,7 +603,6 @@ exports.getInvoice = async (req, res) => {
       data: invoice,
     });
   } catch (err) {
-    console.error(err.message);
     return res.status(500).json({
       success: false,
       error: "Server error",
@@ -842,7 +725,6 @@ exports.payInvoice = async (req, res) => {
     await session.abortTransaction();
     session.endSession();
 
-    console.error("Error paying invoice:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -875,7 +757,6 @@ exports.getTransactions = async (req, res) => {
 
     res.json({ success: true, data: transactions });
   } catch (error) {
-    console.error("Error fetching transactions:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -916,7 +797,6 @@ exports.getTransaction = async (req, res) => {
       data: transaction,
     });
   } catch (err) {
-    console.error(err.message);
     return res.status(500).json({
       success: false,
       error: "Server error",
@@ -939,7 +819,6 @@ exports.getWalletInfo = async (req, res) => {
 
     res.json({ success: true, data: wallet });
   } catch (error) {
-    console.error("Error fetching wallet info:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -1060,7 +939,6 @@ exports.getStatistics = async (req, res) => {
       data: statistics,
     });
   } catch (err) {
-    console.error(err.message);
     return res.status(500).json({
       success: false,
       error: "Server error",
@@ -1178,7 +1056,6 @@ exports.getPaymentStatistics = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching payment statistics:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -1204,50 +1081,24 @@ function getCardBrand(cardNumber) {
 // Get available gift card campaigns
 exports.getGiftCardCampaigns = async (req, res) => {
   try {
-    console.log("🎁 CONTROLLER: === STARTING getCampaigns ENDPOINT ===");
-    console.log("🎁 CONTROLLER: Request method:", req.method);
-    console.log("🎁 CONTROLLER: Request URL:", req.url);
-    console.log("🎁 CONTROLLER: Request headers:", JSON.stringify(req.headers, null, 2));
     console.log(
       "🎁 CONTROLLER: User from token:",
       req.user ? { id: req.user.id, email: req.user.email, role: req.user.role } : "null"
     );
-    console.log("🎁 CONTROLLER: Request body:", req.body);
-    console.log("🎁 CONTROLLER: Request query:", req.query);
 
-    console.log("🎁 CONTROLLER: Calling giftogramService.getCampaigns()...");
     const campaigns = await giftogramService.getCampaigns();
 
-    console.log("🎁 CONTROLLER: === RAW SERVICE RESPONSE ===");
-    console.log("🎁 CONTROLLER: Service response:", campaigns);
-    console.log("🎁 CONTROLLER: Response type:", typeof campaigns);
-    console.log("🎁 CONTROLLER: Is array?", Array.isArray(campaigns));
-    console.log("🎁 CONTROLLER: Response keys:", campaigns ? Object.keys(campaigns) : "null");
-    console.log("🎁 CONTROLLER: Full service response JSON:", JSON.stringify(campaigns, null, 2));
-
-    console.log("🎁 CONTROLLER: === PROCESSING CAMPAIGNS ===");
     let processedCampaigns = [];
 
     if (Array.isArray(campaigns)) {
-      console.log("🎁 CONTROLLER: ✅ Campaigns is direct array");
-      console.log("🎁 CONTROLLER: Array length:", campaigns.length);
       processedCampaigns = campaigns;
     } else if (campaigns && campaigns.data && Array.isArray(campaigns.data)) {
-      console.log("🎁 CONTROLLER: ✅ Campaigns in data property");
-      console.log("🎁 CONTROLLER: Data array length:", campaigns.data.length);
       processedCampaigns = campaigns.data;
     } else if (campaigns && campaigns.campaigns && Array.isArray(campaigns.campaigns)) {
-      console.log("🎁 CONTROLLER: ✅ Campaigns in campaigns property");
-      console.log("🎁 CONTROLLER: Campaigns array length:", campaigns.campaigns.length);
       processedCampaigns = campaigns.campaigns;
     } else {
-      console.warn("🎁 CONTROLLER: ❌ Unexpected campaigns structure");
-      console.warn("🎁 CONTROLLER: Available keys:", campaigns ? Object.keys(campaigns) : "null");
       processedCampaigns = [];
     }
-
-    console.log("🎁 CONTROLLER: === FILTERING ACTIVE CAMPAIGNS ===");
-    console.log("🎁 CONTROLLER: Pre-filter count:", processedCampaigns.length);
 
     // Filter for active campaigns
     const activeCampaigns = processedCampaigns.filter((campaign) => {
@@ -1260,12 +1111,9 @@ exports.getGiftCardCampaigns = async (req, res) => {
       });
 
       const isActive = campaign.active === true || campaign.active === "true";
-      console.log("🎁 CONTROLLER: Campaign active check:", isActive);
       return isActive;
     });
 
-    console.log("🎁 CONTROLLER: === ACTIVE CAMPAIGNS FILTERED ===");
-    console.log("🎁 CONTROLLER: Active campaigns count:", activeCampaigns.length);
     console.log(
       "🎁 CONTROLLER: Active campaign names:",
       activeCampaigns.map((c) => c.name)
@@ -1281,7 +1129,6 @@ exports.getGiftCardCampaigns = async (req, res) => {
       }))
     );
 
-    console.log("🎁 CONTROLLER: === PREPARING RESPONSE ===");
     const responseData = {
       success: true,
       message: "Gift card campaigns retrieved successfully",
@@ -1291,31 +1138,13 @@ exports.getGiftCardCampaigns = async (req, res) => {
       },
     };
 
-    console.log("🎁 CONTROLLER: Final response data:", JSON.stringify(responseData, null, 2));
-    console.log("🎁 CONTROLLER: Response campaigns count:", responseData.data.campaigns.length);
-    console.log("🎁 CONTROLLER: Sending response...");
-
-    console.log("🎁 CONTROLLER: === ENDPOINT SUCCESS ===");
     res.json(responseData);
-
-    console.log("🎁 CONTROLLER: Response sent successfully");
-    console.log("🎁 CONTROLLER: === getCampaigns COMPLETED ===");
   } catch (error) {
-    console.error("🎁 CONTROLLER: === ERROR in getCampaigns ===");
-    console.error("🎁 CONTROLLER: Error type:", error.constructor.name);
-    console.error("🎁 CONTROLLER: Error message:", error.message);
-    console.error("🎁 CONTROLLER: Error stack:", error.stack);
-    console.error("🎁 CONTROLLER: Full error object:", error);
-
-    console.error("🎁 CONTROLLER: === SENDING ERROR RESPONSE ===");
     const errorResponse = {
       success: false,
       message: error.message || "Failed to fetch gift card campaigns",
       error: process.env.NODE_ENV === "development" ? error.stack : "Internal server error",
     };
-
-    console.error("🎁 CONTROLLER: Error response:", JSON.stringify(errorResponse, null, 2));
-    console.error("🎁 CONTROLLER: === getCampaigns ERROR END ===");
 
     res.status(500).json(errorResponse);
   }
@@ -1323,34 +1152,17 @@ exports.getGiftCardCampaigns = async (req, res) => {
 
 // Withdraw funds as gift card
 exports.withdrawAsGiftCard = async (req, res) => {
-  console.log("🎁 WITHDRAWAL CONTROLLER: === STARTING GIFT CARD WITHDRAWAL ===");
-  console.log("🎁 WITHDRAWAL CONTROLLER: Request method:", req.method);
-  console.log("🎁 WITHDRAWAL CONTROLLER: Request URL:", req.url);
-  console.log("🎁 WITHDRAWAL CONTROLLER: Request headers:", JSON.stringify(req.headers, null, 2));
   console.log(
     "🎁 WITHDRAWAL CONTROLLER: User from token:",
     req.user ? { id: req.user.id, email: req.user.email, role: req.user.role } : "null"
   );
-  console.log("🎁 WITHDRAWAL CONTROLLER: Request body:", JSON.stringify(req.body, null, 2));
-  console.log("🎁 WITHDRAWAL CONTROLLER: Request query:", req.query);
 
   const session = await mongoose.startSession();
   session.startTransaction();
-  console.log("🎁 WITHDRAWAL CONTROLLER: Database session started and transaction begun");
 
   try {
     const { campaignId, amount, recipientEmail, recipientName, message } = req.body;
     const userId = req.user.id;
-
-    console.log("🎁 WITHDRAWAL CONTROLLER: === EXTRACTED REQUEST DATA ===");
-    console.log("🎁 WITHDRAWAL CONTROLLER: User ID:", userId);
-    console.log("🎁 WITHDRAWAL CONTROLLER: Campaign ID:", campaignId);
-    console.log("🎁 WITHDRAWAL CONTROLLER: Amount:", amount, typeof amount);
-    console.log("🎁 WITHDRAWAL CONTROLLER: Recipient Email:", recipientEmail);
-    console.log("🎁 WITHDRAWAL CONTROLLER: Recipient Name:", recipientName);
-    console.log("🎁 WITHDRAWAL CONTROLLER: Message:", message);
-
-    console.log("🎁 WITHDRAWAL CONTROLLER: === VALIDATING REQUEST DATA ===");
 
     // Validation
     const validationResults = {
@@ -1361,11 +1173,7 @@ exports.withdrawAsGiftCard = async (req, res) => {
       amountIsPositive: amount > 0,
     };
 
-    console.log("🎁 WITHDRAWAL CONTROLLER: Validation results:", validationResults);
-
     if (!campaignId || !amount || !recipientEmail || !recipientName) {
-      console.error("🎁 WITHDRAWAL CONTROLLER: ❌ Missing required fields");
-      console.error("🎁 WITHDRAWAL CONTROLLER: Validation details:", validationResults);
       await session.abortTransaction();
       return res.status(400).json({
         success: false,
@@ -1374,8 +1182,6 @@ exports.withdrawAsGiftCard = async (req, res) => {
     }
 
     if (amount <= 0) {
-      console.error("🎁 WITHDRAWAL CONTROLLER: ❌ Invalid amount");
-      console.error("🎁 WITHDRAWAL CONTROLLER: Amount value:", amount);
       await session.abortTransaction();
       return res.status(400).json({
         success: false,
@@ -1383,15 +1189,11 @@ exports.withdrawAsGiftCard = async (req, res) => {
       });
     }
 
-    console.log("🎁 WITHDRAWAL CONTROLLER: ✅ Basic validation passed");
-
     // Check user's wallet balance
-    console.log("🎁 WITHDRAWAL CONTROLLER: === CHECKING WALLET BALANCE ===");
-    console.log("🎁 WITHDRAWAL CONTROLLER: Looking up wallet for user:", userId);
 
     const wallet = await Wallet.findOne({ user: userId }).session(session);
 
-    console.log("🎁 WITHDRAWAL CONTROLLER: Wallet lookup result:", {
+    console.log("🎁 WITHDRAWAL CONTROLLER: Wallet check:", {
       walletFound: !!wallet,
       walletBalance: wallet ? wallet.balance : "N/A",
       requestedAmount: amount,
@@ -1399,7 +1201,6 @@ exports.withdrawAsGiftCard = async (req, res) => {
     });
 
     if (!wallet) {
-      console.error("🎁 WITHDRAWAL CONTROLLER: ❌ No wallet found for user");
       await session.abortTransaction();
       return res.status(400).json({
         success: false,
@@ -1408,9 +1209,6 @@ exports.withdrawAsGiftCard = async (req, res) => {
     }
 
     if (wallet.balance < amount) {
-      console.error("🎁 WITHDRAWAL CONTROLLER: ❌ Insufficient balance");
-      console.error("🎁 WITHDRAWAL CONTROLLER: Wallet balance:", wallet.balance);
-      console.error("🎁 WITHDRAWAL CONTROLLER: Requested amount:", amount);
       await session.abortTransaction();
       return res.status(400).json({
         success: false,
@@ -1422,8 +1220,6 @@ exports.withdrawAsGiftCard = async (req, res) => {
         },
       });
     }
-
-    console.log("🎁 WITHDRAWAL CONTROLLER: ✅ Wallet balance check passed");
 
     // Get user details for sender information
     const user = await User.findById(userId).session(session);
@@ -1461,25 +1257,13 @@ exports.withdrawAsGiftCard = async (req, res) => {
     }
 
     // Create gift card order with Giftogram
-    console.log("🎁 WITHDRAWAL CONTROLLER: === CALLING GIFTOGRAM SERVICE ===");
-    console.log("🎁 WITHDRAWAL CONTROLLER: Order data for Giftogram:", JSON.stringify(orderData, null, 2));
-    console.log("🎁 WITHDRAWAL CONTROLLER: Calling giftogramService.createGiftCardOrder()...");
 
     const giftCardResult = await giftogramService.createGiftCardOrder(orderData);
 
-    console.log("🎁 WITHDRAWAL CONTROLLER: === GIFTOGRAM SERVICE RESPONSE ===");
-    console.log("🎁 WITHDRAWAL CONTROLLER: Result:", JSON.stringify(giftCardResult, null, 2));
-    console.log("🎁 WITHDRAWAL CONTROLLER: Success:", giftCardResult.success);
-
     if (giftCardResult.success && giftCardResult.order) {
-      console.log("🎁 WITHDRAWAL CONTROLLER: ✅ Giftogram order created successfully");
-      console.log("🎁 WITHDRAWAL CONTROLLER: Order ID:", giftCardResult.order.order_id);
-      console.log("🎁 WITHDRAWAL CONTROLLER: Order status:", giftCardResult.order.status);
     }
 
     if (!giftCardResult.success) {
-      console.error("🎁 WITHDRAWAL CONTROLLER: ❌ Giftogram service failed");
-      console.error("🎁 WITHDRAWAL CONTROLLER: Error:", giftCardResult.error);
       await session.abortTransaction();
       return res.status(500).json({
         success: false,
@@ -1510,15 +1294,7 @@ exports.withdrawAsGiftCard = async (req, res) => {
 
     await transaction.save({ session });
 
-    console.log("🎁 WITHDRAWAL CONTROLLER: === COMMITTING TRANSACTION ===");
     await session.commitTransaction();
-    console.log("🎁 WITHDRAWAL CONTROLLER: ✅ Database transaction committed");
-
-    console.log("🎁 WITHDRAWAL CONTROLLER: === WITHDRAWAL SUCCESSFUL ===");
-    console.log("🎁 WITHDRAWAL CONTROLLER: Transaction ID:", transactionId);
-    console.log("🎁 WITHDRAWAL CONTROLLER: Giftogram Order ID:", giftCardResult.order.order_id);
-    console.log("🎁 WITHDRAWAL CONTROLLER: Order Status:", giftCardResult.order.status);
-    console.log("🎁 WITHDRAWAL CONTROLLER: New wallet balance:", wallet.balance);
 
     const responseData = {
       success: true,
@@ -1541,22 +1317,9 @@ exports.withdrawAsGiftCard = async (req, res) => {
       },
     };
 
-    console.log("🎁 WITHDRAWAL CONTROLLER: === SENDING SUCCESS RESPONSE ===");
-    console.log("🎁 WITHDRAWAL CONTROLLER: Response data:", JSON.stringify(responseData, null, 2));
-
     res.json(responseData);
-
-    console.log("🎁 WITHDRAWAL CONTROLLER: === WITHDRAWAL PROCESS COMPLETED ===");
   } catch (error) {
-    console.error("🎁 WITHDRAWAL CONTROLLER: === ERROR PROCESSING WITHDRAWAL ===");
-    console.error("🎁 WITHDRAWAL CONTROLLER: Error type:", error.constructor.name);
-    console.error("🎁 WITHDRAWAL CONTROLLER: Error message:", error.message);
-    console.error("🎁 WITHDRAWAL CONTROLLER: Error stack:", error.stack);
-    console.error("🎁 WITHDRAWAL CONTROLLER: Full error object:", error);
-
-    console.log("🎁 WITHDRAWAL CONTROLLER: Aborting database transaction...");
     await session.abortTransaction();
-    console.log("🎁 WITHDRAWAL CONTROLLER: Database transaction aborted");
 
     const errorResponse = {
       success: false,
@@ -1564,14 +1327,9 @@ exports.withdrawAsGiftCard = async (req, res) => {
       error: process.env.NODE_ENV === "development" ? error.message : "Internal server error",
     };
 
-    console.error("🎁 WITHDRAWAL CONTROLLER: === SENDING ERROR RESPONSE ===");
-    console.error("🎁 WITHDRAWAL CONTROLLER: Error response:", JSON.stringify(errorResponse, null, 2));
-
     res.status(500).json(errorResponse);
   } finally {
-    console.log("🎁 WITHDRAWAL CONTROLLER: Ending database session...");
     session.endSession();
-    console.log("🎁 WITHDRAWAL CONTROLLER: === WITHDRAWAL ENDPOINT FINISHED ===");
   }
 };
 
@@ -1581,7 +1339,7 @@ exports.getGiftCardWithdrawals = async (req, res) => {
     const userId = req.user.id;
     const { page = 1, limit = 10 } = req.query;
 
-    console.log("🎁 PAYMENT CONTROLLER: Fetching gift card withdrawal history", {
+    console.log("🎁 GET WITHDRAWALS: Request params:", {
       userId,
       page,
       limit,
@@ -1611,9 +1369,7 @@ exports.getGiftCardWithdrawals = async (req, res) => {
             if (orderResult.success) {
               transactionObj.giftCardOrder = orderResult.order;
             }
-          } catch (error) {
-            console.warn("🎁 PAYMENT CONTROLLER: Could not fetch gift card order status:", error.message);
-          }
+          } catch (error) {}
         }
 
         return transactionObj;
@@ -1633,7 +1389,6 @@ exports.getGiftCardWithdrawals = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("🎁 PAYMENT CONTROLLER: Error fetching gift card withdrawals:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch gift card withdrawal history",
@@ -1647,7 +1402,7 @@ exports.checkGiftCardOrderStatus = async (req, res) => {
     const { orderId } = req.params;
     const userId = req.user.id;
 
-    console.log("🎁 PAYMENT CONTROLLER: Checking gift card order status", {
+    console.log("🎁 CHECK ORDER STATUS: Request params:", {
       userId,
       orderId,
     });
@@ -1690,7 +1445,6 @@ exports.checkGiftCardOrderStatus = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("🎁 PAYMENT CONTROLLER: Error checking gift card order status:", error);
     res.status(500).json({
       success: false,
       message: "Failed to check gift card order status",

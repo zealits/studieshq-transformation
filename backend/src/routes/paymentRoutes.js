@@ -545,9 +545,13 @@ router.post(
 );
 
 // @route   POST /api/payments/projects/:projectId/milestones/:milestoneId/release
-// @desc    Release milestone payment
-// @access  Private (client only)
-router.post("/projects/:projectId/milestones/:milestoneId/release", auth, paymentController.releaseMilestonePayment);
+// @desc    Release milestone payment (delegates to escrow controller)
+// @access  Private (Client and Admin)
+router.post(
+  "/projects/:projectId/milestones/:milestoneId/release",
+  [auth, checkRole(["client", "admin"])],
+  paymentController.releaseMilestonePayment
+);
 
 // @route   GET /api/payments/invoices
 // @desc    Get all invoices (filtered by user role)

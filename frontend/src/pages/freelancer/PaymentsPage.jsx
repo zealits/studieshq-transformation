@@ -13,61 +13,51 @@ const PaymentsPage = () => {
   const { user } = useSelector((state) => state.auth);
 
   // Load real escrow and transaction data
+  const loadData = async () => {
+    try {
+      console.log("🖥️ FREELANCER PAYMENTS PAGE: === LOADING PAYMENT DATA ===");
+      console.log("🖥️ FREELANCER PAYMENTS PAGE: User ID:", user?.id);
+
+      setLoading(true);
+      const response = await escrowService.getFreelancerEscrowData();
+      console.log("🖥️ FREELANCER PAYMENTS PAGE: ✅ Data loaded successfully:", response.data);
+      setEscrowData(response.data);
+    } catch (error) {
+      console.error("🖥️ FREELANCER PAYMENTS PAGE: ❌ Error loading payment data:", error);
+      toast.error("Failed to load payment data");
+      // Set default empty data on error
+      setEscrowData({
+        totalEarned: 0,
+        inEscrow: 0,
+        platformFeesPaid: 0,
+        pendingMilestones: 0,
+        availableBalance: 0,
+        activeEscrows: [],
+        recentTransactions: [],
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        console.log("🖥️ FREELANCER PAYMENTS PAGE: === LOADING PAYMENT DATA ===");
-        console.log("🖥️ FREELANCER PAYMENTS PAGE: User from Redux:", user);
-        console.log("🖥️ FREELANCER PAYMENTS PAGE: User ID:", user?.id);
-        console.log("🖥️ FREELANCER PAYMENTS PAGE: User role:", user?.role);
-        console.log("🖥️ FREELANCER PAYMENTS PAGE: User email:", user?.email);
-
-        // Check token
-        const token = localStorage.getItem("token");
-        console.log("🖥️ FREELANCER PAYMENTS PAGE: Auth token:", {
-          hasToken: !!token,
-          tokenLength: token ? token.length : 0,
-          tokenPreview: token ? `${token.substring(0, 20)}...` : "null",
-        });
-
-        setLoading(true);
-        const response = await escrowService.getFreelancerEscrowData();
-        console.log("🖥️ FREELANCER PAYMENTS PAGE: ✅ Data loaded successfully:", response.data);
-        setEscrowData(response.data);
-      } catch (error) {
-        console.error("🖥️ FREELANCER PAYMENTS PAGE: ❌ Error loading payment data:", error);
-        console.error("🖥️ FREELANCER PAYMENTS PAGE: Error details:", {
-          message: error.message,
-          status: error.response?.status,
-          data: error.response?.data,
-        });
-        toast.error("Failed to load payment data");
-        // Set default empty data on error
-        setEscrowData({
-          totalEarned: 0,
-          inEscrow: 0,
-          platformFeesPaid: 0,
-          pendingMilestones: 0,
-          availableBalance: 0,
-          activeEscrows: [],
-          recentTransactions: [],
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    console.log("🖥️ FREELANCER PAYMENTS PAGE: === USEEFFECT TRIGGERED ===");
-    console.log("🖥️ FREELANCER PAYMENTS PAGE: User exists?", !!user);
-    console.log("🖥️ FREELANCER PAYMENTS PAGE: User details:", user);
-
     if (user) {
       console.log("🖥️ FREELANCER PAYMENTS PAGE: ✅ User exists, calling loadData()");
       loadData();
-    } else {
-      console.warn("🖥️ FREELANCER PAYMENTS PAGE: ⚠️ No user found, not loading data");
     }
   }, [user]);
+
+  // Auto-refresh payment data every 30 seconds to catch updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (user && !loading) {
+        console.log("🔄 FREELANCER PAYMENTS: Auto-refreshing payment data...");
+        loadData();
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [user, loading]);
 
   const handleWithdraw = async (amount) => {
     try {
@@ -163,29 +153,32 @@ const PaymentsPage = () => {
             <span className="block text-sm text-gray-500">Pending from Escrow</span>
             <span className="block text-xl font-bold text-blue-600">{formatCurrency(escrowData?.inEscrow)}</span>
           </div>
-          <div className="flex flex-col space-y-2">
+          <div className="flex items-center space-x-3">
             <button
-              className="btn-primary"
-              onClick={() => setShowWithdrawModal(true)}
-              disabled={!escrowData?.availableBalance || escrowData.availableBalance <= 0}
+              className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm"
+              onClick={() => loadData()}
+              disabled={loading}
             >
-              Withdraw Funds
+              {loading ? "Refreshing..." : "🔄 Refresh"}
             </button>
-            <button
-              className="btn-secondary bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md transition-colors"
-              onClick={() => {
-                console.log("🎁 PAYMENTS PAGE: === GIFT CARD BUTTON CLICKED ===");
-                console.log("🎁 PAYMENTS PAGE: Current escrowData:", escrowData);
-                console.log("🎁 PAYMENTS PAGE: Available balance:", escrowData?.availableBalance);
-                console.log("🎁 PAYMENTS PAGE: showGiftCardModal before:", showGiftCardModal);
-                console.log("🎁 PAYMENTS PAGE: About to set showGiftCardModal to true...");
-                setShowGiftCardModal(true);
-                console.log("🎁 PAYMENTS PAGE: setShowGiftCardModal(true) called");
-              }}
-              disabled={!escrowData?.availableBalance || escrowData.availableBalance <= 0}
-            >
-              🎁 Gift Card
-            </button>
+            <div className="flex flex-col space-y-2">
+              <button
+                className="btn-primary"
+                onClick={() => setShowWithdrawModal(true)}
+                disabled={!escrowData?.availableBalance || escrowData.availableBalance <= 0}
+              >
+                Withdraw Funds
+              </button>
+              <button
+                className="btn-secondary bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md transition-colors"
+                onClick={() => {
+                  setShowGiftCardModal(true);
+                }}
+                disabled={!escrowData?.availableBalance || escrowData.availableBalance <= 0}
+              >
+                🎁 Gift Card
+              </button>
+            </div>
           </div>
         </div>
       </div>
