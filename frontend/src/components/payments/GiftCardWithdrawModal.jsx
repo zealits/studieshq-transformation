@@ -6,13 +6,13 @@ import Spinner from "../common/Spinner";
 
 const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess }) => {
   const [loading, setLoading] = useState(false);
-  
+
   // Get current user data from Redux store
   const { user } = useSelector((state) => state.auth);
 
   // Fixed campaign ID from your curl example
-  const FIXED_CAMPAIGN_ID = "b9f641d1-610b-41cd-a2ce-0255638ee28e";
-  
+  const FIXED_CAMPAIGN_ID = "078ee186-e80b-4355-88e1-4231af20f653";
+
   // Fixed denominations for the campaign
   const AVAILABLE_DENOMINATIONS = [5, 10, 25, 50, 100, 200, 500];
 
@@ -48,7 +48,7 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
 
   const generateExternalId = () => {
     const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
     const uniqueId = generateUniqueId();
     return `order-${dateStr}-${uniqueId}`;
   };
@@ -97,8 +97,11 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
       console.log("🎁 MODAL VALIDATION: === DENOMINATION VALIDATION ===");
       console.log("🎁 MODAL VALIDATION: Selected amount:", selectedAmount);
       console.log("🎁 MODAL VALIDATION: Available denominations:", AVAILABLE_DENOMINATIONS);
-      console.log("🎁 MODAL VALIDATION: Denominations include selected amount?", AVAILABLE_DENOMINATIONS.includes(selectedAmount));
-      
+      console.log(
+        "🎁 MODAL VALIDATION: Denominations include selected amount?",
+        AVAILABLE_DENOMINATIONS.includes(selectedAmount)
+      );
+
       if (!AVAILABLE_DENOMINATIONS.includes(selectedAmount)) {
         newErrors.amount = `Invalid amount. Available denominations: $${AVAILABLE_DENOMINATIONS.join(", $")}`;
         console.log("🎁 MODAL VALIDATION: ❌ Invalid denomination selected");
@@ -246,9 +249,7 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
               <strong>Email:</strong> {recipientEmail}
             </p>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            The gift card will be sent to your registered email address.
-          </p>
+          <p className="text-xs text-gray-500 mt-2">The gift card will be sent to your registered email address.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -271,21 +272,20 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
               {(() => {
                 console.log("🎁 MODAL RENDER: Available balance:", availableBalance, typeof availableBalance);
                 console.log("🎁 MODAL RENDER: Denominations:", AVAILABLE_DENOMINATIONS);
-                
+
                 const affordableDenominations = AVAILABLE_DENOMINATIONS.filter((denom) => {
                   const canAfford = Number(denom) <= Number(availableBalance);
                   console.log(`🎁 MODAL RENDER: Can afford $${denom}? ${canAfford} (${denom} <= ${availableBalance})`);
                   return canAfford;
                 });
-                
+
                 console.log("🎁 MODAL RENDER: Affordable denominations:", affordableDenominations);
                 console.log("🎁 MODAL RENDER: Affordable count:", affordableDenominations.length);
-                
+
                 return null;
               })()}
               {AVAILABLE_DENOMINATIONS.filter((denom) => Number(denom) <= Number(availableBalance)).length > 0 ? (
-                AVAILABLE_DENOMINATIONS
-                  .filter((denom) => Number(denom) <= Number(availableBalance))
+                AVAILABLE_DENOMINATIONS.filter((denom) => Number(denom) <= Number(availableBalance))
                   .sort((a, b) => a - b) // Sort denominations in ascending order
                   .map((denomination) => (
                     <option key={denomination} value={denomination}>
@@ -293,43 +293,40 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
                     </option>
                   ))
               ) : (
-                <option disabled>
-                  Insufficient balance for any denomination
-                </option>
+                <option disabled>Insufficient balance for any denomination</option>
               )}
             </select>
             {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount}</p>}
             <div className="text-xs text-gray-500 mt-1">
-              <p>Available amounts: ${AVAILABLE_DENOMINATIONS.map(d => Number(d).toFixed(2)).join(", $")}</p>
+              <p>Available amounts: ${AVAILABLE_DENOMINATIONS.map((d) => Number(d).toFixed(2)).join(", $")}</p>
               {(() => {
                 const numericBalance = Number(availableBalance) || 0;
                 const affordableDenominations = AVAILABLE_DENOMINATIONS.filter((d) => Number(d) <= numericBalance);
                 const affordableCount = affordableDenominations.length;
                 const totalCount = AVAILABLE_DENOMINATIONS.length;
-                
+
                 console.log("🎁 MODAL BALANCE VALIDATION:", {
                   denominations: AVAILABLE_DENOMINATIONS,
                   availableBalance: availableBalance,
                   numericBalance: numericBalance,
                   affordableDenominations: affordableDenominations,
                   affordableCount: affordableCount,
-                  totalCount: totalCount
+                  totalCount: totalCount,
                 });
-                
+
                 if (affordableCount === 0) {
-                  const minDenomination = AVAILABLE_DENOMINATIONS.length > 0 
-                    ? Math.min(...AVAILABLE_DENOMINATIONS)
-                    : null;
-                  
+                  const minDenomination =
+                    AVAILABLE_DENOMINATIONS.length > 0 ? Math.min(...AVAILABLE_DENOMINATIONS) : null;
+
                   return (
                     <p className="text-red-600 mt-1">
-                      ⚠️ Your balance (${numericBalance.toFixed(2)}) is insufficient for any denomination of this gift card.
+                      ⚠️ Your balance (${numericBalance.toFixed(2)}) is insufficient for any denomination of this gift
+                      card.
                       <br />
                       <span className="text-xs">
-                        {minDenomination !== null 
+                        {minDenomination !== null
                           ? `Minimum required: $${minDenomination.toFixed(2)}`
-                          : "No denominations available"
-                        }
+                          : "No denominations available"}
                       </span>
                     </p>
                   );
@@ -341,9 +338,7 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
                   );
                 } else {
                   return (
-                    <p className="text-green-600 mt-1">
-                      ✅ All denominations available with your current balance.
-                    </p>
+                    <p className="text-green-600 mt-1">✅ All denominations available with your current balance.</p>
                   );
                 }
               })()}
@@ -365,9 +360,7 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
             />
-            <p className="text-xs text-gray-500 mt-1">
-              If no message is provided, a default message will be used.
-            </p>
+            <p className="text-xs text-gray-500 mt-1">If no message is provided, a default message will be used.</p>
           </div>
 
           {/* Error Display */}
@@ -407,8 +400,8 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
         {/* Info Section */}
         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
-            <strong>Note:</strong> The gift card will be automatically generated and sent to your email address. 
-            You can then forward it to anyone you'd like to gift it to.
+            <strong>Note:</strong> The gift card will be automatically generated and sent to your email address. You can
+            then forward it to anyone you'd like to gift it to.
           </p>
         </div>
       </div>
