@@ -91,6 +91,48 @@ const adminService = {
       throw error.response?.data || error;
     }
   },
+
+  // NEW PAYMENT ANALYTICS METHODS
+
+  // Get comprehensive payment analytics
+  getPaymentAnalytics: async (startDate, endDate, userType) => {
+    try {
+      const params = {};
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      if (userType) params.userType = userType;
+
+      const response = await api.get("/api/admin/payment/analytics", { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  // Get platform financial overview
+  getPlatformFinancialOverview: async (startDate, endDate) => {
+    try {
+      const params = {};
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+
+      const response = await api.get("/api/admin/payment/financial-overview", { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  // Get user payment details
+  getUserPaymentDetails: async (userId, page = 1, limit = 20) => {
+    try {
+      const params = { page, limit };
+      const response = await api.get(`/api/admin/users/${userId}/payments`, { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
 };
 
 export default adminService;

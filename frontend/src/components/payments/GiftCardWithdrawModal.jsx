@@ -12,7 +12,8 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
 
   // Fixed campaign ID from your curl example
   const FIXED_CAMPAIGN_ID = "078ee186-e80b-4355-88e1-4231af20f653";
-
+  // bd647ecb-3781-41c9-98ea-3d3fc32e8f21 sandbox
+  // 078ee186-e80b-4355-88e1-4231af20f653 production
   // Fixed denominations for the campaign
   const AVAILABLE_DENOMINATIONS = [5, 10, 25, 50, 100, 200, 500];
 

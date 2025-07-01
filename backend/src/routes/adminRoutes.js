@@ -3,6 +3,7 @@ const router = express.Router();
 const { check } = require("express-validator");
 const auth = require("../middleware/auth");
 const checkRole = require("../middleware/checkRole");
+const admin = require("../middleware/admin");
 
 // Import admin controller
 const adminController = require("../controllers/adminController");
@@ -69,5 +70,22 @@ router.get("/dashboard/stats", [auth, checkRole(["admin"])], adminController.get
 // @desc    Get platform revenue statistics
 // @access  Private (Admin only)
 router.get("/platform/revenue", [auth, checkRole(["admin"])], escrowController.getPlatformRevenue);
+
+// NEW PAYMENT ANALYTICS ROUTES
+
+// @route   GET /api/admin/payment/analytics
+// @desc    Get comprehensive payment analytics for admin dashboard
+// @access  Private (Admin only)
+router.get("/payment/analytics", [auth, admin], adminController.getPaymentAnalytics);
+
+// @route   GET /api/admin/payment/financial-overview
+// @desc    Get platform financial overview
+// @access  Private (Admin only)
+router.get("/payment/financial-overview", [auth, admin], adminController.getPlatformFinancialOverview);
+
+// @route   GET /api/admin/users/:userId/payments
+// @desc    Get user payment details for admin
+// @access  Private (Admin only)
+router.get("/users/:userId/payments", [auth, admin], adminController.getUserPaymentDetails);
 
 module.exports = router;

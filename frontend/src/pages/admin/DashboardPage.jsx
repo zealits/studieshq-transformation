@@ -4,9 +4,16 @@ import { fetchUsers } from "../../redux/slices/userManagementSlice";
 import { fetchAllProjectsForAdmin } from "../../redux/slices/projectsSlice";
 import { fetchAllJobsForAdmin } from "../../redux/slices/jobsSlice";
 import { formatDate } from "../../utils/dateUtils";
+import adminService from "../../services/adminService";
+import { toast } from "react-hot-toast";
 
 const DashboardPage = () => {
   const [timeRange, setTimeRange] = useState("month");
+  const [activeTab, setActiveTab] = useState("overview");
+  const [paymentAnalytics, setPaymentAnalytics] = useState(null);
+  const [financialOverview, setFinancialOverview] = useState(null);
+  const [userPaymentData, setUserPaymentData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const dispatch = useDispatch();
 
   // Redux state
@@ -16,10 +23,30 @@ const DashboardPage = () => {
 
   useEffect(() => {
     // Fetch all data for admin dashboard
-    dispatch(fetchUsers({ page: 1, limit: 100 })); // Get more users for statistics
-    dispatch(fetchAllProjectsForAdmin()); // Get all projects for admin
-    dispatch(fetchAllJobsForAdmin()); // Get all jobs for admin
-  }, [dispatch]);
+    dispatch(fetchUsers({ page: 1, limit: 100 }));
+    dispatch(fetchAllProjectsForAdmin());
+    dispatch(fetchAllJobsForAdmin());
+    loadPaymentAnalytics();
+  }, [dispatch, timeRange]);
+
+  const loadPaymentAnalytics = async () => {
+    try {
+      setLoading(true);
+      const [analyticsData, financialData] = await Promise.all([
+        adminService.getPaymentAnalytics(),
+        adminService.getPlatformFinancialOverview(),
+      ]);
+
+      setPaymentAnalytics(analyticsData.data);
+      setFinancialOverview(financialData.data);
+      setUserPaymentData(analyticsData.data.usersWithWallets || []);
+    } catch (error) {
+      console.error("Error loading payment analytics:", error);
+      toast.error("Failed to load payment analytics");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Calculate real statistics
   const totalUsers = users?.length || 0;
@@ -38,92 +65,11 @@ const DashboardPage = () => {
   // Calculate total revenue from completed projects
   const totalRevenue = completedProjects.reduce((sum, project) => sum + (project.budget || 0), 0);
 
-  // Get recent activity from projects and users
-  const recentActivities = [
-    ...completedProjects.slice(0, 2).map((project) => ({
-      id: `project-${project._id}`,
-      type: "project_completed",
-      client: project.client?.name || "Unknown Client",
-      freelancer: project.freelancer?.name || "Unknown Freelancer",
-      project: project.title,
-      time: formatDate(project.completedDate) || "Recently",
-    })),
-    ...users.slice(0, 3).map((user) => ({
-      id: `user-${user._id}`,
-      type: "user_joined",
-      user: user.name,
-      role: user.role,
-      time: formatDate(user.createdAt) || "Recently",
-    })),
-  ].slice(0, 5);
-
-  // Calculate top freelancers based on completed projects
-  const freelancerStats = completedProjects.reduce((acc, project) => {
-    if (project.freelancer) {
-      const freelancerId = project.freelancer._id;
-      if (!acc[freelancerId]) {
-        acc[freelancerId] = {
-          ...project.freelancer,
-          completedProjects: 0,
-          totalEarnings: 0,
-          ratings: [],
-        };
-      }
-      acc[freelancerId].completedProjects += 1;
-      acc[freelancerId].totalEarnings += project.budget || 0;
-      if (project.clientReview?.rating) {
-        acc[freelancerId].ratings.push(project.clientReview.rating);
-      }
-    }
-    return acc;
-  }, {});
-
-  const topFreelancers = Object.values(freelancerStats)
-    .map((freelancer) => ({
-      ...freelancer,
-      avgRating:
-        freelancer.ratings.length > 0
-          ? (freelancer.ratings.reduce((sum, rating) => sum + rating, 0) / freelancer.ratings.length).toFixed(1)
-          : 0,
-      category: "General", // You might want to add this to user profile
-    }))
-    .sort((a, b) => b.completedProjects - a.completedProjects)
-    .slice(0, 4);
-
-  // Get ongoing projects (active projects)
-  const ongoingProjects = activeProjects.slice(0, 3).map((project) => {
-    // Calculate progress based on completed milestones
-    const progress =
-      project.milestones && project.milestones.length > 0
-        ? Math.round(
-            project.milestones.filter((m) => m.status === "completed").reduce((sum, m) => sum + (m.percentage || 0), 0)
-          )
-        : project.completionPercentage || 0;
-
-    return {
-      ...project,
-      progress,
-    };
-  });
-
-  // Mock statistics - these would ideally come from analytics API
-  const stats = {
-    totalUsers,
-    totalProjects,
-    totalRevenue: `$${totalRevenue.toLocaleString()} USD`,
-    activeJobs: activeJobs.length,
-    pendingWithdrawals: 0, // This would come from payments system
-    newUsers:
-      users?.filter((user) => {
-        const createdDate = new Date(user.createdAt);
-        const now = new Date();
-        const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-        return createdDate > monthAgo;
-      }).length || 0,
-    completionRate,
-    disputeRate: 2.4, // This would come from dispute system
-    userGrowth: 18.2, // This would be calculated based on historical data
-    revenueGrowth: 12.4, // This would be calculated based on historical data
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(amount || 0);
   };
 
   const getInitials = (name) => {
@@ -136,120 +82,43 @@ const DashboardPage = () => {
     );
   };
 
-  // Get activity icon based on type
-  const getActivityIcon = (type) => {
-    switch (type) {
-      case "user_joined":
-        return (
-          <div className="rounded-full bg-green-100 p-2">
-            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-              />
-            </svg>
-          </div>
-        );
-      case "project_completed":
-        return (
-          <div className="rounded-full bg-blue-100 p-2">
-            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-              />
-            </svg>
-          </div>
-        );
-      case "payment_processed":
-        return (
-          <div className="rounded-full bg-purple-100 p-2">
-            <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-              />
-            </svg>
-          </div>
-        );
-      case "dispute_opened":
-        return (
-          <div className="rounded-full bg-red-100 p-2">
-            <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-          </div>
-        );
-      default:
-        return (
-          <div className="rounded-full bg-gray-100 p-2">
-            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </div>
-        );
-    }
+  // Enhanced stats with payment data
+  const enhancedStats = {
+    totalUsers,
+    totalProjects,
+    totalRevenue: formatCurrency(totalRevenue),
+    activeJobs: activeJobs.length,
+    platformRevenue: financialOverview
+      ? formatCurrency(
+          financialOverview.platformRevenue.totalRevenue || financialOverview.platformRevenue.escrowRevenue
+        )
+      : formatCurrency(0),
+    totalSystemFunds: financialOverview
+      ? formatCurrency(financialOverview.systemFunds.totalBalance)
+      : formatCurrency(0),
+    activeEscrowAmount: financialOverview
+      ? formatCurrency(financialOverview.activeEscrow.totalAmount)
+      : formatCurrency(0),
+    clientCount: clients.length,
+    freelancerCount: freelancers.length,
   };
 
-  // Render activity description based on type
-  const renderActivityDescription = (activity) => {
-    switch (activity.type) {
-      case "user_joined":
-        return (
-          <p className="text-sm text-gray-600">
-            <span className="font-medium text-gray-800">{activity.user}</span> joined as a {activity.role}
-          </p>
-        );
-      case "project_completed":
-        return (
-          <p className="text-sm text-gray-600">
-            <span className="font-medium text-gray-800">{activity.freelancer}</span> completed{" "}
-            <span className="font-medium text-gray-800">{activity.project}</span> for{" "}
-            <span className="font-medium text-gray-800">{activity.client}</span>
-          </p>
-        );
-      case "payment_processed":
-        return (
-          <p className="text-sm text-gray-600">
-            <span className="font-medium text-gray-800">{activity.amount}</span> payment processed from{" "}
-            <span className="font-medium text-gray-800">{activity.client}</span> to{" "}
-            <span className="font-medium text-gray-800">{activity.freelancer}</span>
-          </p>
-        );
-      case "dispute_opened":
-        return (
-          <p className="text-sm text-gray-600">
-            <span className="font-medium text-gray-800">{activity.client}</span> opened a dispute with{" "}
-            <span className="font-medium text-gray-800">{activity.freelancer}</span> on{" "}
-            <span className="font-medium text-gray-800">{activity.project}</span>
-          </p>
-        );
-      default:
-        return <p className="text-sm text-gray-600">Unknown activity</p>;
-    }
-  };
+  if (loading && !paymentAnalytics) {
+    return (
+      <div className="p-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="ml-2">Loading dashboard...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <div>
+        <div className="flex space-x-4">
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
@@ -263,251 +132,360 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Tab Navigation */}
+      <div className="flex border-b mb-6">
+        {[
+          { id: "overview", label: "Overview" },
+          { id: "payments", label: "Payment Analytics" },
+          { id: "users", label: "User Wallets" },
+          { id: "revenue", label: "Revenue Details" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            className={`pb-2 px-4 font-medium ${
+              activeTab === tab.id ? "border-b-2 border-primary text-primary" : "text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Enhanced Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-500">Total Users</h3>
-            <span className="text-green-500 bg-green-100 p-1 rounded text-xs">+{stats.userGrowth}%</span>
+            <h3 className="text-sm font-medium text-gray-500">Platform Revenue</h3>
+            <span className="text-green-500 bg-green-100 p-1 rounded text-xs">Total Earned</span>
           </div>
-          <p className="text-2xl font-bold text-gray-800">{stats.totalUsers}</p>
+          <p className="text-2xl font-bold text-gray-800">{enhancedStats.platformRevenue}</p>
+          <p className="text-xs text-gray-500 mt-1">All fees collected</p>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-500">Total System Funds</h3>
+            <span className="text-blue-500 bg-blue-100 p-1 rounded text-xs">In Wallets</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-800">{enhancedStats.totalSystemFunds}</p>
+          <p className="text-xs text-gray-500 mt-1">User wallet balances</p>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-500">Active Escrow</h3>
+            <span className="text-orange-500 bg-orange-100 p-1 rounded text-xs">Secured</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-800">{enhancedStats.activeEscrowAmount}</p>
+          <p className="text-xs text-gray-500 mt-1">Funds in escrow</p>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-500">Total Users</h3>
+            <span className="text-green-500 bg-green-100 p-1 rounded text-xs">Active</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-800">{enhancedStats.totalUsers}</p>
           <p className="text-xs text-gray-500 mt-1">
-            {stats.newUsers} new users this {timeRange}
+            {enhancedStats.clientCount} clients, {enhancedStats.freelancerCount} freelancers
           </p>
         </div>
-
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-500">Total Projects</h3>
-            <span className="text-green-500 bg-green-100 p-1 rounded text-xs">+9.2%</span>
-          </div>
-          <p className="text-2xl font-bold text-gray-800">{stats.totalProjects}</p>
-          <p className="text-xs text-gray-500 mt-1">{stats.completionRate}% completion rate</p>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-500">Total Revenue</h3>
-            <span className="text-green-500 bg-green-100 p-1 rounded text-xs">+{stats.revenueGrowth}%</span>
-          </div>
-          <p className="text-2xl font-bold text-gray-800">{stats.totalRevenue}</p>
-          <p className="text-xs text-gray-500 mt-1">{stats.pendingWithdrawals} pending withdrawals</p>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-500">Active Jobs</h3>
-            <span className="text-green-500 bg-green-100 p-1 rounded text-xs">+5.3%</span>
-          </div>
-          <p className="text-2xl font-bold text-gray-800">{stats.activeJobs}</p>
-          <p className="text-xs text-gray-500 mt-1">{stats.disputeRate}% dispute rate</p>
-        </div>
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Ongoing Projects */}
+      {/* Tab Content */}
+      {activeTab === "overview" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Project Statistics */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Ongoing Projects</h2>
-              <a href="#" className="text-primary text-sm hover:underline">
-                View All
-              </a>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead className="border-b">
-                  <tr>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Project</th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Client</th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Freelancer</th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Progress</th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Due Date</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {projectsLoading ? (
-                    <tr>
-                      <td colSpan="5" className="py-8 text-center">
-                        <div className="flex justify-center items-center">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                          <span className="ml-2 text-gray-500">Loading projects...</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : ongoingProjects.length > 0 ? (
-                    ongoingProjects.map((project) => (
-                      <tr key={project._id} className="hover:bg-gray-50">
-                        <td className="py-3 text-sm font-medium">{project.title}</td>
-                        <td className="py-3 text-sm text-gray-600">{project.client?.name || "Unknown Client"}</td>
-                        <td className="py-3 text-sm text-gray-600">{project.freelancer?.name || "Not assigned"}</td>
-                        <td className="py-3">
-                          <div className="flex items-center">
-                            <div className="w-full bg-gray-200 rounded-full h-2 mr-2">
-                              <div
-                                className="bg-primary h-2 rounded-full"
-                                style={{ width: `${project.progress}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-xs text-gray-500">{project.progress}%</span>
-                          </div>
-                        </td>
-                        <td className="py-3 text-sm text-gray-600">{formatDate(project.deadline)}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="5" className="py-8 text-center text-gray-500">
-                        No ongoing projects found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <h2 className="text-lg font-semibold mb-4">Project Overview</h2>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Total Projects</span>
+                <span className="font-semibold">{totalProjects}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Active Projects</span>
+                <span className="font-semibold text-blue-600">{activeProjects.length}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Completed Projects</span>
+                <span className="font-semibold text-green-600">{completedProjects.length}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Completion Rate</span>
+                <span className="font-semibold">{completionRate}%</span>
+              </div>
             </div>
           </div>
 
-          {/* Top Freelancers */}
+          {/* Revenue Breakdown */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Top Performing Freelancers</h2>
-              <a href="#" className="text-primary text-sm hover:underline">
-                View All
-              </a>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead className="border-b">
-                  <tr>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Freelancer</th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Category</th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Projects</th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Earnings</th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Rating</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {usersLoading || projectsLoading ? (
-                    <tr>
-                      <td colSpan="5" className="py-8 text-center">
-                        <div className="flex justify-center items-center">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                          <span className="ml-2 text-gray-500">Loading freelancers...</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : topFreelancers.length > 0 ? (
-                    topFreelancers.map((freelancer) => (
-                      <tr key={freelancer._id} className="hover:bg-gray-50">
-                        <td className="py-3">
-                          <div className="flex items-center">
-                            <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center mr-3 text-sm font-medium">
-                              {getInitials(freelancer.name)}
-                            </div>
-                            <span className="font-medium">{freelancer.name}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 text-sm text-gray-600">{freelancer.category}</td>
-                        <td className="py-3 text-sm text-gray-600">{freelancer.completedProjects}</td>
-                        <td className="py-3 text-sm font-medium">${freelancer.totalEarnings.toLocaleString()} USD</td>
-                        <td className="py-3">
-                          <div className="flex items-center">
-                            <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                            <span className="ml-1 text-sm text-gray-600">
-                              {freelancer.avgRating || "N/A"}{" "}
-                              {freelancer.avgRating ? `(${Math.round(freelancer.avgRating * 20)}%)` : ""}
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="5" className="py-8 text-center text-gray-500">
-                        No freelancer data available yet
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <h2 className="text-lg font-semibold mb-4">Revenue Breakdown</h2>
+            {financialOverview && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Escrow Revenue</span>
+                  <span className="font-semibold">
+                    {formatCurrency(financialOverview.platformRevenue.escrowRevenue)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Transaction Fees</span>
+                  <span className="font-semibold">
+                    {formatCurrency(financialOverview.platformRevenue.transactionFeeRevenue)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">All Fees Collected</span>
+                  <span className="font-semibold">
+                    {formatCurrency(financialOverview.platformRevenue.allFeesCollected)}
+                  </span>
+                </div>
+                <hr className="my-2" />
+                <div className="flex justify-between items-center font-semibold">
+                  <span>Total Platform Revenue</span>
+                  <span className="text-green-600">
+                    {formatCurrency(
+                      financialOverview.platformRevenue.totalRevenue || financialOverview.platformRevenue.escrowRevenue
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
+      )}
 
-        {/* Right Column */}
+      {activeTab === "payments" && paymentAnalytics && (
         <div className="space-y-6">
-          {/* Recent Activity */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Recent Activity</h2>
-              <a href="#" className="text-primary text-sm hover:underline">
-                View All
-              </a>
+          {/* Payment Analytics Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-2">Total Transactions</h3>
+              <p className="text-3xl font-bold text-blue-600">{paymentAnalytics.recentTransactions?.length || 0}</p>
             </div>
-            <div className="space-y-4">
-              {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start">
-                  <div className="flex-shrink-0 mr-3">{getActivityIcon(activity.type)}</div>
-                  <div>
-                    {renderActivityDescription(activity)}
-                    <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-2">Platform Fees</h3>
+              <p className="text-3xl font-bold text-green-600">
+                {formatCurrency(paymentAnalytics.platformRevenue?.totalFees || 0)}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-2">Escrow Revenue</h3>
+              <p className="text-3xl font-bold text-purple-600">
+                {formatCurrency(paymentAnalytics.escrowRevenue?.totalPlatformRevenue || 0)}
+              </p>
             </div>
           </div>
 
-          {/* Quick Stats */}
+          {/* Recent Transactions */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold mb-4">System Health</h2>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-gray-600">Server Uptime</span>
-                  <span className="text-sm font-medium">99.9%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-green-500 h-2 rounded-full" style={{ width: "99.9%" }}></div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-gray-600">API Response Time</span>
-                  <span className="text-sm font-medium">250ms</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-blue-500 h-2 rounded-full" style={{ width: "85%" }}></div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-gray-600">Database Load</span>
-                  <span className="text-sm font-medium">42%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-yellow-500 h-2 rounded-full" style={{ width: "42%" }}></div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-gray-600">Memory Usage</span>
-                  <span className="text-sm font-medium">68%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-purple-500 h-2 rounded-full" style={{ width: "68%" }}></div>
-                </div>
-              </div>
+            <h2 className="text-lg font-semibold mb-4">Recent Transactions</h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead className="border-b">
+                  <tr>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">User</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Type</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Amount</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Fee</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Status</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {paymentAnalytics.recentTransactions?.slice(0, 10).map((transaction) => (
+                    <tr key={transaction._id} className="hover:bg-gray-50">
+                      <td className="py-3">
+                        <div className="flex items-center">
+                          <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center mr-3 text-sm font-medium">
+                            {getInitials(transaction.user?.name)}
+                          </div>
+                          <div>
+                            <div className="font-medium">{transaction.user?.name}</div>
+                            <div className="text-xs text-gray-500">{transaction.user?.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 text-sm">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            transaction.type === "deposit"
+                              ? "bg-green-100 text-green-800"
+                              : transaction.type === "withdrawal"
+                              ? "bg-red-100 text-red-800"
+                              : transaction.type === "platform_fee"
+                              ? "bg-purple-100 text-purple-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {transaction.type}
+                        </span>
+                      </td>
+                      <td className="py-3 text-sm font-medium">{formatCurrency(transaction.amount)}</td>
+                      <td className="py-3 text-sm">{formatCurrency(transaction.fee || 0)}</td>
+                      <td className="py-3 text-sm">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            transaction.status === "completed"
+                              ? "bg-green-100 text-green-800"
+                              : transaction.status === "pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : transaction.status === "failed"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {transaction.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-sm text-gray-600">{formatDate(transaction.createdAt)}</td>
+                    </tr>
+                  )) || (
+                    <tr>
+                      <td colSpan="6" className="py-8 text-center text-gray-500">
+                        No transactions found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {activeTab === "users" && (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-lg font-semibold mb-4">User Wallet Overview</h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead className="border-b">
+                <tr>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">User</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Role</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Balance</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Total Earned</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Total Spent</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Fees Paid</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Transactions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {userPaymentData.slice(0, 20).map((user) => (
+                  <tr key={user._id} className="hover:bg-gray-50">
+                    <td className="py-3">
+                      <div className="flex items-center">
+                        <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center mr-3 text-sm font-medium">
+                          {getInitials(user.name)}
+                        </div>
+                        <div>
+                          <div className="font-medium">{user.name}</div>
+                          <div className="text-xs text-gray-500">{user.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 text-sm">
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          user.role === "client"
+                            ? "bg-blue-100 text-blue-800"
+                            : user.role === "freelancer"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {user.role}
+                      </span>
+                    </td>
+                    <td className="py-3 text-sm font-medium">{formatCurrency(user.wallet?.balance || 0)}</td>
+                    <td className="py-3 text-sm">{formatCurrency(user.wallet?.totalEarned || 0)}</td>
+                    <td className="py-3 text-sm">{formatCurrency(user.wallet?.totalSpent || 0)}</td>
+                    <td className="py-3 text-sm">{formatCurrency(user.totalFeesPaid || 0)}</td>
+                    <td className="py-3 text-sm">{user.transactionCount || 0}</td>
+                  </tr>
+                )) || (
+                  <tr>
+                    <td colSpan="7" className="py-8 text-center text-gray-500">
+                      No user data found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "revenue" && financialOverview && (
+        <div className="space-y-6">
+          {/* Revenue Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Escrow Revenue</h3>
+              <p className="text-2xl font-bold text-blue-600">
+                {formatCurrency(financialOverview.platformRevenue.escrowRevenue)}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Transaction Fees</h3>
+              <p className="text-2xl font-bold text-green-600">
+                {formatCurrency(financialOverview.platformRevenue.transactionFeeRevenue)}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-sm font-medium text-gray-500 mb-2">All Fees</h3>
+              <p className="text-2xl font-bold text-purple-600">
+                {formatCurrency(financialOverview.platformRevenue.allFeesCollected)}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Total Revenue</h3>
+              <p className="text-2xl font-bold text-indigo-600">
+                {formatCurrency(
+                  financialOverview.platformRevenue.escrowRevenue +
+                    financialOverview.platformRevenue.transactionFeeRevenue +
+                    financialOverview.platformRevenue.allFeesCollected
+                )}
+              </p>
+            </div>
+          </div>
+
+          {/* Transaction Volume by Type */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-lg font-semibold mb-4">Transaction Volume by Type</h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead className="border-b">
+                  <tr>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Transaction Type</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Count</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Total Amount</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase py-3">Total Fees</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {financialOverview.transactionVolumeByType?.map((transaction) => (
+                    <tr key={transaction._id} className="hover:bg-gray-50">
+                      <td className="py-3 text-sm font-medium">{transaction._id}</td>
+                      <td className="py-3 text-sm">{transaction.count}</td>
+                      <td className="py-3 text-sm">{formatCurrency(transaction.totalAmount)}</td>
+                      <td className="py-3 text-sm">{formatCurrency(transaction.totalFees)}</td>
+                    </tr>
+                  )) || (
+                    <tr>
+                      <td colSpan="4" className="py-8 text-center text-gray-500">
+                        No transaction data found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
