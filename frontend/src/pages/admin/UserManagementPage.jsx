@@ -776,7 +776,7 @@ const UserManagementPage = () => {
                         </div>
                       </div>
 
-                      <div className="border-t pt-4 mt-4">
+                      {/* <div className="border-t pt-4 mt-4">
                         <h4 className="font-medium mb-2">Actions</h4>
                         <div className="flex space-x-2">
                           {selectedUser.status === "active" ? (
@@ -789,7 +789,7 @@ const UserManagementPage = () => {
                             </button>
                           )}
                         </div>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
                 </div>
