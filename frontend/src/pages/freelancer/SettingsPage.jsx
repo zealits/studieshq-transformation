@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import ChangePassword from "../../components/common/ChangePassword";
 
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState("notifications");
@@ -110,6 +111,14 @@ const SettingsPage = () => {
           onClick={() => setActiveTab("work")}
         >
           Work Preferences
+        </button>
+        <button
+          className={`pb-2 px-4 font-medium ${
+            activeTab === "account" ? "border-b-2 border-primary text-primary" : "text-gray-500 hover:text-gray-700"
+          }`}
+          onClick={() => setActiveTab("account")}
+        >
+          Account
         </button>
       </div>
 
@@ -306,8 +315,16 @@ const SettingsPage = () => {
                 <div className="space-y-2">
                   {[
                     { value: "public", label: "Public", description: "Anyone can view your profile" },
-                    { value: "private", label: "Private", description: "Only clients you've worked with can see your profile" },
-                    { value: "StudiesHQ_only", label: "StudiesHQ Only", description: "Only visible to StudiesHQ users" },
+                    {
+                      value: "private",
+                      label: "Private",
+                      description: "Only clients you've worked with can see your profile",
+                    },
+                    {
+                      value: "StudiesHQ_only",
+                      label: "StudiesHQ Only",
+                      description: "Only visible to StudiesHQ users",
+                    },
                   ].map((option) => (
                     <label key={option.value} className="flex items-start space-x-3 cursor-pointer">
                       <input
@@ -332,22 +349,22 @@ const SettingsPage = () => {
                   {
                     key: "showEarnings",
                     title: "Show Earnings",
-                    description: "Display your total earnings on your profile"
+                    description: "Display your total earnings on your profile",
                   },
                   {
                     key: "showLocation",
                     title: "Show Location",
-                    description: "Display your location on your profile"
+                    description: "Display your location on your profile",
                   },
                   {
                     key: "showOnlineStatus",
                     title: "Show Online Status",
-                    description: "Let clients see when you're online"
+                    description: "Let clients see when you're online",
                   },
                   {
                     key: "allowDirectContact",
                     title: "Allow Direct Contact",
-                    description: "Allow clients to contact you directly outside of projects"
+                    description: "Allow clients to contact you directly outside of projects",
                   },
                 ].map((setting) => (
                   <div key={setting.key} className="flex items-center justify-between py-2 border-b">
@@ -461,6 +478,13 @@ const SettingsPage = () => {
             </div>
           </div>
         )}
+
+        {/* Account Tab */}
+        {activeTab === "account" && (
+          <div>
+            <ChangePassword />
+          </div>
+        )}
       </div>
 
       {/* Save Button */}
@@ -476,4 +500,4 @@ const SettingsPage = () => {
   );
 };
 
-export default SettingsPage; 
+export default SettingsPage;

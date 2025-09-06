@@ -15,7 +15,7 @@ router.post(
     check("name", "Name is required").not().isEmpty(),
     check("email", "Please include a valid email").isEmail(),
     check("password", "Please enter a password with 6 or more characters").isLength({ min: 6 }),
-    check("role", "Role must be either client or freelancer").isIn(["client", "freelancer","admin"]),
+    check("role", "Role must be either client or freelancer").isIn(["client", "freelancer", "admin"]),
   ],
   authController.register
 );
@@ -86,6 +86,21 @@ router.post(
     check("password", "Please enter a password with 6 or more characters").isLength({ min: 6 }),
   ],
   authController.resetPassword
+);
+
+/**
+ * @route   PUT /api/auth/change-password
+ * @desc    Change password for authenticated users
+ * @access  Private
+ */
+router.put(
+  "/change-password",
+  auth,
+  [
+    check("currentPassword", "Current password is required").not().isEmpty(),
+    check("newPassword", "Please enter a password with 6 or more characters").isLength({ min: 6 }),
+  ],
+  authController.changePassword
 );
 
 /**

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import ChangePassword from "../../components/common/ChangePassword";
 
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState("notifications");
@@ -95,6 +96,14 @@ const SettingsPage = () => {
           onClick={() => setActiveTab("preferences")}
         >
           Preferences
+        </button>
+        <button
+          className={`pb-2 px-4 font-medium ${
+            activeTab === "account" ? "border-b-2 border-primary text-primary" : "text-gray-500 hover:text-gray-700"
+          }`}
+          onClick={() => setActiveTab("account")}
+        >
+          Account
         </button>
       </div>
 
@@ -471,6 +480,13 @@ const SettingsPage = () => {
                 </select>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Account Tab */}
+        {activeTab === "account" && (
+          <div>
+            <ChangePassword />
           </div>
         )}
       </div>

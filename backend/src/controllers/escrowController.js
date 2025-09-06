@@ -903,7 +903,7 @@ exports.getFreelancerEscrowData = async (req, res) => {
     // Get recent transactions
     const recentTransactions = await Transaction.find({
       user: freelancerId,
-      status: "completed",
+      status: { $in: ["completed", "pending"] },
     })
       .populate("project", "title")
       .populate("relatedUser", "name")
@@ -1046,7 +1046,7 @@ exports.getClientEscrowData = async (req, res) => {
     // Get recent transactions
     const recentTransactions = await Transaction.find({
       user: clientId,
-      status: "completed",
+      status: { $in: ["completed", "pending"] },
     })
       .populate("project", "title")
       .populate("relatedUser", "name")

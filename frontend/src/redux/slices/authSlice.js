@@ -8,6 +8,9 @@ const initialState = {
   error: null,
   needsVerification: false,
   registrationSuccess: false,
+  forgotPasswordSuccess: false,
+  resetPasswordSuccess: false,
+  changePasswordSuccess: false,
 };
 
 // Async thunks
@@ -72,6 +75,45 @@ export const resendVerification = createAsyncThunk("auth/resendVerification", as
   }
 });
 
+export const forgotPassword = createAsyncThunk("auth/forgotPassword", async (email, { rejectWithValue }) => {
+  try {
+    const response = await api.post("/api/auth/forgot-password", { email });
+    return response.data;
+  } catch (error) {
+    return rejectWithValue({
+      message: error.response?.data?.error || "Failed to send password reset email",
+    });
+  }
+});
+
+export const resetPassword = createAsyncThunk(
+  "auth/resetPassword",
+  async ({ token, password }, { rejectWithValue }) => {
+    try {
+      const response = await api.post("/api/auth/reset-password", { token, password });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue({
+        message: error.response?.data?.error || "Failed to reset password",
+      });
+    }
+  }
+);
+
+export const changePassword = createAsyncThunk(
+  "auth/changePassword",
+  async ({ currentPassword, newPassword }, { rejectWithValue }) => {
+    try {
+      const response = await api.put("/api/auth/change-password", { currentPassword, newPassword });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue({
+        message: error.response?.data?.error || "Failed to change password",
+      });
+    }
+  }
+);
+
 export const logout = createAsyncThunk("auth/logout", async () => {
   // Remove token from localStorage
   localStorage.removeItem("token");
@@ -87,6 +129,15 @@ const authSlice = createSlice({
     },
     clearRegistrationSuccess: (state) => {
       state.registrationSuccess = false;
+    },
+    clearForgotPasswordSuccess: (state) => {
+      state.forgotPasswordSuccess = false;
+    },
+    clearResetPasswordSuccess: (state) => {
+      state.resetPasswordSuccess = false;
+    },
+    clearChangePasswordSuccess: (state) => {
+      state.changePasswordSuccess = false;
     },
   },
   extraReducers: (builder) => {
@@ -136,6 +187,51 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload?.message;
       })
+      // Forgot password
+      .addCase(forgotPassword.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+        state.forgotPasswordSuccess = false;
+      })
+      .addCase(forgotPassword.fulfilled, (state) => {
+        state.isLoading = false;
+        state.forgotPasswordSuccess = true;
+      })
+      .addCase(forgotPassword.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload?.message;
+        state.forgotPasswordSuccess = false;
+      })
+      // Reset password
+      .addCase(resetPassword.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+        state.resetPasswordSuccess = false;
+      })
+      .addCase(resetPassword.fulfilled, (state) => {
+        state.isLoading = false;
+        state.resetPasswordSuccess = true;
+      })
+      .addCase(resetPassword.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload?.message;
+        state.resetPasswordSuccess = false;
+      })
+      // Change password
+      .addCase(changePassword.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+        state.changePasswordSuccess = false;
+      })
+      .addCase(changePassword.fulfilled, (state) => {
+        state.isLoading = false;
+        state.changePasswordSuccess = true;
+      })
+      .addCase(changePassword.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload?.message;
+        state.changePasswordSuccess = false;
+      })
       // Logout
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
@@ -144,9 +240,18 @@ const authSlice = createSlice({
         state.error = null;
         state.needsVerification = false;
         state.registrationSuccess = false;
+        state.forgotPasswordSuccess = false;
+        state.resetPasswordSuccess = false;
+        state.changePasswordSuccess = false;
       });
   },
 });
 
-export const { clearError, clearRegistrationSuccess } = authSlice.actions;
+export const {
+  clearError,
+  clearRegistrationSuccess,
+  clearForgotPasswordSuccess,
+  clearResetPasswordSuccess,
+  clearChangePasswordSuccess,
+} = authSlice.actions;
 export default authSlice.reducer;

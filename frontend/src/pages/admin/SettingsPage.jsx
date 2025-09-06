@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import adminService from "../../services/adminService";
 import { toast } from "react-hot-toast";
+import ChangePassword from "../../components/common/ChangePassword";
 
 const SettingsPage = () => {
   const [activeSection, setActiveSection] = useState("platform");
@@ -184,6 +185,14 @@ const SettingsPage = () => {
           onClick={() => setActiveTab("security")}
         >
           Security
+        </button>
+        <button
+          className={`pb-2 px-4 font-medium ${
+            activeTab === "account" ? "border-b-2 border-primary text-primary" : "text-gray-500 hover:text-gray-700"
+          }`}
+          onClick={() => setActiveTab("account")}
+        >
+          Account
         </button>
         <button
           className={`pb-2 px-4 font-medium ${
@@ -504,6 +513,13 @@ const SettingsPage = () => {
               </label>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Account Settings */}
+      {activeTab === "account" && (
+        <div>
+          <ChangePassword />
         </div>
       )}
 

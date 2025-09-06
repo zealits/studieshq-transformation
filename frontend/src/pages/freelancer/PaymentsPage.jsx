@@ -3,6 +3,7 @@ import escrowService from "../../services/escrowService";
 import { useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import GiftCardWithdrawModal from "../../components/payments/GiftCardWithdrawModal";
+import PayPalWithdrawModal from "../../components/payments/PayPalWithdrawModal";
 
 const PaymentsPage = () => {
   const [activeTab, setActiveTab] = useState("transactions");
@@ -10,6 +11,7 @@ const PaymentsPage = () => {
   const [escrowData, setEscrowData] = useState(null);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showGiftCardModal, setShowGiftCardModal] = useState(false);
+  const [showPayPalModal, setShowPayPalModal] = useState(false);
   const { user } = useSelector((state) => state.auth);
 
   // Load real escrow and transaction data
@@ -82,6 +84,16 @@ const PaymentsPage = () => {
     }
   };
 
+  const handlePayPalWithdrawal = async (withdrawalData) => {
+    try {
+      // Reload data after successful PayPal withdrawal
+      const response = await escrowService.getFreelancerEscrowData();
+      setEscrowData(response.data);
+    } catch (error) {
+      console.error("Error reloading data after PayPal withdrawal:", error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -116,6 +128,8 @@ const PaymentsPage = () => {
         return "text-blue-600 bg-blue-100";
       case "gift_card_withdrawal":
         return "text-purple-600 bg-purple-100";
+      case "paypal_withdrawal":
+        return "text-indigo-600 bg-indigo-100";
       case "platform_fee":
         return "text-red-600 bg-red-100";
       case "escrow_completion":
@@ -162,15 +176,18 @@ const PaymentsPage = () => {
               {loading ? "Refreshing..." : "🔄 Refresh"}
             </button>
             <div className="flex flex-col space-y-2">
+              <div className="text-center">
+                <p className="text-sm text-gray-600 mb-2">Withdrawal Options</p>
+              </div>
               <button
-                className="btn-primary"
-                onClick={() => setShowWithdrawModal(true)}
+                className="btn-primary bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors flex items-center justify-center"
+                onClick={() => setShowPayPalModal(true)}
                 disabled={!escrowData?.availableBalance || escrowData.availableBalance <= 0}
               >
-                Withdraw Funds
+                💰 PayPal
               </button>
               <button
-                className="btn-secondary bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md transition-colors"
+                className="btn-secondary bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md transition-colors flex items-center justify-center"
                 onClick={() => {
                   setShowGiftCardModal(true);
                 }}
@@ -313,6 +330,9 @@ const PaymentsPage = () => {
                             {transaction.type === "gift_card_withdrawal" && transaction.recipientEmail && (
                               <p className="text-xs text-purple-600">Gift card sent to: {transaction.recipientEmail}</p>
                             )}
+                            {transaction.type === "paypal_withdrawal" && transaction.recipientEmail && (
+                              <p className="text-xs text-indigo-600">PayPal sent to: {transaction.recipientEmail}</p>
+                            )}
                           </div>
                         </td>
                         <td className="py-3 px-4">
@@ -323,6 +343,8 @@ const PaymentsPage = () => {
                           >
                             {transaction.type === "gift_card_withdrawal"
                               ? "GIFT CARD"
+                              : transaction.type === "paypal_withdrawal"
+                              ? "PAYPAL"
                               : transaction.type.replace("_", " ").toUpperCase()}
                           </span>
                         </td>
@@ -372,39 +394,16 @@ const PaymentsPage = () => {
         </div>
       )}
 
-      {/* Withdraw Modal */}
-      {showWithdrawModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Withdraw Funds</h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Available Balance: {formatCurrency(escrowData?.availableBalance)}
-              </label>
-              <input
-                type="number"
-                placeholder="Enter amount to withdraw"
-                max={escrowData?.availableBalance}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-              />
-            </div>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowWithdrawModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleWithdraw(100)} // Pass the actual amount
-                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-              >
-                Withdraw
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* PayPal Withdrawal Modal */}
+      <PayPalWithdrawModal
+        isOpen={showPayPalModal}
+        onClose={() => {
+          console.log("💰 PAYMENTS PAGE: PayPal Modal onClose called");
+          setShowPayPalModal(false);
+        }}
+        availableBalance={escrowData?.availableBalance || 0}
+        onSuccess={handlePayPalWithdrawal}
+      />
 
       {/* Gift Card Withdrawal Modal */}
       {(() => {

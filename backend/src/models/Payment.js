@@ -82,6 +82,7 @@ const TransactionSchema = new Schema({
       "platform_fee",
       "escrow_completion",
       "gift_card_withdrawal",
+      "paypal_withdrawal",
     ],
     required: true,
   },

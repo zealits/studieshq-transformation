@@ -654,4 +654,28 @@ router.get(
   paymentController.checkGiftCardOrderStatus
 );
 
+// *** PAYPAL WITHDRAWAL ROUTES ***
+
+// Withdraw funds via PayPal (Freelancers and Clients)
+router.post(
+  "/paypal/withdraw",
+  [
+    auth,
+    checkRole(["freelancer", "client"]),
+    check("amount", "Amount must be a valid positive number").isFloat({ min: 1 }),
+  ],
+  paymentController.withdrawViaPayPal
+);
+
+// Get PayPal withdrawal history (Freelancers and Clients)
+router.get("/paypal/withdrawals", auth, checkRole(["freelancer", "client"]), paymentController.getPayPalWithdrawals);
+
+// Check PayPal payout status (Freelancers and Clients)
+router.get(
+  "/paypal/payout/:batchId/status",
+  auth,
+  checkRole(["freelancer", "client"]),
+  paymentController.checkPayPalPayoutStatus
+);
+
 module.exports = router;

@@ -3,12 +3,14 @@ import escrowService from "../../services/escrowService";
 import { useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import AddFundsModal from "../../components/payments/AddFundsModal";
+import PayPalWithdrawModal from "../../components/payments/PayPalWithdrawModal";
 
 const PaymentsPage = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [escrowData, setEscrowData] = useState(null);
   const [showAddFundsModal, setShowAddFundsModal] = useState(false);
+  const [showPayPalModal, setShowPayPalModal] = useState(false);
   const { user } = useSelector((state) => state.auth);
 
   // Load real escrow and transaction data
@@ -74,6 +76,16 @@ const PaymentsPage = () => {
     }
   };
 
+  const handlePayPalWithdrawal = async (withdrawalData) => {
+    try {
+      // Reload data after successful PayPal withdrawal
+      const response = await escrowService.getClientEscrowData();
+      setEscrowData(response.data);
+    } catch (error) {
+      console.error("Error reloading data after PayPal withdrawal:", error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -110,6 +122,8 @@ const PaymentsPage = () => {
         return "text-orange-600 bg-orange-100";
       case "platform_fee":
         return "text-red-600 bg-red-100";
+      case "paypal_withdrawal":
+        return "text-indigo-600 bg-indigo-100";
       default:
         return "text-gray-600 bg-gray-100";
     }
@@ -151,6 +165,13 @@ const PaymentsPage = () => {
             </button>
             <button className="btn-primary" onClick={() => setShowAddFundsModal(true)}>
               Add Funds
+            </button>
+            <button
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors flex items-center"
+              onClick={() => setShowPayPalModal(true)}
+              disabled={!escrowData?.availableBalance || escrowData.availableBalance <= 0}
+            >
+              💰 Withdraw via PayPal
             </button>
           </div>
         </div>
@@ -285,6 +306,9 @@ const PaymentsPage = () => {
                             {transaction.relatedUser && (
                               <p className="text-xs text-gray-500">Freelancer: {transaction.relatedUser}</p>
                             )}
+                            {transaction.type === "paypal_withdrawal" && transaction.recipientEmail && (
+                              <p className="text-xs text-indigo-600">PayPal sent to: {transaction.recipientEmail}</p>
+                            )}
                           </div>
                         </td>
                         <td className="py-3 px-4">
@@ -293,7 +317,9 @@ const PaymentsPage = () => {
                               transaction.type
                             )}`}
                           >
-                            {transaction.type.replace("_", " ").toUpperCase()}
+                            {transaction.type === "paypal_withdrawal"
+                              ? "PAYPAL"
+                              : transaction.type.replace("_", " ").toUpperCase()}
                           </span>
                         </td>
                         <td className="py-3 px-4 font-medium">{formatCurrency(transaction.amount)}</td>
@@ -345,6 +371,14 @@ const PaymentsPage = () => {
         isOpen={showAddFundsModal}
         onClose={() => setShowAddFundsModal(false)}
         onSuccess={handleAddFundsSuccess}
+      />
+
+      {/* PayPal Withdrawal Modal */}
+      <PayPalWithdrawModal
+        isOpen={showPayPalModal}
+        onClose={() => setShowPayPalModal(false)}
+        availableBalance={escrowData?.availableBalance || 0}
+        onSuccess={handlePayPalWithdrawal}
       />
     </div>
   );

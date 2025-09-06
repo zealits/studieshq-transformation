@@ -1451,3 +1451,387 @@ exports.checkGiftCardOrderStatus = async (req, res) => {
     });
   }
 };
+
+// *** PAYPAL WITHDRAWAL INTEGRATION ***
+
+// Withdraw funds via PayPal
+exports.withdrawViaPayPal = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { amount } = req.body;
+    const userId = req.user.id;
+
+    console.log("💰 PAYPAL WITHDRAWAL: === STARTING PAYPAL WITHDRAWAL PROCESS ===");
+    console.log("💰 PAYPAL WITHDRAWAL: Request received:", {
+      userId,
+      userEmail: req.user.email,
+      userName: req.user.name,
+      requestedAmount: amount,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Validate amount
+    console.log("💰 PAYPAL WITHDRAWAL: Validating amount:", { amount, type: typeof amount });
+    if (!amount || amount <= 0) {
+      console.log("💰 PAYPAL WITHDRAWAL: ❌ Amount validation failed - invalid amount");
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Invalid amount. Amount must be greater than 0",
+      });
+    }
+    console.log("💰 PAYPAL WITHDRAWAL: ✅ Amount validation passed");
+
+    // Get user details for PayPal email
+    console.log("💰 PAYPAL WITHDRAWAL: Fetching user details...");
+    const user = await User.findById(userId).session(session);
+    if (!user) {
+      console.log("💰 PAYPAL WITHDRAWAL: ❌ User not found in database");
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    console.log("💰 PAYPAL WITHDRAWAL: User found:", {
+      userId: user._id,
+      userEmail: user.email,
+      userName: user.name,
+      userRole: user.role,
+    });
+
+    if (!user.email) {
+      console.log("💰 PAYPAL WITHDRAWAL: ❌ User email not found");
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "User email not found. Please update your profile with a valid PayPal email.",
+      });
+    }
+    console.log("💰 PAYPAL WITHDRAWAL: ✅ User email validation passed");
+
+    // Get user's wallet
+    console.log("💰 PAYPAL WITHDRAWAL: Fetching user wallet...");
+    const wallet = await Wallet.findOne({ user: userId }).session(session);
+    if (!wallet) {
+      console.log("💰 PAYPAL WITHDRAWAL: ❌ Wallet not found for user");
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        message: "Wallet not found for user",
+      });
+    }
+
+    console.log("💰 PAYPAL WITHDRAWAL: Wallet found:", {
+      walletId: wallet._id,
+      currentBalance: wallet.balance,
+      totalEarned: wallet.totalEarned,
+    });
+
+    // Check if user has sufficient balance
+    console.log("💰 PAYPAL WITHDRAWAL: Checking balance sufficiency...");
+    if (wallet.balance < amount) {
+      console.log("💰 PAYPAL WITHDRAWAL: ❌ Insufficient balance:", {
+        availableBalance: wallet.balance,
+        requestedAmount: amount,
+        shortfall: amount - wallet.balance,
+      });
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient balance for PayPal withdrawal",
+        data: {
+          availableBalance: wallet.balance,
+          requestedAmount: amount,
+          shortfall: amount - wallet.balance,
+        },
+      });
+    }
+    console.log("💰 PAYPAL WITHDRAWAL: ✅ Balance check passed");
+
+    // Calculate withdrawal fee (example: 1% fee)
+    const fee = amount * 0.01;
+    const netAmount = amount - fee;
+
+    console.log("💰 PAYPAL WITHDRAWAL: Fee calculation:", {
+      grossAmount: amount,
+      feePercentage: "1%",
+      platformFee: fee,
+      netAmountToSend: netAmount,
+    });
+
+    // Generate unique transaction ID
+    const transactionId = `PP-${uuidv4().substring(0, 8)}`;
+
+    console.log("💰 PAYPAL WITHDRAWAL: Generated transaction ID:", transactionId);
+    console.log("💰 PAYPAL WITHDRAWAL: === INITIATING PAYPAL PAYOUT ===");
+    console.log("💰 PAYPAL WITHDRAWAL: Payout details:", {
+      recipientEmail: user.email,
+      netAmountToSend: netAmount,
+      transactionId,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Import PayPal service
+    const paypalService = require("../services/paypalService");
+
+    // Create PayPal payout
+    console.log("💰 PAYPAL WITHDRAWAL: Calling PayPal service to create payout...");
+    const payoutResult = await paypalService.createPayout(
+      user.email,
+      netAmount,
+      `User withdrawal from StudiesHQ - ${transactionId}`,
+      transactionId
+    );
+
+    console.log("💰 PAYPAL WITHDRAWAL: PayPal service response:", {
+      success: payoutResult.success,
+      payoutBatchId: payoutResult.payoutBatchId,
+      batchStatus: payoutResult.batchStatus,
+      error: payoutResult.error,
+    });
+
+    if (!payoutResult.success) {
+      console.log("💰 PAYPAL WITHDRAWAL: ❌ PayPal payout failed:", {
+        error: payoutResult.error,
+        details: payoutResult.details,
+      });
+      await session.abortTransaction();
+      return res.status(500).json({
+        success: false,
+        message: "Failed to create PayPal payout: " + payoutResult.error,
+        details: payoutResult.details,
+      });
+    }
+
+    console.log("💰 PAYPAL WITHDRAWAL: ✅ PayPal payout created successfully!");
+    console.log("💰 PAYPAL WITHDRAWAL: PayPal response details:", {
+      payoutBatchId: payoutResult.payoutBatchId,
+      batchStatus: payoutResult.batchStatus,
+      timeCreated: payoutResult.timeCreated,
+      senderBatchId: payoutResult.sender_batch_id,
+    });
+
+    // Deduct amount from wallet
+    console.log("💰 PAYPAL WITHDRAWAL: === UPDATING DATABASE ===");
+    console.log("💰 PAYPAL WITHDRAWAL: Deducting amount from wallet...");
+    console.log("💰 PAYPAL WITHDRAWAL: Wallet balance before:", wallet.balance);
+    wallet.balance -= amount;
+    console.log("💰 PAYPAL WITHDRAWAL: Wallet balance after:", wallet.balance);
+    await wallet.save({ session });
+    console.log("💰 PAYPAL WITHDRAWAL: ✅ Wallet updated successfully");
+
+    // Create transaction record
+    console.log("💰 PAYPAL WITHDRAWAL: Creating transaction record...");
+    const transaction = new Transaction({
+      transactionId,
+      user: userId,
+      amount: -amount, // Negative for withdrawal
+      fee,
+      netAmount: -netAmount, // Negative for net amount sent out
+      type: "paypal_withdrawal",
+      status: payoutResult.batchStatus === "PENDING" ? "pending" : "completed",
+      description: `PayPal withdrawal to ${user.email}`,
+      metadata: {
+        paypalPayoutBatchId: payoutResult.payoutBatchId,
+        paypalBatchStatus: payoutResult.batchStatus,
+        recipientEmail: user.email,
+        paypalTimeCreated: payoutResult.timeCreated,
+        senderBatchId: payoutResult.sender_batch_id,
+      },
+    });
+
+    await transaction.save({ session });
+    console.log("💰 PAYPAL WITHDRAWAL: ✅ Transaction record created:", {
+      transactionId: transaction.transactionId,
+      transactionDbId: transaction._id,
+      status: transaction.status,
+      type: transaction.type,
+    });
+
+    await session.commitTransaction();
+    console.log("💰 PAYPAL WITHDRAWAL: ✅ Database transaction committed");
+
+    console.log("💰 PAYPAL WITHDRAWAL: === WITHDRAWAL PROCESS COMPLETED SUCCESSFULLY ===");
+
+    const responseData = {
+      success: true,
+      data: {
+        transaction: {
+          id: transaction._id,
+          transactionId,
+          amount,
+          fee,
+          netAmount: Math.abs(netAmount),
+          type: "paypal_withdrawal",
+          status: transaction.status,
+          paypalPayout: {
+            batchId: payoutResult.payoutBatchId,
+            batchStatus: payoutResult.batchStatus,
+            recipientEmail: user.email,
+            timeCreated: payoutResult.timeCreated,
+          },
+          createdAt: transaction.createdAt,
+        },
+        newBalance: wallet.balance,
+      },
+    };
+
+    console.log("💰 PAYPAL WITHDRAWAL: Sending success response to frontend:", {
+      transactionId,
+      newBalance: wallet.balance,
+      paypalBatchId: payoutResult.payoutBatchId,
+      status: transaction.status,
+    });
+
+    res.json(responseData);
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("💰 PAYPAL WITHDRAWAL: === ERROR OCCURRED ===");
+    console.error("💰 PAYPAL WITHDRAWAL: Error type:", error.constructor.name);
+    console.error("💰 PAYPAL WITHDRAWAL: Error message:", error.message);
+    console.error("💰 PAYPAL WITHDRAWAL: Error stack:", error.stack);
+    console.error("💰 PAYPAL WITHDRAWAL: === END ERROR DETAILS ===");
+
+    const errorResponse = {
+      success: false,
+      message: "Failed to process PayPal withdrawal",
+      error: process.env.NODE_ENV === "development" ? error.message : "Internal server error",
+    };
+
+    console.log("💰 PAYPAL WITHDRAWAL: Sending error response to frontend:", errorResponse);
+    res.status(500).json(errorResponse);
+  } finally {
+    console.log("💰 PAYPAL WITHDRAWAL: Ending database session");
+    session.endSession();
+    console.log("💰 PAYPAL WITHDRAWAL: === PAYPAL WITHDRAWAL PROCESS FINISHED ===");
+  }
+};
+
+// Get PayPal withdrawal history
+exports.getPayPalWithdrawals = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { page = 1, limit = 10 } = req.query;
+
+    console.log("💰 GET PAYPAL WITHDRAWALS: Request params:", {
+      userId,
+      page,
+      limit,
+    });
+
+    const transactions = await Transaction.find({
+      user: userId,
+      type: "paypal_withdrawal",
+    })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    const total = await Transaction.countDocuments({
+      user: userId,
+      type: "paypal_withdrawal",
+    });
+
+    // Enrich with current PayPal payout status if needed
+    const enrichedTransactions = await Promise.all(
+      transactions.map(async (transaction) => {
+        const transactionObj = transaction.toObject();
+
+        if (transactionObj.metadata?.paypalPayoutBatchId) {
+          try {
+            const paypalService = require("../services/paypalService");
+            const statusResult = await paypalService.getPayoutStatus(transactionObj.metadata.paypalPayoutBatchId);
+            if (statusResult.success) {
+              transactionObj.paypalPayout = statusResult.batch;
+            }
+          } catch (error) {
+            console.warn("Failed to fetch PayPal payout status:", error.message);
+          }
+        }
+
+        return transactionObj;
+      })
+    );
+
+    res.json({
+      success: true,
+      data: {
+        transactions: enrichedTransactions,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("💰 GET PAYPAL WITHDRAWALS ERROR:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch PayPal withdrawal history",
+    });
+  }
+};
+
+// Check PayPal payout status
+exports.checkPayPalPayoutStatus = async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    const userId = req.user.id;
+
+    console.log("💰 CHECK PAYPAL PAYOUT STATUS: Request params:", {
+      userId,
+      batchId,
+    });
+
+    // Verify the payout belongs to the user
+    const transaction = await Transaction.findOne({
+      user: userId,
+      "metadata.paypalPayoutBatchId": batchId,
+      type: "paypal_withdrawal",
+    });
+
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        message: "PayPal payout not found or access denied",
+      });
+    }
+
+    // Get current payout status from PayPal
+    const paypalService = require("../services/paypalService");
+    const statusResult = await paypalService.getPayoutStatus(batchId);
+
+    if (!statusResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: statusResult.error,
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        payout: statusResult.batch,
+        transaction: {
+          id: transaction._id,
+          transactionId: transaction.transactionId,
+          amount: Math.abs(transaction.amount),
+          status: transaction.status,
+          createdAt: transaction.createdAt,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("💰 CHECK PAYPAL PAYOUT STATUS ERROR:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to check PayPal payout status",
+    });
+  }
+};
