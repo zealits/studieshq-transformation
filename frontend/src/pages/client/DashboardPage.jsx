@@ -91,10 +91,10 @@ const DashboardPage = () => {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Client Dashboard</h1>
+      {/* <h1 className="text-2xl font-bold mb-6">Client Dashboard</h1> */}
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Welcome back, {user?.name || "Client"}!</h2>
+        <h2 className="text-lg font-semibold mb-4">Welcome, {user?.name || "Client"}!</h2>
         <p className="text-gray-600">
           Your client dashboard gives you an overview of your projects, freelancers, and pending tasks.
         </p>
