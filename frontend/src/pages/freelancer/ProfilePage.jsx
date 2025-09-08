@@ -381,11 +381,6 @@ const ProfilePage = () => {
                     formData.fullName.charAt(0)
                   )}
                 </div>
-                {/* {data?.data?.profile?.isVerified && data?.data?.profile?.verificationStatus === "verified" && (
-                  <div className="absolute -top-2 -right-2">
-                    <VerificationBadge size="large" showText={false} />
-                  </div>
-                )} */}
                 {isEditing && (
                   <label
                     htmlFor="profile-image"
