@@ -1078,6 +1078,29 @@ function getCardBrand(cardNumber) {
 
 // *** GIFTOGRAM INTEGRATION ***
 
+// Get giftogram configuration (for frontend)
+exports.getGiftogramConfig = async (req, res) => {
+  try {
+    const config = giftogramService.getConfig();
+
+    res.json({
+      success: true,
+      config: {
+        environment: config.environment,
+        defaultCampaignId: config.defaultCampaignId,
+        hasApiKey: config.hasApiKey,
+      },
+    });
+  } catch (error) {
+    console.error("Error getting giftogram config:", error.message);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to get giftogram configuration",
+    });
+  }
+};
+
 // Get available gift card campaigns
 exports.getGiftCardCampaigns = async (req, res) => {
   try {
@@ -1161,8 +1184,11 @@ exports.withdrawAsGiftCard = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { campaignId, amount, recipientEmail, recipientName, message } = req.body;
+    const { amount, recipientEmail, recipientName, message } = req.body;
     const userId = req.user.id;
+
+    // Get configured campaign ID from service
+    const campaignId = giftogramService.getDefaultCampaignId();
 
     // Validation
     const validationResults = {
@@ -1173,11 +1199,11 @@ exports.withdrawAsGiftCard = async (req, res) => {
       amountIsPositive: amount > 0,
     };
 
-    if (!campaignId || !amount || !recipientEmail || !recipientName) {
+    if (!amount || !recipientEmail || !recipientName) {
       await session.abortTransaction();
       return res.status(400).json({
         success: false,
-        message: "Missing required fields: campaignId, amount, recipientEmail, recipientName",
+        message: "Missing required fields: amount, recipientEmail, recipientName",
       });
     }
 

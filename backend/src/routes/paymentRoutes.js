@@ -618,6 +618,11 @@ router.post("/paypal/capture-payment", auth, paymentController.capturePayPalPaym
 
 // ***** GIFTOGRAM GIFT CARD ROUTES *****
 
+// @route   GET /api/payments/gift-cards/config
+// @desc    Get giftogram configuration
+// @access  Private (Freelancers only)
+router.get("/gift-cards/config", auth, checkRole(["freelancer"]), paymentController.getGiftogramConfig);
+
 // @route   GET /api/payments/gift-cards/campaigns
 // @desc    Get available gift card campaigns
 // @access  Private (Freelancers only)

@@ -7,6 +7,7 @@ class GiftogramService {
     this.apiKey = giftogram.apiKey;
     this.apiSecret = giftogram.apiSecret;
     this.environment = giftogram.environment;
+    this.defaultCampaignId = giftogram.defaultCampaignId;
 
     // Create axios instance with default headers - Fixed authentication format
     this.api = axios.create({
@@ -21,36 +22,9 @@ class GiftogramService {
   // Get list of available campaigns/gift card options
   async getCampaigns() {
     try {
-      console.log("🎁 GIFTOGRAM SERVICE: === STARTING getCampaigns ===");
-      console.log("🎁 GIFTOGRAM SERVICE: API Key present:", !!this.apiKey);
-      console.log("🎁 GIFTOGRAM SERVICE: API Secret present:", !!this.apiSecret);
-      console.log("🎁 GIFTOGRAM SERVICE: Environment:", this.environment);
-      console.log("🎁 GIFTOGRAM SERVICE: API Key value:", this.apiKey ? `${this.apiKey.substring(0, 10)}...` : "null");
-      console.log("🎁 GIFTOGRAM SERVICE: Base URL:", this.api?.defaults?.baseURL);
-
-      // Check if API credentials are configured - always use mock in development if no real credentials
-      if (
-        !this.apiKey ||
-        this.apiKey === "placeholder_api_key_for_testing" ||
-        this.apiKey === "your_giftogram_api_key"
-      ) {
-        console.warn("🎁 GIFTOGRAM SERVICE: ⚠️ API credentials not configured properly, using mock data");
-        console.warn("🎁 GIFTOGRAM SERVICE: API Key check failed:", {
-          hasApiKey: !!this.apiKey,
-          apiKeyValue: this.apiKey,
-          isPlaceholder: this.apiKey === "placeholder_api_key_for_testing",
-          isDefaultValue: this.apiKey === "your_giftogram_api_key",
-        });
-
-        const mockResult = this.getMockCampaigns();
-        console.log("🎁 GIFTOGRAM SERVICE: ✅ Mock campaigns result:", {
-          success: mockResult.success,
-          campaignCount: mockResult.campaigns?.length || 0,
-          firstCampaign: mockResult.campaigns?.[0]?.name || "none",
-          allCampaigns: mockResult.campaigns?.map((c) => ({ id: c.id, name: c.name, active: c.active })),
-        });
-        console.log("🎁 GIFTOGRAM SERVICE: === RETURNING MOCK DATA ===");
-        return mockResult;
+      // Validate API credentials
+      if (!this.apiKey || !this.apiUrl) {
+        throw new Error("Giftogram API credentials not configured. Please check your API key and URL.");
       }
 
       console.log("🎁 GIFTOGRAM SERVICE: ✅ Making API call to /api/v1/campaigns");
@@ -60,7 +34,6 @@ class GiftogramService {
         "Content-Type": "application/json",
       });
 
-      // Fixed: Using correct endpoint structure
       const response = await this.api.get("/api/v1/campaigns");
 
       console.log("🎁 GIFTOGRAM SERVICE: === RAW API RESPONSE RECEIVED ===");
@@ -117,14 +90,11 @@ class GiftogramService {
       console.error("🎁 GIFTOGRAM SERVICE: Error response:", error.response?.data);
       console.error("🎁 GIFTOGRAM SERVICE: Error status:", error.response?.status);
 
-      // Always fall back to mock campaigns if API fails (for development/testing)
-      console.log("🎁 GIFTOGRAM SERVICE: API failed, falling back to mock campaigns");
-      const mockResult = this.getMockCampaigns();
-      console.log("🎁 GIFTOGRAM SERVICE: Mock fallback result:", {
-        success: mockResult.success,
-        campaignCount: mockResult.campaigns?.length || 0,
-      });
-      return mockResult;
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || "Failed to fetch campaigns",
+        statusCode: error.response?.status,
+      };
     }
   }
 
@@ -134,18 +104,16 @@ class GiftogramService {
       console.log("🎁 GIFTOGRAM SERVICE: === STARTING getCampaignById ===");
       console.log("🎁 GIFTOGRAM SERVICE: Campaign ID:", campaignId);
 
-      if (!this.apiKey || this.apiKey === "placeholder_api_key_for_testing" || this.apiKey === "your_giftogram_api_key") {
-        console.warn("🎁 GIFTOGRAM SERVICE: API credentials not configured, using mock data");
-        const mockCampaigns = this.getMockCampaigns();
-        const campaign = mockCampaigns.campaigns.find((c) => c.id === campaignId);
-        return {
-          success: true,
-          campaign: campaign || null,
-        };
+      // Validate API credentials and campaign ID
+      if (!this.apiKey || !this.apiUrl) {
+        throw new Error("Giftogram API credentials not configured. Please check your API key and URL.");
+      }
+
+      if (!campaignId) {
+        throw new Error("Campaign ID is required");
       }
 
       console.log("🎁 GIFTOGRAM SERVICE: Making API call to /api/v1/campaigns/" + campaignId);
-      // Fixed: Using correct endpoint structure
       const response = await this.api.get(`/api/v1/campaigns/${campaignId}`);
 
       console.log("🎁 GIFTOGRAM SERVICE: Campaign response received");
@@ -165,65 +133,10 @@ class GiftogramService {
 
       return {
         success: false,
-        error: error.response?.data?.message || "Failed to fetch campaign",
+        error: error.response?.data?.message || error.message || "Failed to fetch campaign",
+        statusCode: error.response?.status,
       };
     }
-  }
-
-  // Mock campaigns for development and testing
-  getMockCampaigns() {
-    const mockCampaigns = [
-      {
-        id: "f3f940c3-0281-448d-886d-4969b3596826",
-        name: "Amazon Gift Card",
-        description: "Redeemable on Amazon.com for millions of items",
-        currencies: ["USD"],
-        denominations: [10, 25, 50, 100, 200, 500],
-        active: true,
-        terms: "Valid for 10 years from issue date. No expiration on gift card balance.",
-      },
-      {
-        id: "visa-gift-card-campaign",
-        name: "Visa Gift Card",
-        description: "Use anywhere Visa is accepted",
-        currencies: ["USD"],
-        denominations: [10, 25, 50, 100, 200, 500],
-        active: true,
-        terms: "Valid for 12 months. May have activation fees.",
-      },
-      {
-        id: "starbucks-gift-card-campaign",
-        name: "Starbucks Gift Card",
-        description: "Perfect for coffee lovers",
-        currencies: ["USD"],
-        denominations: [5, 10, 15, 25, 50, 100],
-        active: true,
-        terms: "Valid at participating Starbucks locations. No expiration date.",
-      },
-      {
-        id: "target-gift-card-campaign",
-        name: "Target Gift Card",
-        description: "Shop for everything at Target",
-        currencies: ["USD"],
-        denominations: [5, 10, 25, 50, 100, 200, 300],
-        active: true,
-        terms: "Valid at Target stores and Target.com. No expiration date.",
-      },
-      {
-        id: "walmart-gift-card-campaign",
-        name: "Walmart Gift Card",
-        description: "America's largest retailer",
-        currencies: ["USD"],
-        denominations: [5, 10, 25, 50, 100, 200],
-        active: true,
-        terms: "Valid at Walmart stores and Walmart.com. No expiration date.",
-      },
-    ];
-
-    return {
-      success: true,
-      campaigns: mockCampaigns,
-    };
   }
 
   // Create a gift card order - Fixed to match Giftogram API structure
@@ -235,14 +148,15 @@ class GiftogramService {
         recipientEmail: orderData.recipientEmail,
       });
 
-      // Check if API credentials are configured - always use mock in development if no real credentials
-      if (
-        !this.apiKey ||
-        this.apiKey === "placeholder_api_key_for_testing" ||
-        this.apiKey === "your_giftogram_api_key"
-      ) {
-        console.warn("�� GIFTOGRAM SERVICE: API credentials not configured properly, creating mock order");
-        return this.createMockOrder(orderData);
+      // Validate API credentials
+      if (!this.apiKey || !this.apiUrl) {
+        throw new Error("Giftogram API credentials not configured. Please check your API key and URL.");
+      }
+
+      // Validate order data
+      const validation = this.validateOrderData(orderData);
+      if (!validation.valid) {
+        throw new Error(`Invalid order data: ${validation.error}`);
       }
 
       // Fixed: Using correct Giftogram API payload structure
@@ -288,48 +202,12 @@ class GiftogramService {
       console.error("🎁 GIFTOGRAM SERVICE: Error status:", error.response?.status);
       console.error("🎁 GIFTOGRAM SERVICE: Error headers:", error.response?.headers);
 
-      // Always fall back to mock order if API fails
-      console.log("🎁 GIFTOGRAM SERVICE: API failed, creating mock order");
-      return this.createMockOrder(orderData);
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || "Failed to create gift card order",
+        statusCode: error.response?.status,
+      };
     }
-  }
-
-  // Create mock order for development and testing
-  createMockOrder(orderData) {
-    const mockOrder = {
-      external_id: orderData.externalId,
-      campaign_id: orderData.campaignId,
-      order_id: `mock-order-${Date.now()}`,
-      team_id: "mock-team-id",
-      campaign_name: this.getMockCampaignName(orderData.campaignId),
-      team_name: "StudiesHQ Mock Team",
-      currency: ["USD"],
-      status: "pending",
-      send_time: new Date().toISOString(),
-      spend: orderData.amount,
-      notes: `Mock gift card order for testing - ${orderData.externalId}`,
-      reference_number: orderData.externalId,
-      message: orderData.message || "Test gift card message",
-      subject: "Your Mock Gift Card is Ready!",
-      recipients: [
-        {
-          email: orderData.recipientEmail,
-          name: orderData.recipientName,
-        },
-      ],
-    };
-
-    return {
-      success: true,
-      order: mockOrder,
-    };
-  }
-
-  // Helper method to get mock campaign name
-  getMockCampaignName(campaignId) {
-    const mockCampaigns = this.getMockCampaigns();
-    const campaign = mockCampaigns.campaigns.find((c) => c.id === campaignId);
-    return campaign ? campaign.name : "Unknown Gift Card";
   }
 
   // Get order by ID
@@ -338,16 +216,13 @@ class GiftogramService {
       console.log("🎁 GIFTOGRAM SERVICE: === STARTING getOrder ===");
       console.log("🎁 GIFTOGRAM SERVICE: Order ID:", orderId);
 
-      if (!this.apiKey || this.apiKey === "placeholder_api_key_for_testing" || this.apiKey === "your_giftogram_api_key") {
-        console.warn("🎁 GIFTOGRAM SERVICE: API credentials not configured, returning mock order");
-        return {
-          success: true,
-          order: {
-            order_id: orderId,
-            status: "completed",
-            campaign_name: "Mock Gift Card",
-          },
-        };
+      // Validate API credentials and order ID
+      if (!this.apiKey || !this.apiUrl) {
+        throw new Error("Giftogram API credentials not configured. Please check your API key and URL.");
+      }
+
+      if (!orderId) {
+        throw new Error("Order ID is required");
       }
 
       console.log("🎁 GIFTOGRAM SERVICE: Making API call to /api/v1/orders/" + orderId);
@@ -369,7 +244,8 @@ class GiftogramService {
 
       return {
         success: false,
-        error: error.response?.data?.message || "Failed to fetch order",
+        error: error.response?.data?.message || error.message || "Failed to fetch order",
+        statusCode: error.response?.status,
       };
     }
   }
@@ -380,12 +256,9 @@ class GiftogramService {
       console.log("🎁 GIFTOGRAM SERVICE: === STARTING getOrders ===");
       console.log("🎁 GIFTOGRAM SERVICE: Filters:", filters);
 
-      if (!this.apiKey || this.apiKey === "placeholder_api_key_for_testing" || this.apiKey === "your_giftogram_api_key") {
-        console.warn("🎁 GIFTOGRAM SERVICE: API credentials not configured, returning mock orders");
-        return {
-          success: true,
-          orders: [],
-        };
+      // Validate API credentials
+      if (!this.apiKey || !this.apiUrl) {
+        throw new Error("Giftogram API credentials not configured. Please check your API key and URL.");
       }
 
       console.log("🎁 GIFTOGRAM SERVICE: Making API call to /api/v1/orders");
@@ -413,9 +286,30 @@ class GiftogramService {
 
       return {
         success: false,
-        error: error.response?.data?.message || "Failed to fetch orders",
+        error: error.response?.data?.message || error.message || "Failed to fetch orders",
+        statusCode: error.response?.status,
       };
     }
+  }
+
+  // Get the default campaign ID configured in environment
+  getDefaultCampaignId() {
+    if (!this.defaultCampaignId) {
+      throw new Error(
+        "Default campaign ID not configured. Please set GIFTOGRAM_DEFAULT_CAMPAIGN_ID in your environment variables."
+      );
+    }
+    return this.defaultCampaignId;
+  }
+
+  // Get giftogram configuration (without sensitive data)
+  getConfig() {
+    return {
+      environment: this.environment,
+      apiUrl: this.apiUrl,
+      defaultCampaignId: this.defaultCampaignId,
+      hasApiKey: !!this.apiKey,
+    };
   }
 
   // Validate order data before sending to API

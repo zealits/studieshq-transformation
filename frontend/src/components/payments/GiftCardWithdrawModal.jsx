@@ -10,10 +10,6 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
   // Get current user data from Redux store
   const { user } = useSelector((state) => state.auth);
 
-  // Fixed campaign ID from your curl example
-  const FIXED_CAMPAIGN_ID = "078ee186-e80b-4355-88e1-4231af20f653";
-  // bd647ecb-3781-41c9-98ea-3d3fc32e8f21 sandbox
-  // 078ee186-e80b-4355-88e1-4231af20f653 production
   // Fixed denominations for the campaign
   const AVAILABLE_DENOMINATIONS = [5, 10, 25, 50, 100, 200, 500];
 
@@ -154,7 +150,6 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
       const referenceNumber = generateReferenceNumber();
 
       const withdrawalData = {
-        campaignId: FIXED_CAMPAIGN_ID,
         amount: parseFloat(formData.amount),
         recipientEmail: user.email.toLowerCase().trim(),
         recipientName: user.name.trim(),
@@ -165,7 +160,6 @@ const GiftCardWithdrawModal = ({ isOpen, onClose, availableBalance, onSuccess })
 
       console.log("🎁 MODAL SUBMIT: === PREPARED WITHDRAWAL DATA ===");
       console.log("🎁 MODAL SUBMIT: Withdrawal data:", JSON.stringify(withdrawalData, null, 2));
-      console.log("🎁 MODAL SUBMIT: Campaign ID:", withdrawalData.campaignId);
       console.log("🎁 MODAL SUBMIT: Amount:", withdrawalData.amount);
       console.log("🎁 MODAL SUBMIT: Recipient email:", withdrawalData.recipientEmail);
       console.log("🎁 MODAL SUBMIT: Recipient name:", withdrawalData.recipientName);
