@@ -51,6 +51,10 @@ const ProposalSchema = new Schema({
       ref: "Attachment",
     },
   ],
+  isFromInvitation: {
+    type: Boolean,
+    default: false,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

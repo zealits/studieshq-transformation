@@ -42,6 +42,24 @@ router.post(
 // @access  Public (limited) / Private (full access)
 router.get("/", auth, jobController.getJobs);
 
+// @route   GET /api/jobs/invitations
+// @desc    Get invitations for a freelancer
+// @access  Private (Freelancer only)
+router.get("/invitations", auth, checkRole(["freelancer"]), jobController.getFreelancerInvitations);
+
+// @route   PUT /api/jobs/invitations/:id/respond
+// @desc    Respond to a job invitation
+// @access  Private (Freelancer only)
+router.put(
+  "/invitations/:id/respond",
+  [
+    auth,
+    checkRole(["freelancer"]),
+    [check("response", "Response is required and must be 'accepted' or 'declined'").isIn(["accepted", "declined"])],
+  ],
+  jobController.respondToInvitation
+);
+
 // @route   GET /api/jobs/:id
 // @desc    Get job by ID
 // @access  Public (limited) / Private (full access)
@@ -130,5 +148,21 @@ router.get("/admin/all", auth, checkRole(["admin"]), jobController.getAllJobsFor
 // @desc    Get job counts by category for home page
 // @access  Public
 router.get("/categories/counts", jobController.getJobCountsByCategory);
+
+// @route   POST /api/jobs/:id/invite
+// @desc    Invite a freelancer to a job
+// @access  Private (Client only, must be job owner)
+router.post(
+  "/:id/invite",
+  [
+    auth,
+    checkRole(["client", "admin"]),
+    [
+      check("freelancerId", "Freelancer ID is required").isMongoId(),
+      check("message", "Message must be a string").optional().isString().isLength({ max: 500 }),
+    ],
+  ],
+  jobController.inviteFreelancer
+);
 
 module.exports = router;

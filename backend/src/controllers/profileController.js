@@ -225,7 +225,7 @@ exports.getAllFreelancers = async (req, res) => {
       ...profileFilter,
     };
 
-    const freelancerProfiles = await Profile.find(completeFilter).populate("user", ["name", "email", "avatar"]);
+    const freelancerProfiles = await Profile.find(completeFilter).populate("user", ["name", "email", "avatar", "role"]);
 
     res.json({ success: true, data: { freelancers: freelancerProfiles } });
   } catch (err) {

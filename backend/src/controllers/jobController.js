@@ -5,6 +5,7 @@ const Proposal = require("../models/Proposal");
 const User = require("../models/User");
 const Profile = require("../models/Profile");
 const { Project } = require("../models/Project");
+const JobInvitation = require("../models/JobInvitation");
 const emailService = require("../services/emailService");
 
 /**
@@ -1164,5 +1165,296 @@ const getAllJobs = async (req, res) => {
       message: "Error fetching jobs",
       error: error.message,
     });
+  }
+};
+
+/**
+ * @desc    Invite a freelancer to a job
+ * @route   POST /api/jobs/:id/invite
+ * @access  Private (Client only, must be job owner)
+ */
+exports.inviteFreelancer = async (req, res) => {
+  console.log("Invitation request received:", {
+    body: req.body,
+    params: req.params,
+    headers: req.headers,
+    user: req.user
+  });
+
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    console.log("Validation errors:", errors.array());
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
+
+  try {
+    const job = await Job.findById(req.params.id);
+
+    if (!job) {
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
+
+    // Check if user is the job owner or admin
+    console.log("Authorization check:", {
+      userId: req.user?.id,
+      userRole: req.user?.role,
+      jobClientId: job.client,
+      jobId: job._id,
+      isOwner: isJobOwnerOrAdmin(req, job)
+    });
+
+    if (!isJobOwnerOrAdmin(req, job)) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to invite freelancers to this job",
+      });
+    }
+
+    // Check if job is open for invitations
+    if (job.status !== "open") {
+      return res.status(400).json({
+        success: false,
+        message: "Can only invite freelancers to open jobs",
+      });
+    }
+
+    const { freelancerId, message } = req.body;
+
+    console.log("Freelancer validation:", {
+      freelancerId,
+      message,
+      freelancerIdType: typeof freelancerId
+    });
+
+    // Check if freelancer exists and has freelancer role
+    const freelancer = await User.findById(freelancerId);
+    console.log("Freelancer found:", {
+      exists: !!freelancer,
+      role: freelancer?.role,
+      name: freelancer?.name
+    });
+
+    if (!freelancer || freelancer.role !== "freelancer") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid freelancer",
+      });
+    }
+
+    // Check if freelancer already has a proposal for this job
+    const existingProposal = await Proposal.findOne({
+      job: job._id,
+      freelancer: freelancerId,
+    });
+
+    if (existingProposal) {
+      return res.status(400).json({
+        success: false,
+        message: "This freelancer has already applied to this job",
+      });
+    }
+
+    // Check if freelancer already has a pending invitation
+    const existingInvitation = await JobInvitation.findOne({
+      job: job._id,
+      freelancer: freelancerId,
+      status: "pending",
+    });
+
+    if (existingInvitation) {
+      return res.status(400).json({
+        success: false,
+        message: "This freelancer has already been invited to this job",
+      });
+    }
+
+    // Create invitation
+    const invitation = new JobInvitation({
+      job: job._id,
+      client: req.user.id,
+      freelancer: freelancerId,
+      message: message || "",
+    });
+
+    await invitation.save();
+
+    // Populate the invitation with freelancer and job details
+    await invitation.populate([
+      { path: "freelancer", select: "name email avatar" },
+      { path: "job", select: "title description budget" },
+    ]);
+
+    // Send email notification to freelancer
+    try {
+      const client = await User.findById(req.user.id);
+      if (client && freelancer) {
+        await emailService.sendJobInvitationNotification(client, freelancer, job, invitation);
+      }
+    } catch (emailError) {
+      // Don't fail the invitation if email fails
+      console.error("Email notification failed:", emailError);
+    }
+
+    res.status(201).json({
+      success: true,
+      data: { invitation },
+      message: "Invitation sent successfully",
+    });
+  } catch (err) {
+    console.error("Error inviting freelancer:", err);
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * @desc    Get invitations for a freelancer
+ * @route   GET /api/jobs/invitations
+ * @access  Private (Freelancer only)
+ */
+exports.getFreelancerInvitations = async (req, res) => {
+  try {
+    const invitations = await JobInvitation.find({
+      freelancer: req.user.id,
+      status: "pending",
+      expiresAt: { $gt: new Date() }, // Only non-expired invitations
+    })
+      .populate("job", "title description budget category skills deadline")
+      .populate("client", "name email avatar")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: { invitations },
+    });
+  } catch (error) {
+    console.error("Error fetching invitations:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching invitations",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Respond to a job invitation
+ * @route   PUT /api/jobs/invitations/:id/respond
+ * @access  Private (Freelancer only)
+ */
+exports.respondToInvitation = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
+
+  try {
+    const { response } = req.body; // "accepted" or "declined"
+
+    if (!["accepted", "declined"].includes(response)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid response. Must be 'accepted' or 'declined'",
+      });
+    }
+
+    const invitation = await JobInvitation.findById(req.params.id);
+
+    if (!invitation) {
+      return res.status(404).json({ success: false, message: "Invitation not found" });
+    }
+
+    // Check if invitation belongs to the freelancer
+    if (invitation.freelancer.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to respond to this invitation",
+      });
+    }
+
+    // Check if invitation is still pending and not expired
+    if (invitation.status !== "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "This invitation has already been responded to",
+      });
+    }
+
+    if (invitation.expiresAt < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "This invitation has expired",
+      });
+    }
+
+    // Update invitation status
+    invitation.status = response;
+    await invitation.save();
+
+    // If accepted, create a proposal automatically
+    if (response === "accepted") {
+      const job = await Job.findById(invitation.job);
+      const freelancerProfile = await Profile.findOne({ user: req.user.id });
+
+      if (job && freelancerProfile) {
+        // Create profile snapshot
+        const profileSnapshot = {
+          name: freelancerProfile.user?.name || req.user.name,
+          avatar: freelancerProfile.user?.avatar || req.user.avatar,
+          title: freelancerProfile.title || null,
+          skills: freelancerProfile.skills || [],
+          experience: Array.isArray(freelancerProfile.experience)
+            ? freelancerProfile.experience.map((exp) => `${exp.title} at ${exp.company}`).join(", ")
+            : "",
+          hourlyRate: freelancerProfile.hourlyRate || { min: 0, max: 0 },
+        };
+
+        // Create proposal
+        const proposal = new Proposal({
+          job: job._id,
+          freelancer: req.user.id,
+          client: job.client,
+          coverLetter: `I'm interested in this opportunity. ${invitation.message || ""}`,
+          bidPrice: job.budget.max, // Use max budget as bid price
+          estimatedDuration: job.duration,
+          status: "pending",
+          freelancerProfileSnapshot: profileSnapshot,
+          isFromInvitation: true, // Mark as from invitation
+        });
+
+        await proposal.save();
+
+        // Update job application count
+        job.applicationCount += 1;
+        await job.save();
+
+        // Send email notification to client
+        try {
+          const client = await User.findById(job.client);
+          const freelancer = await User.findById(req.user.id);
+
+          if (client && freelancer) {
+            await emailService.sendNewProposalNotification(client, freelancer, job, proposal);
+          }
+        } catch (emailError) {
+          // Don't fail the response if email fails
+          console.error("Email notification failed:", emailError);
+        }
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { invitation },
+      message: `Invitation ${response} successfully`,
+    });
+  } catch (err) {
+    console.error("Error responding to invitation:", err);
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ success: false, message: "Invitation not found" });
+    }
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

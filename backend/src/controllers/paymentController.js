@@ -146,27 +146,13 @@ exports.createPayPalOrder = async (req, res) => {
       });
     }
 
-    // Store pending transaction
-    const transaction = new Transaction({
-      transactionId: `PPO-${uuidv4().substring(0, 8)}`,
-      user: req.user.id,
-      amount,
-      type: "deposit",
-      status: "pending",
-      description: "PayPal wallet deposit - pending",
-      metadata: {
-        paypalOrderId: paypalOrder.orderId,
-        paymentMethod: "paypal",
-      },
-    });
-
-    await transaction.save();
+    // Don't create transaction yet - only create after successful payment capture
+    // This prevents showing pending transactions when user just clicks add funds
 
     res.json({
       success: true,
       data: {
         orderId: paypalOrder.orderId,
-        transactionId: transaction.transactionId,
         approvalUrl: paypalOrder.links.find((link) => link.rel === "approve")?.href,
       },
     });
@@ -190,30 +176,11 @@ exports.capturePayPalPayment = async (req, res) => {
       });
     }
 
-    // Find the pending transaction
-    const transaction = await Transaction.findOne({
-      "metadata.paypalOrderId": orderId,
-      user: req.user.id,
-      status: "pending",
-    }).session(session);
-
-    if (!transaction) {
-      return res.status(404).json({
-        success: false,
-        message: "Transaction not found or already processed",
-      });
-    }
-
-    // Capture PayPal payment
+    // Capture PayPal payment first
     const captureResult = await paypalService.captureOrder(orderId);
 
     if (!captureResult.success) {
-      // Update transaction status to failed
-      transaction.status = "failed";
-      transaction.metadata.error = captureResult.error;
-      await transaction.save({ session });
-
-      await session.commitTransaction();
+      await session.abortTransaction();
       session.endSession();
 
       return res.status(400).json({
@@ -233,15 +200,24 @@ exports.capturePayPalPayment = async (req, res) => {
     wallet.balance += capturedAmount;
     await wallet.save({ session });
 
-    // Update transaction
-    transaction.status = "completed";
-    transaction.description = "PayPal wallet deposit - completed";
-    transaction.metadata = {
-      ...transaction.metadata,
-      paypalCaptureId: captureResult.captureId,
-      paypalTransactionId: captureResult.transactionId,
-      payerInfo: captureResult.payerInfo,
-    };
+    // Create transaction only after successful payment capture
+    const transaction = new Transaction({
+      transactionId: `PPO-${uuidv4().substring(0, 8)}`,
+      user: req.user.id,
+      amount: capturedAmount,
+      netAmount: capturedAmount,
+      type: "deposit",
+      status: "completed",
+      description: "PayPal wallet deposit - completed",
+      metadata: {
+        paypalOrderId: orderId,
+        paypalCaptureId: captureResult.captureId,
+        paypalTransactionId: captureResult.transactionId,
+        payerInfo: captureResult.payerInfo,
+        paymentMethod: "paypal",
+      },
+    });
+
     await transaction.save({ session });
 
     await session.commitTransaction();

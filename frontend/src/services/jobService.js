@@ -31,6 +31,16 @@ const jobService = {
     }
   },
 
+  // Close job (set status to cancelled)
+  closeJob: async (jobId) => {
+    try {
+      const response = await axios.put(`/api/jobs/${jobId}`, { status: "cancelled" });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
   // Delete job
   deleteJob: async (jobId) => {
     try {

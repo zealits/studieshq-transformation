@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchFreelancers,
@@ -10,6 +10,7 @@ import {
   selectFreelancerFilters,
   selectAllFreelancers,
 } from "../../redux/slices/freelancerSlice";
+import InviteFreelancerModal from "../../components/client/InviteFreelancerModal";
 
 const FreelancersPage = () => {
   const dispatch = useDispatch();
@@ -18,6 +19,10 @@ const FreelancersPage = () => {
   const loading = useSelector(selectFreelancerLoading);
   const error = useSelector(selectFreelancerError);
   const filters = useSelector(selectFreelancerFilters);
+  
+  // Modal state
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [selectedFreelancer, setSelectedFreelancer] = useState(null);
 
   // Fetch freelancers when component mounts
   useEffect(() => {
@@ -41,6 +46,21 @@ const FreelancersPage = () => {
 
   const handleSearchChange = (e) => {
     dispatch(setFilters({ searchTerm: e.target.value }));
+  };
+
+  const handleInviteClick = (freelancer) => {
+    setSelectedFreelancer(freelancer);
+    setShowInviteModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowInviteModal(false);
+    setSelectedFreelancer(null);
+  };
+
+  const handleInviteSuccess = () => {
+    // Optionally refresh freelancers list or show success message
+    console.log("Invitation sent successfully");
   };
 
   // Get unique locations from all freelancers for the dropdown
@@ -266,7 +286,12 @@ const FreelancersPage = () => {
                   </div>
                   <div className="flex space-x-2">
                     <button className="btn-outline text-sm py-1">View Profile</button>
-                    <button className="btn-primary text-sm py-1">Invite to Job</button>
+                    <button 
+                      onClick={() => handleInviteClick(freelancer)}
+                      className="btn-primary text-sm py-1"
+                    >
+                      Invite to Project
+                    </button>
                   </div>
                 </div>
               </div>
@@ -284,6 +309,14 @@ const FreelancersPage = () => {
           </div>
         </div>
       )}
+
+      {/* Invite Modal */}
+      <InviteFreelancerModal
+        isOpen={showInviteModal}
+        onClose={handleCloseModal}
+        freelancer={selectedFreelancer}
+        onInviteSuccess={handleInviteSuccess}
+      />
     </div>
   );
 };

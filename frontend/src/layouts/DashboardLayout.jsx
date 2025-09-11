@@ -39,6 +39,7 @@ const DashboardLayout = ({ role }) => {
         return [
           { path: "/freelancer", label: "Dashboard", icon: "home" },
           { path: "/freelancer/find-jobs", label: "Find Projects", icon: "search" },
+          { path: "/freelancer/invitations", label: "Invitations", icon: "mail" },
           { path: "/freelancer/projects", label: "My Projects", icon: "folder" },
           { path: "/freelancer/messages", label: "Messages", icon: "chat", showUnreadBadge: true },
           { path: "/freelancer/payments", label: "Payments", icon: "dollar" },

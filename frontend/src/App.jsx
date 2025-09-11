@@ -40,6 +40,7 @@ import FreelancerProjects from "./pages/freelancer/ProjectsPage";
 import FreelancerMessages from "./pages/freelancer/MessagesPage";
 import FreelancerPayments from "./pages/freelancer/PaymentsPage";
 import FreelancerProfile from "./pages/freelancer/ProfilePage";
+import FreelancerInvitations from "./pages/freelancer/InvitationsPage";
 import SupportPage from "./pages/Support/MyTickets";
 import SubmitTicket from "./pages/Support/SubmitTicket";
 import TicketDetails from "./pages/Support/TicketDetails";
@@ -159,6 +160,7 @@ function App() {
         >
           <Route index element={<FreelancerDashboard />} />
           <Route path="find-jobs" element={<FreelancerFindJobs />} />
+          <Route path="invitations" element={<FreelancerInvitations />} />
           <Route path="projects" element={<FreelancerProjects />} />
           <Route path="messages" element={<FreelancerMessages />} />
           <Route path="payments" element={<FreelancerPayments />} />

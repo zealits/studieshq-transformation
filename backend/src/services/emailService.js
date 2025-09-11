@@ -380,6 +380,54 @@ exports.sendJobBudgetBlockedNotification = async (client, job, blockedAmount) =>
   return await transporter.sendMail(mailOptions);
 };
 
+/**
+ * Send job invitation notification to freelancer
+ * @param {Object} client - Client user object
+ * @param {Object} freelancer - Freelancer user object
+ * @param {Object} job - Job object
+ * @param {Object} invitation - Invitation object
+ * @returns {Promise} - Nodemailer info object
+ */
+exports.sendJobInvitationNotification = async (client, freelancer, job, invitation) => {
+  const invitationUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/freelancer/invitations`;
+
+  const content = `
+    <p>Hello ${freelancer.name},</p>
+    <p>Great news! <strong>${client.name}</strong> has invited you to work on their project "<strong>${job.title}</strong>".</p>
+    
+    <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+      <h3 style="margin: 0 0 10px 0; color: #1d4ed8;">Project Details:</h3>
+      <p><strong>Project:</strong> ${job.title}</p>
+      <p><strong>Client:</strong> ${client.name}</p>
+      <p><strong>Budget:</strong> $${job.budget.min} - $${job.budget.max}</p>
+      <p><strong>Category:</strong> ${job.category}</p>
+      <p><strong>Skills Required:</strong> ${job.skills?.join(", ") || "Not specified"}</p>
+      <p><strong>Experience Level:</strong> ${job.experience}</p>
+      <p><strong>Duration:</strong> ${job.duration}</p>
+      <p><strong>Deadline:</strong> ${new Date(job.deadline).toLocaleDateString()}</p>
+    </div>
+    
+    ${invitation.message ? `
+    <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+      <h4 style="margin: 0 0 10px 0; color: #374151;">Personal Message from ${client.name}:</h4>
+      <p style="background-color: #ffffff; padding: 10px; border-left: 3px solid #4f46e5; margin: 0;">${invitation.message}</p>
+    </div>
+    ` : ""}
+    
+    <p>This invitation expires in 7 days. Click the button below to view the full project details and respond to this invitation.</p>
+    <p>Best regards,<br>The StudiesHQ Team</p>
+  `;
+
+  const mailOptions = {
+    from: `"StudiesHQ" <${process.env.SMPT_MAIL}>`,
+    to: freelancer.email,
+    subject: `Job Invitation: "${job.title}" from ${client.name}`,
+    html: getEmailTemplate("You've Been Invited to a Project!", content, "View Invitation", invitationUrl),
+  };
+
+  return await transporter.sendMail(mailOptions);
+};
+
 // ======================= FREELANCER NOTIFICATIONS =======================
 
 /**

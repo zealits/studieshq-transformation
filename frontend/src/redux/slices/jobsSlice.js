@@ -228,6 +228,15 @@ export const fetchAllJobsForAdmin = createAsyncThunk(
   }
 );
 
+export const closeJob = createAsyncThunk("jobs/closeJob", async (jobId, { rejectWithValue }) => {
+  try {
+    const response = await api.put(`/api/jobs/${jobId}`, { status: "cancelled" });
+    return response.data;
+  } catch (error) {
+    return rejectWithValue(error.response?.data?.message || "Failed to close job");
+  }
+});
+
 export const fetchJobCountsByCategory = createAsyncThunk(
   "jobs/fetchJobCountsByCategory",
   async (_, { rejectWithValue }) => {
@@ -581,6 +590,27 @@ const jobsSlice = createSlice({
       .addCase(fetchAllJobsForAdmin.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload || "Failed to fetch jobs for admin";
+      })
+      // Close Job
+      .addCase(closeJob.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(closeJob.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const closedJob = action.payload.data.job;
+
+        // Move job from active to closed
+        state.clientJobs.active = state.clientJobs.active.filter((job) => job._id !== closedJob._id);
+        state.clientJobs.closed.unshift(closedJob);
+
+        // Update in main jobs array
+        state.jobs = state.jobs.map((job) => (job._id === closedJob._id ? closedJob : job));
+        state.filteredJobs = state.filteredJobs.map((job) => (job._id === closedJob._id ? closedJob : job));
+      })
+      .addCase(closeJob.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
       })
       // Fetch Job Counts by Category
       .addCase(fetchJobCountsByCategory.pending, (state) => {
