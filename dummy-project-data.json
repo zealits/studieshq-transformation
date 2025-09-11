@@ -1,0 +1,371 @@
+{
+  "jobData": {
+    "title": "E-commerce Website Development with Payment Integration",
+    "description": "We need a complete e-commerce website built from scratch for our online store. The website should include:\n\n**Key Features Required:**\n- Modern, responsive design with mobile-first approach\n- Product catalog with search and filtering capabilities\n- Shopping cart and checkout system\n- User authentication and profile management\n- Admin dashboard for inventory management\n- Payment gateway integration (Stripe/PayPal)\n- Order tracking and management system\n- SEO optimization\n- Analytics integration\n\n**Technical Requirements:**\n- Frontend: React.js or Vue.js\n- Backend: Node.js with Express or Python with Django\n- Database: MongoDB or PostgreSQL\n- Payment: Stripe API integration\n- Hosting: AWS or similar cloud platform\n\n**Project Timeline:**\n- Phase 1: Design and planning (1 week)\n- Phase 2: Frontend development (2 weeks)\n- Phase 3: Backend development (2 weeks)\n- Phase 4: Payment integration (1 week)\n- Phase 5: Testing and deployment (1 week)\n\n**What We Provide:**\n- Brand guidelines and logo\n- Product images and descriptions\n- Detailed wireframes\n- Content for all pages\n\n**What We Expect:**\n- Clean, maintainable code\n- Comprehensive documentation\n- Testing on multiple devices and browsers\n- 3 months of post-launch support\n- Source code and deployment instructions\n\nThis is a long-term project with potential for ongoing maintenance and feature additions.",
+    "category": "Web Development",
+    "skills": [
+      "React.js",
+      "Node.js",
+      "MongoDB",
+      "Stripe API",
+      "AWS",
+      "Responsive Design",
+      "E-commerce",
+      "Payment Integration",
+      "RESTful API",
+      "JWT Authentication"
+    ],
+    "budget": {
+      "min": 5000,
+      "max": 15000,
+      "budgetType": "milestone"
+    },
+    "freelancersNeeded": 1,
+    "experience": "expert",
+    "duration": "3_to_6_months",
+    "location": "remote",
+    "deadline": "2024-06-15T00:00:00.000Z",
+    "companyDetails": {
+      "name": "TechStart Solutions",
+      "website": "https://www.techstartsolutions.com",
+      "description": "A growing e-commerce company specializing in tech gadgets and accessories. We're expanding our online presence and need a robust platform to handle our growing customer base.",
+      "location": "San Francisco, CA"
+    },
+    "status": "open",
+    "featured": true
+  },
+  "projectData": {
+    "title": "E-commerce Website Development with Payment Integration",
+    "description": "Complete e-commerce website development project including frontend, backend, payment integration, and deployment. The project will be delivered in 5 milestones with clear deliverables and payment schedule.",
+    "category": "Web Development",
+    "skills": [
+      "React.js",
+      "Node.js",
+      "MongoDB",
+      "Stripe API",
+      "AWS",
+      "Responsive Design",
+      "E-commerce",
+      "Payment Integration"
+    ],
+    "budget": 12000,
+    "deadline": "2024-06-15T00:00:00.000Z",
+    "paymentType": "fixed",
+    "status": "pending",
+    "milestones": [
+      {
+        "title": "Project Setup and Design Phase",
+        "description": "Complete project setup, database design, API architecture planning, and UI/UX mockups creation. Deliverables include:\n- Database schema design\n- API endpoint documentation\n- Complete UI/UX mockups for all pages\n- Project setup with development environment\n- Git repository setup with proper branching strategy",
+        "amount": 2000,
+        "percentage": 16.67,
+        "dueDate": "2024-03-15T00:00:00.000Z",
+        "status": "pending"
+      },
+      {
+        "title": "Frontend Development - Core Features",
+        "description": "Develop the main frontend components including product catalog, user authentication, and shopping cart functionality. Deliverables include:\n- Responsive product catalog with search/filter\n- User registration and login system\n- Shopping cart functionality\n- Product detail pages\n- User profile management\n- Mobile-responsive design",
+        "amount": 3000,
+        "percentage": 25,
+        "dueDate": "2024-04-01T00:00:00.000Z",
+        "status": "pending"
+      },
+      {
+        "title": "Backend Development and API Integration",
+        "description": "Build the backend API, database integration, and core business logic. Deliverables include:\n- Complete RESTful API development\n- Database integration and models\n- User authentication and authorization\n- Product management system\n- Order management system\n- Admin dashboard backend",
+        "amount": 3000,
+        "percentage": 25,
+        "dueDate": "2024-04-20T00:00:00.000Z",
+        "status": "pending"
+      },
+      {
+        "title": "Payment Integration and Checkout System",
+        "description": "Implement secure payment processing and complete checkout flow. Deliverables include:\n- Stripe payment gateway integration\n- Secure checkout process\n- Order confirmation system\n- Payment receipt generation\n- Error handling for payment failures\n- PCI compliance measures",
+        "amount": 2500,
+        "percentage": 20.83,
+        "dueDate": "2024-05-10T00:00:00.000Z",
+        "status": "pending"
+      },
+      {
+        "title": "Testing, Deployment, and Documentation",
+        "description": "Final testing, deployment to production, and comprehensive documentation. Deliverables include:\n- Complete testing on multiple devices/browsers\n- Performance optimization\n- Security testing and fixes\n- Production deployment\n- User documentation\n- Admin documentation\n- Source code handover",
+        "amount": 1500,
+        "percentage": 12.5,
+        "dueDate": "2024-06-15T00:00:00.000Z",
+        "status": "pending"
+      }
+    ]
+  },
+  "clientProfile": {
+    "name": "Sarah Johnson",
+    "email": "sarah.johnson@techstartsolutions.com",
+    "role": "client",
+    "company": "TechStart Solutions",
+    "title": "Founder & CEO",
+    "location": "San Francisco, CA",
+    "bio": "Entrepreneur with 8+ years in e-commerce and retail. Founded TechStart Solutions in 2020 and successfully launched 3 online stores. Looking to expand our digital presence with a robust e-commerce platform.",
+    "website": "https://www.techstartsolutions.com",
+    "linkedin": "https://linkedin.com/in/sarahjohnson-tech",
+    "phone": "+1-555-0123",
+    "timezone": "PST (UTC-8)",
+    "preferredCommunication": "Email and Slack",
+    "budgetRange": "$5,000 - $15,000",
+    "projectTimeline": "3-6 months",
+    "previousProjects": [
+      {
+        "title": "Mobile App for Inventory Management",
+        "description": "Custom mobile application for warehouse inventory tracking",
+        "budget": 8000,
+        "completed": "2023-08-15"
+      },
+      {
+        "title": "Website Redesign for B2B Portal",
+        "description": "Complete redesign of existing B2B customer portal",
+        "budget": 5000,
+        "completed": "2023-03-20"
+      }
+    ]
+  },
+  "freelancerProfile": {
+    "name": "Alex Chen",
+    "email": "alex.chen@freelancer.com",
+    "role": "freelancer",
+    "title": "Full-Stack Developer & E-commerce Specialist",
+    "location": "Austin, TX",
+    "bio": "Experienced full-stack developer with 6+ years specializing in e-commerce solutions. Expert in React.js, Node.js, and payment integrations. Successfully delivered 50+ e-commerce projects with 98% client satisfaction rate.",
+    "website": "https://www.alexchen.dev",
+    "linkedin": "https://linkedin.com/in/alexchen-dev",
+    "github": "https://github.com/alexchen-dev",
+    "phone": "+1-555-0456",
+    "timezone": "CST (UTC-6)",
+    "hourlyRate": 75,
+    "availability": "40 hours/week",
+    "skills": [
+      "React.js",
+      "Node.js",
+      "MongoDB",
+      "PostgreSQL",
+      "Stripe API",
+      "PayPal API",
+      "AWS",
+      "Docker",
+      "TypeScript",
+      "GraphQL",
+      "E-commerce",
+      "Payment Integration",
+      "Responsive Design",
+      "SEO",
+      "Performance Optimization"
+    ],
+    "experience": "expert",
+    "portfolio": [
+      {
+        "title": "Luxury Fashion E-commerce Platform",
+        "description": "Complete e-commerce solution with advanced filtering, AR try-on, and multi-currency support",
+        "technologies": ["React.js", "Node.js", "MongoDB", "Stripe"],
+        "budget": 25000,
+        "completed": "2023-11-15"
+      },
+      {
+        "title": "B2B Wholesale Marketplace",
+        "description": "Custom marketplace for wholesale trading with complex pricing tiers and bulk ordering",
+        "technologies": ["Vue.js", "Express.js", "PostgreSQL", "PayPal"],
+        "budget": 18000,
+        "completed": "2023-07-30"
+      },
+      {
+        "title": "Subscription Box E-commerce Site",
+        "description": "Subscription management platform with recurring billing and inventory management",
+        "technologies": ["React.js", "Node.js", "MongoDB", "Stripe Subscriptions"],
+        "budget": 12000,
+        "completed": "2023-04-20"
+      }
+    ],
+    "certifications": [
+      "AWS Certified Developer",
+      "Stripe Certified Developer",
+      "Google Analytics Certified",
+      "MongoDB Certified Developer"
+    ],
+    "languages": ["English (Native)", "Spanish (Fluent)", "Mandarin (Conversational)"],
+    "responseTime": "Within 2 hours",
+    "revisionPolicy": "Unlimited revisions within project scope",
+    "communicationStyle": "Regular updates via Slack, weekly video calls"
+  },
+  "projectTimeline": {
+    "totalDuration": "12 weeks",
+    "startDate": "2024-03-01",
+    "endDate": "2024-06-15",
+    "phases": [
+      {
+        "phase": "Planning & Design",
+        "duration": "2 weeks",
+        "startDate": "2024-03-01",
+        "endDate": "2024-03-15",
+        "deliverables": [
+          "Project requirements analysis",
+          "Database schema design",
+          "API architecture planning",
+          "UI/UX mockups",
+          "Development environment setup"
+        ]
+      },
+      {
+        "phase": "Frontend Development",
+        "duration": "3 weeks",
+        "startDate": "2024-03-16",
+        "endDate": "2024-04-05",
+        "deliverables": [
+          "Product catalog with search/filter",
+          "User authentication system",
+          "Shopping cart functionality",
+          "Product detail pages",
+          "User profile management"
+        ]
+      },
+      {
+        "phase": "Backend Development",
+        "duration": "3 weeks",
+        "startDate": "2024-04-06",
+        "endDate": "2024-04-26",
+        "deliverables": [
+          "RESTful API development",
+          "Database integration",
+          "User management system",
+          "Product management system",
+          "Order management system"
+        ]
+      },
+      {
+        "phase": "Payment Integration",
+        "duration": "2 weeks",
+        "startDate": "2024-04-27",
+        "endDate": "2024-05-10",
+        "deliverables": [
+          "Stripe payment integration",
+          "Secure checkout process",
+          "Order confirmation system",
+          "Payment error handling",
+          "PCI compliance implementation"
+        ]
+      },
+      {
+        "phase": "Testing & Deployment",
+        "duration": "2 weeks",
+        "startDate": "2024-05-11",
+        "endDate": "2024-05-24",
+        "deliverables": [
+          "Cross-browser testing",
+          "Mobile responsiveness testing",
+          "Performance optimization",
+          "Security testing",
+          "Production deployment"
+        ]
+      },
+      {
+        "phase": "Documentation & Handover",
+        "duration": "1 week",
+        "startDate": "2024-05-25",
+        "endDate": "2024-05-31",
+        "deliverables": [
+          "User documentation",
+          "Admin documentation",
+          "API documentation",
+          "Deployment guide",
+          "Source code handover"
+        ]
+      }
+    ]
+  },
+  "technicalSpecifications": {
+    "frontend": {
+      "framework": "React.js 18+",
+      "styling": "Tailwind CSS",
+      "stateManagement": "Redux Toolkit",
+      "routing": "React Router v6",
+      "forms": "React Hook Form",
+      "testing": "Jest + React Testing Library"
+    },
+    "backend": {
+      "runtime": "Node.js 18+",
+      "framework": "Express.js",
+      "database": "MongoDB with Mongoose",
+      "authentication": "JWT with refresh tokens",
+      "validation": "Joi",
+      "testing": "Jest + Supertest"
+    },
+    "payment": {
+      "provider": "Stripe",
+      "features": [
+        "Credit/Debit card processing",
+        "Digital wallet support (Apple Pay, Google Pay)",
+        "Subscription billing capability",
+        "Multi-currency support",
+        "Fraud protection"
+      ]
+    },
+    "hosting": {
+      "platform": "AWS",
+      "services": [
+        "EC2 for application hosting",
+        "RDS for database",
+        "S3 for file storage",
+        "CloudFront for CDN",
+        "Route 53 for DNS"
+      ]
+    },
+    "security": {
+      "measures": [
+        "HTTPS encryption",
+        "JWT token authentication",
+        "Input validation and sanitization",
+        "Rate limiting",
+        "CORS configuration",
+        "Environment variable protection"
+      ]
+    }
+  },
+  "deliverables": {
+    "code": {
+      "frontend": "Complete React.js application with all components",
+      "backend": "Node.js API with all endpoints and business logic",
+      "database": "MongoDB database with all collections and indexes",
+      "documentation": "Comprehensive code documentation and comments"
+    },
+    "assets": {
+      "designFiles": "Figma design files with all screens and components",
+      "icons": "Custom icon set for the application",
+      "images": "Optimized images for web use",
+      "logos": "Brand logo in multiple formats"
+    },
+    "documentation": {
+      "userGuide": "Step-by-step user manual for customers",
+      "adminGuide": "Administrator guide for managing the platform",
+      "apiDocumentation": "Complete API documentation with examples",
+      "deploymentGuide": "Instructions for deploying and maintaining the application"
+    },
+    "testing": {
+      "testCases": "Comprehensive test suite for all functionality",
+      "performanceReport": "Performance testing results and optimization recommendations",
+      "securityAudit": "Security testing report with recommendations",
+      "browserCompatibility": "Cross-browser testing results"
+    }
+  },
+  "supportAndMaintenance": {
+    "postLaunchSupport": "3 months of free support for bug fixes and minor adjustments",
+    "responseTime": "24-48 hours for critical issues, 3-5 business days for minor issues",
+    "includedSupport": [
+      "Bug fixes and error resolution",
+      "Minor UI/UX adjustments",
+      "Performance optimization",
+      "Security updates",
+      "Browser compatibility fixes"
+    ],
+    "additionalServices": [
+      "New feature development (hourly rate)",
+      "Major design changes (project-based pricing)",
+      "Additional integrations (project-based pricing)",
+      "Ongoing maintenance contracts (monthly retainer)"
+    ]
+  }
+}
+
