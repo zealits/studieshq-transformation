@@ -23,7 +23,7 @@ const InviteFreelancerModal = ({ isOpen, onClose, freelancer, onInviteSuccess })
   }, [isOpen, dispatch]);
 
   // Get all open jobs for selection
-  const openJobs = clientJobs.active?.filter(job => job.status === "open") || [];
+  const openJobs = clientJobs.active?.filter((job) => job.status === "open") || [];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,11 +37,12 @@ const InviteFreelancerModal = ({ isOpen, onClose, freelancer, onInviteSuccess })
 
     setIsLoading(true);
     try {
+      // const API_URL = import.meta.env.VITE_API_URL || "http://localhost:2001";
       const API_URL = "https://studieshq.aiiventure.com";
       
       // Find the selected job
-      const selectedJob = openJobs.find(job => job._id === selectedJobId);
-      
+      const selectedJob = openJobs.find((job) => job._id === selectedJobId);
+
       if (!selectedJob) {
         toast.error("Selected project not found. Please try again.");
         setIsLoading(false);
@@ -59,13 +60,13 @@ const InviteFreelancerModal = ({ isOpen, onClose, freelancer, onInviteSuccess })
         freelancer,
         freelancerId: freelancer.user._id,
         freelancerRole: freelancer.user.role,
-        freelancerName: freelancer.user.name
+        freelancerName: freelancer.user.name,
       });
 
       console.log("Sending invitation request:", {
         url: `${API_URL}/api/jobs/${selectedJob._id}/invite`,
         body: requestBody,
-        token: localStorage.getItem("token") ? "Present" : "Missing"
+        token: localStorage.getItem("token") ? "Present" : "Missing",
       });
 
       const response = await fetch(`${API_URL}/api/jobs/${selectedJob._id}/invite`, {
@@ -78,9 +79,16 @@ const InviteFreelancerModal = ({ isOpen, onClose, freelancer, onInviteSuccess })
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Server error response:", response.status, errorText);
-        toast.error(`Server error: ${response.status}. Please check if you're logged in and try again.`);
+        try {
+          const errorData = await response.json();
+          console.error("Server error response:", response.status, errorData);
+          toast.error(
+            errorData.message || `Server error: ${response.status}. Please check if you're logged in and try again.`
+          );
+        } catch (parseError) {
+          console.error("Failed to parse error response:", parseError);
+          toast.error(`Server error: ${response.status}. Please check if you're logged in and try again.`);
+        }
         setIsLoading(false);
         return;
       }
@@ -169,7 +177,8 @@ const InviteFreelancerModal = ({ isOpen, onClose, freelancer, onInviteSuccess })
                 <option value="">Choose a project...</option>
                 {openJobs.map((job) => (
                   <option key={job._id} value={job._id}>
-                    {job.title} - ${job.budget?.min || 0} - ${job.budget?.max || 0} {job.budget?.type === 'hourly' ? '/hr' : ''}
+                    {job.title} - ${job.budget?.min || 0} - ${job.budget?.max || 0}{" "}
+                    {job.budget?.type === "hourly" ? "/hr" : ""}
                   </option>
                 ))}
               </select>
