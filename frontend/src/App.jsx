@@ -56,6 +56,7 @@ import ClientPayments from "./pages/client/PaymentsPage";
 import ClientProfile from "./pages/client/ProfilePage";
 import ClientSettings from "./pages/client/SettingsPage";
 import JobProposals from "./components/client/JobProposals";
+import FreelancerProfileView from "./components/client/FreelancerProfileView";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/DashboardPage";
@@ -199,6 +200,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="freelancers/:userId" element={<FreelancerProfileView />} />
         </Route>
 
         {/* Admin Routes */}

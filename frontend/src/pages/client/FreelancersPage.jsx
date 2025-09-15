@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import {
   fetchFreelancers,
   fetchAllFreelancersForOptions,
@@ -14,6 +15,7 @@ import InviteFreelancerModal from "../../components/client/InviteFreelancerModal
 
 const FreelancersPage = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const freelancers = useSelector(selectFilteredFreelancers);
   const allFreelancers = useSelector(selectAllFreelancers);
   const loading = useSelector(selectFreelancerLoading);
@@ -61,6 +63,10 @@ const FreelancersPage = () => {
   const handleInviteSuccess = () => {
     // Optionally refresh freelancers list or show success message
     console.log("Invitation sent successfully");
+  };
+
+  const handleViewProfile = (freelancer) => {
+    navigate(`/client/freelancers/${freelancer.user._id}`);
   };
 
   // Get unique locations from all freelancers for the dropdown
@@ -285,7 +291,12 @@ const FreelancersPage = () => {
                     {freelancer.location || "Location not specified"}
                   </div>
                   <div className="flex space-x-2">
-                    <button className="btn-outline text-sm py-1">View Profile</button>
+                    <button 
+                      onClick={() => handleViewProfile(freelancer)}
+                      className="btn-outline text-sm py-1"
+                    >
+                      View Profile
+                    </button>
                     <button 
                       onClick={() => handleInviteClick(freelancer)}
                       className="btn-primary text-sm py-1"
