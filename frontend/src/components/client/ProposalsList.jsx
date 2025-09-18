@@ -104,24 +104,15 @@ const ProposalsList = ({ jobId, onClose }) => {
         `Proposal ${status === "accepted" ? "accepted" : status === "rejected" ? "rejected" : "updated"} successfully`
       );
 
-      // If accepting a proposal
+      // If accepting a proposal and no more slots are available, offer to close the modal
       if (status === "accepted") {
-        // Calculate the new count of accepted proposals after this acceptance
-        const newAcceptedCount = localProposals.filter(
-          (p) => p.status === "accepted" || (p._id === proposalId && status === "accepted")
-        ).length;
-
-        // Check if we've reached the required number of freelancers
-        const allFreelancersHired = newAcceptedCount >= (selectedJob?.freelancersNeeded || 1);
-
-        if (allFreelancersHired) {
+        if (remainingSlots <= 1) {
           toast.success("All freelancer slots have been filled! The job is now in progress.");
         }
-
+        
         // Close the modal and switch to closed listings tab
         setTimeout(() => {
           // Pass true to onClose to indicate we should switch to the closed tab
-          // We always switch to closed tab when a proposal is accepted
           onClose(true);
         }, 2000);
       }
@@ -149,11 +140,7 @@ const ProposalsList = ({ jobId, onClose }) => {
               {remainingSlots} freelancer{remainingSlots === 1 ? "" : "s"} needed
             </p>
           </div>
-          <button
-            onClick={() => onClose(false)}
-            className="text-gray-500 hover:text-gray-700 focus:outline-none"
-            aria-label="Close"
-          >
+          <button onClick={() => onClose(false)} className="text-gray-500 hover:text-gray-700 focus:outline-none" aria-label="Close">
             <svg
               className="w-6 h-6"
               fill="none"
@@ -359,7 +346,7 @@ const ProposalsList = ({ jobId, onClose }) => {
                     </div>
                     <div className="md:text-right">
                       <div className="bg-gray-50 rounded-lg p-3 inline-block">
-                        <p className="text-2xl font-bold text-primary">${proposal.bidPrice} USD</p>
+                        <p className="text-2xl font-bold text-primary">${proposal.bidPrice}</p>
                         <p className="text-sm text-gray-500">Bid Amount</p>
                       </div>
                     </div>
@@ -388,7 +375,7 @@ const ProposalsList = ({ jobId, onClose }) => {
                       <span className="block text-sm text-gray-500 mb-1">Hourly Rate</span>
                       <span className="font-medium">
                         {proposal.freelancerProfileSnapshot?.hourlyRate
-                          ? `$${proposal.freelancerProfileSnapshot.hourlyRate.min} - $${proposal.freelancerProfileSnapshot.hourlyRate.max} USD/hr`
+                          ? `$${proposal.freelancerProfileSnapshot.hourlyRate.min} - $${proposal.freelancerProfileSnapshot.hourlyRate.max}/hr`
                           : "Not specified"}
                       </span>
                     </div>

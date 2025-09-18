@@ -4,6 +4,7 @@ import { useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import GiftCardWithdrawModal from "../../components/payments/GiftCardWithdrawModal";
 import PayPalWithdrawModal from "../../components/payments/PayPalWithdrawModal";
+import PaymentMethodsManager from "../../components/payments/PaymentMethodsManager";
 
 const PaymentsPage = () => {
   const [activeTab, setActiveTab] = useState("transactions");
@@ -60,11 +61,11 @@ const PaymentsPage = () => {
     };
 
     if (showWithdrawalDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showWithdrawalDropdown]);
 
@@ -115,9 +116,9 @@ const PaymentsPage = () => {
 
   const handleWithdrawalMethodSelect = (method) => {
     setShowWithdrawalDropdown(false);
-    if (method === 'paypal') {
+    if (method === "paypal") {
       setShowPayPalModal(true);
-    } else if (method === 'giftogram') {
+    } else if (method === "giftogram") {
       setShowGiftCardModal(true);
     }
   };
@@ -212,7 +213,7 @@ const PaymentsPage = () => {
                 >
                   💰 Withdraw
                   <svg
-                    className={`w-4 h-4 transition-transform ${showWithdrawalDropdown ? 'rotate-180' : ''}`}
+                    className={`w-4 h-4 transition-transform ${showWithdrawalDropdown ? "rotate-180" : ""}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -220,12 +221,12 @@ const PaymentsPage = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
-                
+
                 {showWithdrawalDropdown && (
                   <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
                     <button
                       className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors"
-                      onClick={() => handleWithdrawalMethodSelect('paypal')}
+                      onClick={() => handleWithdrawalMethodSelect("paypal")}
                     >
                       <span className="text-indigo-600">💰</span>
                       <div>
@@ -235,7 +236,7 @@ const PaymentsPage = () => {
                     </button>
                     <button
                       className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors border-t border-gray-100"
-                      onClick={() => handleWithdrawalMethodSelect('giftogram')}
+                      onClick={() => handleWithdrawalMethodSelect("giftogram")}
                     >
                       <span className="text-purple-600">🎁</span>
                       <div>
@@ -436,14 +437,7 @@ const PaymentsPage = () => {
         </div>
       )}
 
-      {activeTab === "methods" && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold mb-4">Payment Methods</h3>
-          <div className="text-center py-8">
-            <p className="text-gray-500">Payment method management coming soon</p>
-          </div>
-        </div>
-      )}
+      {activeTab === "methods" && <PaymentMethodsManager />}
 
       {/* PayPal Withdrawal Modal */}
       <PayPalWithdrawModal

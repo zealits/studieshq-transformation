@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchClientJobs, publishDraftJob, closeJob } from "../../redux/slices/jobsSlice";
+import { fetchClientJobs, publishDraftJob } from "../../redux/slices/jobsSlice";
 import PostJobForm from "./PostJobForm";
 import Spinner from "../../components/common/Spinner";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "react-hot-toast";
 import ProposalsList from "../../components/client/ProposalsList";
-import ConfirmationModal from "../../components/common/ConfirmationModal";
 import { useNavigate } from "react-router-dom";
 
 const JobsPage = () => {
@@ -15,8 +14,6 @@ const JobsPage = () => {
   const [editingJob, setEditingJob] = useState(null);
   const [showProposals, setShowProposals] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState(null);
-  const [showCloseJobModal, setShowCloseJobModal] = useState(false);
-  const [jobToClose, setJobToClose] = useState(null);
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -121,46 +118,12 @@ const JobsPage = () => {
     setShowProposals(true);
   };
 
-  const closeProposalsModal = (switchToClosedTab = false) => {
+  const closeProposalsModal = () => {
     setShowProposals(false);
     setSelectedJobId(null);
 
     // Refresh jobs list when modal closes as a proposal might have been accepted
     dispatch(fetchClientJobs());
-
-    // If a proposal was accepted, switch to the closed listings tab
-    if (switchToClosedTab) {
-      setActiveTab("closed");
-    }
-  };
-
-  const handleCloseJob = (job) => {
-    // Check if the client owns this job before allowing close
-    const jobExists = clientJobs.active.some((j) => j._id === job._id);
-
-    if (!jobExists) {
-      toast.error("You don't have permission to close this job");
-      return;
-    }
-
-    setJobToClose(job);
-    setShowCloseJobModal(true);
-  };
-
-  const confirmCloseJob = async () => {
-    if (!jobToClose) return;
-
-    try {
-      await dispatch(closeJob(jobToClose._id)).unwrap();
-      toast.success("Job closed successfully!");
-      setShowCloseJobModal(false);
-      setJobToClose(null);
-      
-      // Switch to closed listings tab to show the closed job
-      setActiveTab("closed");
-    } catch (err) {
-      toast.error(err || "Failed to close job");
-    }
   };
 
   const renderJobsForTab = (jobs) => {
@@ -241,15 +204,13 @@ const JobsPage = () => {
               </span>
             </div>
 
-            <p className="text-gray-600 mb-4 line-clamp-3" title={job.description}>
-              {job.description}
-            </p>
+            <p className="text-gray-600 mb-4">{job.description}</p>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div>
                 <span className="block text-sm text-gray-500">Budget</span>
                 <span className="font-medium">
-                  ${job.budget.min} - ${job.budget.max} USD
+                  ${job.budget.min} - ${job.budget.max}
                 </span>
               </div>
               <div>
@@ -309,12 +270,7 @@ const JobsPage = () => {
                   Publish Project
                 </button>
               ) : job.status === "open" ? (
-                <button 
-                  className="text-red-600 hover:text-red-800 text-sm py-1 px-3"
-                  onClick={() => handleCloseJob(job)}
-                >
-                  Close Job
-                </button>
+                <button className="text-red-600 hover:text-red-800 text-sm py-1 px-3">Close Job</button>
               ) : null}
             </div>
           </div>
@@ -410,20 +366,6 @@ const JobsPage = () => {
           {activeTab === "draft" && renderJobsForTab(clientJobs.draft)}
         </>
       )}
-
-      {/* Close Job Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showCloseJobModal}
-        onClose={() => {
-          setShowCloseJobModal(false);
-          setJobToClose(null);
-        }}
-        onConfirm={confirmCloseJob}
-        title="Close Job"
-        message={`Are you sure you want to close "${jobToClose?.title}"? This action cannot be undone and will prevent new proposals from being submitted.`}
-        confirmText="Close Job"
-        cancelText="Cancel"
-      />
     </div>
   );
 };

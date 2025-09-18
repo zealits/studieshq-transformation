@@ -17,6 +17,10 @@ const PaymentMethodSchema = new Schema({
     type: Boolean,
     default: false,
   },
+  approved: {
+    type: Boolean,
+    default: false,
+  },
   // Card specific fields
   card: {
     last4: String,
@@ -38,6 +42,45 @@ const PaymentMethodSchema = new Schema({
     bankName: String,
     accountHolderName: String,
   },
+  // Provider-specific fields (XE API, etc.)
+  provider: {
+    type: String,
+    enum: ["xe", "paypal", "stripe", "manual"],
+  },
+  // Detailed storage for XE API and other providers
+  details: {
+    type: Schema.Types.Mixed,
+    default: {},
+  },
+  // Consumer details for bank transfers
+  consumerDetails: {
+    givenNames: String,
+    familyName: String,
+    emailAddress: String,
+    mobileNumber: String,
+    phoneNumber: String,
+    title: String,
+    idCountry: String,
+    idType: String,
+    idNumber: String,
+    taxNumber: String,
+    address: {
+      line1: String,
+      line2: String,
+      country: String,
+      locality: String,
+      region: String,
+      postcode: String,
+    },
+  },
+  // Bank-specific details for international transfers
+  bankDetails: {
+    type: Schema.Types.Mixed,
+    default: {},
+  },
+  // Country and currency information
+  countryCode: String,
+  currencyCode: String,
   createdAt: {
     type: Date,
     default: Date.now,

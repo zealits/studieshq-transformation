@@ -228,15 +228,6 @@ export const fetchAllJobsForAdmin = createAsyncThunk(
   }
 );
 
-export const closeJob = createAsyncThunk("jobs/closeJob", async (jobId, { rejectWithValue }) => {
-  try {
-    const response = await api.put(`/api/jobs/${jobId}`, { status: "cancelled" });
-    return response.data;
-  } catch (error) {
-    return rejectWithValue(error.response?.data?.message || "Failed to close job");
-  }
-});
-
 export const fetchJobCountsByCategory = createAsyncThunk(
   "jobs/fetchJobCountsByCategory",
   async (_, { rejectWithValue }) => {
@@ -357,10 +348,8 @@ const jobsSlice = createSlice({
         // Categorize jobs by status
         const jobs = action.payload?.data?.jobs || [];
         state.clientJobs = {
-          active: jobs.filter((job) => job.status === "open"),
-          closed: jobs.filter(
-            (job) => job.status === "in_progress" || job.status === "completed" || job.status === "cancelled"
-          ),
+          active: jobs.filter((job) => job.status === "open" || job.status === "in_progress"),
+          closed: jobs.filter((job) => job.status === "completed" || job.status === "cancelled"),
           draft: jobs.filter((job) => job.status === "draft"),
         };
       })
@@ -390,16 +379,7 @@ const jobsSlice = createSlice({
         state.isLoading = false;
         const newJob = action.payload?.data?.job;
         if (newJob) {
-          // Add job to appropriate category based on its status
-          if (newJob.status === "draft") {
-            state.clientJobs.draft.unshift(newJob);
-          } else if (newJob.status === "open" || newJob.status === "in_progress") {
-            state.clientJobs.active.unshift(newJob);
-          } else if (newJob.status === "completed" || newJob.status === "cancelled") {
-            state.clientJobs.closed.unshift(newJob);
-          }
-
-          // Add to main jobs array regardless of status
+          state.clientJobs.active.unshift(newJob);
           state.jobs.unshift(newJob);
           state.filteredJobs.unshift(newJob);
         }
@@ -590,27 +570,6 @@ const jobsSlice = createSlice({
       .addCase(fetchAllJobsForAdmin.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload || "Failed to fetch jobs for admin";
-      })
-      // Close Job
-      .addCase(closeJob.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(closeJob.fulfilled, (state, action) => {
-        state.isLoading = false;
-        const closedJob = action.payload.data.job;
-
-        // Move job from active to closed
-        state.clientJobs.active = state.clientJobs.active.filter((job) => job._id !== closedJob._id);
-        state.clientJobs.closed.unshift(closedJob);
-
-        // Update in main jobs array
-        state.jobs = state.jobs.map((job) => (job._id === closedJob._id ? closedJob : job));
-        state.filteredJobs = state.filteredJobs.map((job) => (job._id === closedJob._id ? closedJob : job));
-      })
-      .addCase(closeJob.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload;
       })
       // Fetch Job Counts by Category
       .addCase(fetchJobCountsByCategory.pending, (state) => {

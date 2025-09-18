@@ -1,11 +1,13 @@
 const { v4: uuidv4 } = require("uuid");
 const { PaymentMethod, Transaction, Invoice, Wallet } = require("../models/Payment");
 const User = require("../models/User");
+const XeRecipient = require("../models/XeRecipient");
 const { validationResult } = require("express-validator");
 const mongoose = require("mongoose");
 const paypalService = require("../services/paypalService");
 const giftogramService = require("../services/giftogramService");
 const emailService = require("../services/emailService");
+const xeApiService = require("../services/xeApiService");
 
 // *** PAYMENT METHODS ***
 
@@ -1834,6 +1836,648 @@ exports.checkPayPalPayoutStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to check PayPal payout status",
+    });
+  }
+};
+
+// *** XE API BANK DETAILS INTEGRATION ***
+
+// Get payment fields for a specific country and currency
+exports.getPaymentFields = async (req, res) => {
+  try {
+    const { countryCode, currencyCode } = req.params;
+
+    if (!countryCode || !currencyCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Country code and currency code are required",
+      });
+    }
+
+    console.log("🏦 PAYMENT CONTROLLER: Getting payment fields for:", { countryCode, currencyCode });
+
+    const result = await xeApiService.getPaymentFields(countryCode, currencyCode);
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to get payment fields",
+        error: result.error,
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result.fields,
+    });
+  } catch (error) {
+    console.error("🏦 PAYMENT CONTROLLER: Error getting payment fields:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while getting payment fields",
+    });
+  }
+};
+
+// Get supported countries
+exports.getSupportedCountries = async (req, res) => {
+  try {
+    console.log("🏦 PAYMENT CONTROLLER: Getting supported countries");
+
+    const result = await xeApiService.getSupportedCountries();
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to get supported countries",
+        error: result.error,
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result.countries,
+    });
+  } catch (error) {
+    console.error("🏦 PAYMENT CONTROLLER: Error getting supported countries:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while getting supported countries",
+    });
+  }
+};
+
+// Get supported currencies for a country
+exports.getSupportedCurrencies = async (req, res) => {
+  try {
+    const { countryCode } = req.params;
+
+    if (!countryCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Country code is required",
+      });
+    }
+
+    console.log("🏦 PAYMENT CONTROLLER: Getting supported currencies for:", countryCode);
+
+    const result = await xeApiService.getSupportedCurrencies(countryCode);
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to get supported currencies",
+        error: result.error,
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result.currencies,
+    });
+  } catch (error) {
+    console.error("🏦 PAYMENT CONTROLLER: Error getting supported currencies:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while getting supported currencies",
+    });
+  }
+};
+
+// Add bank details payment method
+exports.addBankPaymentMethod = async (req, res) => {
+  try {
+    const { consumerDetails, bankDetails, countryCode, currencyCode } = req.body;
+
+    // Validate required fields
+    if (!consumerDetails || !bankDetails || !countryCode || !currencyCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Consumer details, bank details, country code, and currency code are required",
+      });
+    }
+
+    // Validate consumer details structure - Enhanced validation
+    const requiredConsumerFields = ["givenNames", "familyName", "address"];
+    for (const field of requiredConsumerFields) {
+      if (!consumerDetails[field]) {
+        return res.status(400).json({
+          success: false,
+          message: `Consumer ${field} is required`,
+        });
+      }
+    }
+
+    // Validate complete address information is mandatory
+    const requiredAddressFields = ["country", "line1"];
+    for (const field of requiredAddressFields) {
+      if (!consumerDetails.address[field] || !consumerDetails.address[field].trim()) {
+        return res.status(400).json({
+          success: false,
+          message: `Consumer address ${field} is required and cannot be empty`,
+        });
+      }
+    }
+
+    // Additional validation for address completeness
+    if (!consumerDetails.address.locality && !consumerDetails.address.region) {
+      return res.status(400).json({
+        success: false,
+        message: "Either city/locality or state/region is required for complete address information",
+      });
+    }
+
+    // Validate bank details are not empty
+    if (!bankDetails || Object.keys(bankDetails).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Bank details are required and cannot be empty",
+      });
+    }
+
+    // Validate required bank account fields
+    if (!bankDetails.accountName || !bankDetails.accountName.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Bank Account Name is required",
+      });
+    }
+
+    if (bankDetails.accountName.length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "Bank Account Name must be 50 characters or less",
+      });
+    }
+
+    if (!bankDetails.accountType || !bankDetails.accountType.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Account Type is required",
+      });
+    }
+
+    const validAccountTypes = [
+      "Savings",
+      "Current",
+      "Checking",
+      "NRE",
+      "NRO",
+      "Loan",
+      "Overdraft",
+      "CashCredit",
+      "Business",
+      "Corporate",
+    ];
+
+    if (!validAccountTypes.includes(bankDetails.accountType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid account type. Please select a valid account type.",
+      });
+    }
+
+    // Auto-populate bank location with country code if not provided
+    if (bankDetails && !bankDetails.location) {
+      bankDetails.location = countryCode;
+      console.log("🏦 PAYMENT CONTROLLER: Auto-populated bank location with country code:", countryCode);
+    }
+
+    console.log("🏦 PAYMENT CONTROLLER: Adding bank payment method for user:", req.user.id);
+    console.log("🏦 PAYMENT CONTROLLER: Consumer details:", {
+      name: `${consumerDetails.givenNames} ${consumerDetails.familyName}`,
+      country: consumerDetails.address.country,
+      hasAddress: !!(consumerDetails.address.line1 && consumerDetails.address.country),
+    });
+
+    // If this is the first payment method, set it as default
+    const existingMethods = await PaymentMethod.countDocuments({ user: req.user.id });
+    const isDefault = existingMethods === 0;
+
+    // Create payment method record using the updated schema
+    const paymentMethod = new PaymentMethod({
+      user: req.user.id,
+      type: "bank",
+      provider: "xe",
+      consumerDetails: {
+        givenNames: consumerDetails.givenNames,
+        familyName: consumerDetails.familyName,
+        emailAddress: consumerDetails.emailAddress,
+        mobileNumber: consumerDetails.mobileNumber,
+        phoneNumber: consumerDetails.phoneNumber,
+        title: consumerDetails.title,
+        idCountry: consumerDetails.idCountry,
+        idType: consumerDetails.idType,
+        idNumber: consumerDetails.idNumber,
+        taxNumber: consumerDetails.taxNumber,
+        address: {
+          line1: consumerDetails.address.line1,
+          line2: consumerDetails.address.line2,
+          country: consumerDetails.address.country,
+          locality: consumerDetails.address.locality,
+          region: consumerDetails.address.region,
+          postcode: consumerDetails.address.postcode,
+        },
+      },
+      bankDetails: bankDetails,
+      countryCode: countryCode,
+      currencyCode: currencyCode,
+      details: {
+        // Only store metadata and processing information, not the actual data
+        autoPopulatedLocation: bankDetails.location === countryCode,
+        submissionTimestamp: new Date().toISOString(),
+        validationPassed: true,
+      },
+      isDefault: isDefault,
+    });
+
+    await paymentMethod.save();
+
+    console.log("🏦 PAYMENT CONTROLLER: ✅ Bank payment method added successfully:", {
+      id: paymentMethod._id,
+      isDefault: paymentMethod.isDefault,
+      autoPopulatedLocation: bankDetails.location === countryCode,
+    });
+
+    // Create XE recipient automatically after saving payment method
+    let xeRecipientInfo = null;
+    try {
+      console.log("🏦 PAYMENT CONTROLLER: Creating XE recipient for payment method:", paymentMethod._id);
+
+      const xeResult = await xeApiService.createRecipient(paymentMethod, req.user.id);
+
+      if (xeResult.success && xeResult.recipient) {
+        console.log("🏦 PAYMENT CONTROLLER: ✅ XE recipient API response received:", {
+          recipientId: xeResult.recipient.recipientId?.xeRecipientId,
+          clientReference: xeResult.recipient.recipientId?.clientReference,
+          currency: xeResult.recipient.currency,
+        });
+
+        // Create XE recipient record with complete response data
+        const xeRecipient = new XeRecipient({
+          paymentMethod: paymentMethod._id,
+          user: req.user.id,
+          xeRecipientId: xeResult.recipient.recipientId.xeRecipientId,
+          clientReference: xeResult.recipient.recipientId.clientReference,
+          currency: xeResult.recipient.currency,
+          payoutMethod: xeResult.recipient.payoutMethod,
+          entity: xeResult.recipient.entity,
+          status: "active",
+          rawResponse: xeResult.recipient, // Store complete response for debugging
+        });
+
+        await xeRecipient.save();
+
+        // Store minimal reference in payment method for quick access
+        paymentMethod.details.xeRecipientId = xeResult.recipient.recipientId.xeRecipientId;
+        paymentMethod.details.xeRecipientDocId = xeRecipient._id.toString();
+        paymentMethod.details.xeRecipientCreatedAt = new Date().toISOString();
+
+        // Mark payment method as approved since XE recipient was successfully created
+        paymentMethod.approved = true;
+
+        await paymentMethod.save();
+
+        xeRecipientInfo = {
+          recipientId: xeResult.recipient.recipientId.xeRecipientId,
+          clientReference: xeResult.recipient.recipientId.clientReference,
+          currency: xeResult.recipient.currency,
+          documentId: xeRecipient._id,
+          status: "created",
+        };
+
+        console.log("🏦 PAYMENT CONTROLLER: ✅ XE recipient saved to database:", {
+          documentId: xeRecipient._id,
+          recipientId: xeResult.recipient.recipientId.xeRecipientId,
+          clientReference: xeResult.recipient.recipientId.clientReference,
+        });
+      } else {
+        console.error("🏦 PAYMENT CONTROLLER: ❌ Failed to create XE recipient:", xeResult.error);
+
+        // Create failed XE recipient record for retry tracking
+        const xeRecipient = new XeRecipient({
+          paymentMethod: paymentMethod._id,
+          user: req.user.id,
+          xeRecipientId: `failed-${Date.now()}`, // Temporary ID for failed records
+          clientReference: `failed-${paymentMethod._id}`,
+          currency: currencyCode,
+          status: "failed",
+          errorInfo: {
+            message: xeResult.error,
+            lastAttempt: new Date(),
+            retryCount: 1,
+          },
+          rawResponse: xeResult, // Store error response
+        });
+
+        await xeRecipient.save();
+
+        // Store minimal failure reference in payment method
+        paymentMethod.details.xeRecipientError = xeResult.error;
+        paymentMethod.details.xeRecipientDocId = xeRecipient._id.toString();
+        paymentMethod.details.xeRecipientLastAttempt = new Date().toISOString();
+
+        await paymentMethod.save();
+
+        xeRecipientInfo = {
+          status: "failed",
+          error: xeResult.error,
+          details: xeResult.details,
+          documentId: xeRecipient._id,
+        };
+      }
+    } catch (xeError) {
+      console.error("🏦 PAYMENT CONTROLLER: ❌ XE recipient creation error:", xeError.message);
+
+      try {
+        // Create failed XE recipient record for error tracking
+        const xeRecipient = new XeRecipient({
+          paymentMethod: paymentMethod._id,
+          user: req.user.id,
+          xeRecipientId: `error-${Date.now()}`, // Temporary ID for error records
+          clientReference: `error-${paymentMethod._id}`,
+          currency: currencyCode,
+          status: "failed",
+          errorInfo: {
+            message: xeError.message,
+            lastAttempt: new Date(),
+            retryCount: 1,
+          },
+        });
+
+        await xeRecipient.save();
+
+        // Store minimal error reference in payment method
+        paymentMethod.details.xeRecipientError = xeError.message;
+        paymentMethod.details.xeRecipientDocId = xeRecipient._id.toString();
+        paymentMethod.details.xeRecipientLastAttempt = new Date().toISOString();
+
+        await paymentMethod.save();
+
+        xeRecipientInfo = {
+          status: "failed",
+          error: xeError.message,
+          details: null, // No structured details for general errors
+          documentId: xeRecipient._id,
+        };
+      } catch (dbError) {
+        console.error("🏦 PAYMENT CONTROLLER: ❌ Failed to save XE recipient error to database:", dbError.message);
+
+        xeRecipientInfo = {
+          status: "failed",
+          error: xeError.message,
+          details: null, // No structured details for general errors
+        };
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Bank payment method added successfully",
+      data: {
+        id: paymentMethod._id,
+        type: paymentMethod.type,
+        provider: paymentMethod.provider,
+        countryCode,
+        currencyCode,
+        consumerName: `${consumerDetails.givenNames} ${consumerDetails.familyName}`,
+        isDefault: paymentMethod.isDefault,
+        approved: paymentMethod.approved,
+        hasCompleteAddress: !!(consumerDetails.address.line1 && consumerDetails.address.country),
+        bankLocationAutoPopulated: bankDetails.location === countryCode,
+        createdAt: paymentMethod.createdAt,
+        xeRecipient: xeRecipientInfo,
+      },
+    });
+  } catch (error) {
+    console.error("🏦 PAYMENT CONTROLLER: Error adding bank payment method:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while adding bank payment method",
+    });
+  }
+};
+
+// Retry XE recipient creation for failed payment methods
+exports.retryXeRecipientCreation = async (req, res) => {
+  try {
+    const { paymentMethodId } = req.params;
+
+    // Get payment method
+    const paymentMethod = await PaymentMethod.findOne({
+      _id: paymentMethodId,
+      user: req.user.id,
+      type: "bank",
+      provider: "xe",
+    });
+
+    if (!paymentMethod) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment method not found or not eligible for XE recipient creation",
+      });
+    }
+
+    // Get existing XE recipient record
+    const existingXeRecipient = await XeRecipient.findOne({
+      paymentMethod: paymentMethodId,
+      user: req.user.id,
+    });
+
+    if (existingXeRecipient && existingXeRecipient.status === "active") {
+      return res.status(400).json({
+        success: false,
+        message: "XE recipient already exists and is active for this payment method",
+      });
+    }
+
+    console.log("🏦 PAYMENT CONTROLLER: Retrying XE recipient creation for payment method:", paymentMethodId);
+
+    // Attempt to create XE recipient
+    const xeResult = await xeApiService.createRecipient(paymentMethod, req.user.id);
+
+    if (xeResult.success && xeResult.recipient) {
+      console.log("🏦 PAYMENT CONTROLLER: ✅ XE recipient API response received on retry:", {
+        recipientId: xeResult.recipient.recipientId?.xeRecipientId,
+        clientReference: xeResult.recipient.recipientId?.clientReference,
+        currency: xeResult.recipient.currency,
+      });
+
+      if (existingXeRecipient) {
+        // Update existing failed record
+        existingXeRecipient.xeRecipientId = xeResult.recipient.recipientId.xeRecipientId;
+        existingXeRecipient.clientReference = xeResult.recipient.recipientId.clientReference;
+        existingXeRecipient.currency = xeResult.recipient.currency;
+        existingXeRecipient.payoutMethod = xeResult.recipient.payoutMethod;
+        existingXeRecipient.entity = xeResult.recipient.entity;
+        existingXeRecipient.status = "active";
+        existingXeRecipient.rawResponse = xeResult.recipient;
+        existingXeRecipient.errorInfo = undefined; // Clear error info
+
+        await existingXeRecipient.save();
+      } else {
+        // Create new XE recipient record
+        const xeRecipient = new XeRecipient({
+          paymentMethod: paymentMethod._id,
+          user: req.user.id,
+          xeRecipientId: xeResult.recipient.recipientId.xeRecipientId,
+          clientReference: xeResult.recipient.recipientId.clientReference,
+          currency: xeResult.recipient.currency,
+          payoutMethod: xeResult.recipient.payoutMethod,
+          entity: xeResult.recipient.entity,
+          status: "active",
+          rawResponse: xeResult.recipient,
+        });
+
+        await xeRecipient.save();
+        existingXeRecipient = xeRecipient;
+      }
+
+      // Update payment method details
+      paymentMethod.details.xeRecipientId = xeResult.recipient.recipientId.xeRecipientId;
+      paymentMethod.details.xeRecipientDocId = existingXeRecipient._id.toString();
+      paymentMethod.details.xeRecipientCreatedAt = new Date().toISOString();
+
+      // Clear previous error information
+      delete paymentMethod.details.xeRecipientError;
+      delete paymentMethod.details.xeRecipientLastAttempt;
+
+      // Mark payment method as approved since XE recipient was successfully created
+      paymentMethod.approved = true;
+
+      await paymentMethod.save();
+
+      console.log("🏦 PAYMENT CONTROLLER: ✅ XE recipient created successfully on retry:", {
+        documentId: existingXeRecipient._id,
+        recipientId: xeResult.recipient.recipientId.xeRecipientId,
+        clientReference: xeResult.recipient.recipientId.clientReference,
+      });
+
+      res.json({
+        success: true,
+        message: "XE recipient created successfully",
+        data: {
+          recipientId: xeResult.recipient.recipientId.xeRecipientId,
+          clientReference: xeResult.recipient.recipientId.clientReference,
+          currency: xeResult.recipient.currency,
+          documentId: existingXeRecipient._id,
+        },
+      });
+    } else {
+      console.error("🏦 PAYMENT CONTROLLER: ❌ XE recipient creation failed on retry:", xeResult.error);
+
+      if (existingXeRecipient) {
+        // Update existing record with retry information
+        await existingXeRecipient.incrementRetryCount();
+        existingXeRecipient.errorInfo.message = xeResult.error;
+        existingXeRecipient.rawResponse = xeResult;
+        await existingXeRecipient.save();
+      }
+
+      // Update payment method error information
+      paymentMethod.details.xeRecipientError = xeResult.error;
+      paymentMethod.details.xeRecipientLastAttempt = new Date().toISOString();
+      await paymentMethod.save();
+
+      res.status(400).json({
+        success: false,
+        message: "Failed to create XE recipient",
+        error: xeResult.error,
+      });
+    }
+  } catch (error) {
+    console.error("🏦 PAYMENT CONTROLLER: Error retrying XE recipient creation:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while retrying XE recipient creation",
+    });
+  }
+};
+
+// Get XE recipient details for a payment method
+exports.getXeRecipientDetails = async (req, res) => {
+  try {
+    const { paymentMethodId } = req.params;
+
+    // Verify payment method belongs to user
+    const paymentMethod = await PaymentMethod.findOne({
+      _id: paymentMethodId,
+      user: req.user.id,
+    });
+
+    if (!paymentMethod) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment method not found",
+      });
+    }
+
+    // Get XE recipient details
+    const xeRecipient = await XeRecipient.findByPaymentMethod(paymentMethodId);
+
+    if (!xeRecipient) {
+      return res.status(404).json({
+        success: false,
+        message: "XE recipient not found for this payment method",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: xeRecipient,
+    });
+  } catch (error) {
+    console.error("🏦 PAYMENT CONTROLLER: Error getting XE recipient details:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while getting XE recipient details",
+    });
+  }
+};
+
+// Get all XE recipients for current user
+exports.getUserXeRecipients = async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    let query = { user: req.user.id };
+    if (status) {
+      query.status = status;
+    }
+
+    const xeRecipients = await XeRecipient.find(query)
+      .populate("paymentMethod", "type provider countryCode currencyCode isDefault")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: xeRecipients.length,
+      data: xeRecipients,
+    });
+  } catch (error) {
+    console.error("🏦 PAYMENT CONTROLLER: Error getting user XE recipients:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while getting XE recipients",
+    });
+  }
+};
+
+// Get failed XE recipients for retry
+exports.getFailedXeRecipients = async (req, res) => {
+  try {
+    const failedRecipients = await XeRecipient.getFailedRecipients(req.user.id);
+
+    res.json({
+      success: true,
+      count: failedRecipients.length,
+      data: failedRecipients,
+    });
+  } catch (error) {
+    console.error("🏦 PAYMENT CONTROLLER: Error getting failed XE recipients:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while getting failed XE recipients",
     });
   }
 };

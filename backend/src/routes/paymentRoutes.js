@@ -683,4 +683,63 @@ router.get(
   paymentController.checkPayPalPayoutStatus
 );
 
+// *** XE API BANK DETAILS ROUTES ***
+
+// @route   GET /api/payments/bank/countries
+// @desc    Get supported countries for bank transfers
+// @access  Private
+router.get("/bank/countries", auth, paymentController.getSupportedCountries);
+
+// @route   GET /api/payments/bank/countries/:countryCode/currencies
+// @desc    Get supported currencies for a country
+// @access  Private
+router.get("/bank/countries/:countryCode/currencies", auth, paymentController.getSupportedCurrencies);
+
+// @route   GET /api/payments/bank/fields/:countryCode/:currencyCode
+// @desc    Get payment fields for a specific country and currency
+// @access  Private
+router.get("/bank/fields/:countryCode/:currencyCode", auth, paymentController.getPaymentFields);
+
+// @route   POST /api/payments/bank/add-method
+// @desc    Add bank details as payment method
+// @access  Private
+router.post(
+  "/bank/add-method",
+  [
+    auth,
+    [
+      check("consumerDetails.givenNames", "Given names are required").not().isEmpty(),
+      check("consumerDetails.familyName", "Family name is required").not().isEmpty(),
+      check("consumerDetails.address.country", "Country is required").not().isEmpty(),
+      check("consumerDetails.address.line1", "Address line 1 is required").not().isEmpty(),
+      check("bankDetails", "Bank details are required").not().isEmpty(),
+      check("bankDetails.accountName", "Bank account name is required").not().isEmpty(),
+      check("bankDetails.accountType", "Account type is required").not().isEmpty(),
+      check("countryCode", "Country code is required").not().isEmpty(),
+      check("currencyCode", "Currency code is required").not().isEmpty(),
+    ],
+  ],
+  paymentController.addBankPaymentMethod
+);
+
+// @route   POST /api/payments/bank/retry-recipient/:paymentMethodId
+// @desc    Retry XE recipient creation for failed payment method
+// @access  Private
+router.post("/bank/retry-recipient/:paymentMethodId", auth, paymentController.retryXeRecipientCreation);
+
+// @route   GET /api/payments/bank/xe-recipient/:paymentMethodId
+// @desc    Get XE recipient details for a payment method
+// @access  Private
+router.get("/bank/xe-recipient/:paymentMethodId", auth, paymentController.getXeRecipientDetails);
+
+// @route   GET /api/payments/xe-recipients
+// @desc    Get all XE recipients for current user
+// @access  Private
+router.get("/xe-recipients", auth, paymentController.getUserXeRecipients);
+
+// @route   GET /api/payments/xe-recipients/failed
+// @desc    Get failed XE recipients for retry
+// @access  Private
+router.get("/xe-recipients/failed", auth, paymentController.getFailedXeRecipients);
+
 module.exports = router;

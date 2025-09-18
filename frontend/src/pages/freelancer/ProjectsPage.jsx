@@ -6,7 +6,6 @@ import { formatDate } from "../../utils/dateUtils";
 import ChatButton from "../../components/common/ChatButton";
 import MilestoneWorkSubmission from "../../components/milestone/MilestoneWorkSubmission";
 import { toast } from "react-toastify";
-import ConfirmationModal from "../../components/common/ConfirmationModal";
 
 const ProjectsPage = () => {
   const [activeTab, setActiveTab] = useState("active");
@@ -14,8 +13,6 @@ const ProjectsPage = () => {
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState(null);
   const [isResubmission, setIsResubmission] = useState(false);
-  const [showWithdrawConfirmation, setShowWithdrawConfirmation] = useState(false);
-  const [proposalToWithdraw, setProposalToWithdraw] = useState(null);
 
   const dispatch = useDispatch();
   const { proposals, loading: proposalsLoading, error: proposalsError } = useSelector((state) => state.proposals);
@@ -36,14 +33,8 @@ const ProjectsPage = () => {
   }, [activeTab, dispatch]);
 
   const handleWithdrawProposal = (proposalId) => {
-    setProposalToWithdraw(proposalId);
-    setShowWithdrawConfirmation(true);
-  };
-
-  const confirmWithdrawProposal = () => {
-    if (proposalToWithdraw) {
-      dispatch(withdrawProposal(proposalToWithdraw));
-      toast.success("Proposal withdrawn successfully");
+    if (window.confirm("Are you sure you want to withdraw this proposal?")) {
+      dispatch(withdrawProposal(proposalId));
     }
   };
 
@@ -276,9 +267,7 @@ const ProjectsPage = () => {
                     </div>
                   </div>
 
-                  <p className="mt-4 text-gray-600 line-clamp-3" title={project.description}>
-                    {project.description}
-                  </p>
+                  <p className="mt-4 text-gray-600">{project.description}</p>
 
                   <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -291,7 +280,7 @@ const ProjectsPage = () => {
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Budget</p>
-                      <p className="font-medium">${project.budget?.toLocaleString() || "N/A"} USD</p>
+                      <p className="font-medium">${project.budget?.toLocaleString() || "N/A"}</p>
                     </div>
                   </div>
 
@@ -342,10 +331,8 @@ const ProjectsPage = () => {
                       <h3 className="font-medium mb-3">Milestones</h3>
                       <div className="space-y-3">
                         {project.milestones.map((milestone) => {
-                          // FIXED: Calculate what freelancer actually receives after 10% platform fee
-                          const grossAmount = (milestone.percentage / 100) * (project.budget || 0);
-                          const platformFee = grossAmount * 0.1; // 10% platform fee
-                          const netAmountToFreelancer = grossAmount - platformFee;
+                          // Calculate amount based on percentage and project budget
+                          const calculatedAmount = (milestone.percentage / 100) * (project.budget || 0);
 
                           return (
                             <div key={milestone._id} className="border rounded-lg p-4">
@@ -364,31 +351,19 @@ const ProjectsPage = () => {
                                       {getMilestoneActions(project, milestone)}
                                     </div>
                                   </div>
-                                  <p className="text-sm text-gray-600 mt-1 line-clamp-2" title={milestone.description}>
-                                    {milestone.description}
-                                  </p>
+                                  <p className="text-sm text-gray-600 mt-1">{milestone.description}</p>
                                   <div className="flex items-center text-sm text-gray-500 mt-2">
                                     <span>Due: {formatDate(milestone.dueDate)}</span>
                                     <span className="mx-2">•</span>
                                     <span className="font-medium text-primary">{milestone.percentage}%</span>
                                     <span className="mx-2">•</span>
-                                    <div className="flex flex-col">
-                                      <span className="font-semibold text-green-600">
-                                        $
-                                        {netAmountToFreelancer.toLocaleString(undefined, {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        })}
-                                      </span>
-                                      <span className="text-xs text-gray-400">
-                                        ($
-                                        {grossAmount.toLocaleString(undefined, {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        })}{" "}
-                                        - 10% fee)
-                                      </span>
-                                    </div>
+                                    <span className="font-medium text-green-600">
+                                      $
+                                      {calculatedAmount.toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </span>
                                   </div>
                                   {/* Milestone progress bar */}
                                   <div className="mt-3">
@@ -467,11 +442,7 @@ const ProjectsPage = () => {
                               $
                               {project.milestones
                                 .filter((m) => m.status === "completed")
-                                .reduce((sum, m) => {
-                                  const grossAmount = (m.percentage / 100) * (project.budget || 0);
-                                  const netAmount = grossAmount - grossAmount * 0.1; // Subtract 10% platform fee
-                                  return sum + netAmount;
-                                }, 0)
+                                .reduce((sum, m) => sum + (m.percentage / 100) * (project.budget || 0), 0)
                                 .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                           </div>
@@ -547,12 +518,12 @@ const ProjectsPage = () => {
                   <div>
                     <p className="text-sm text-gray-500">Client's Budget</p>
                     <p className="font-medium">
-                      ${proposal?.job?.budget.min} - ${proposal?.job?.budget.max} USD
+                      ${proposal?.job?.budget.min} - ${proposal?.job?.budget.max}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Your Bid</p>
-                    <p className="font-medium">${proposal?.bidPrice} USD</p>
+                    <p className="font-medium">${proposal?.bidPrice}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Duration</p>
@@ -655,7 +626,7 @@ const ProjectsPage = () => {
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Final Budget</p>
-                      <p className="font-medium">${project.budget?.toLocaleString() || "N/A"} USD</p>
+                      <p className="font-medium">${project.budget?.toLocaleString() || "N/A"}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Duration</p>
@@ -702,17 +673,6 @@ const ProjectsPage = () => {
           onSuccess={handleSubmissionSuccess}
         />
       )}
-
-      {/* Withdraw Proposal Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showWithdrawConfirmation}
-        onClose={() => setShowWithdrawConfirmation(false)}
-        onConfirm={confirmWithdrawProposal}
-        title="Withdraw Proposal"
-        message="Are you sure you want to withdraw this proposal? This action cannot be undone."
-        confirmText="Withdraw"
-        cancelText="Cancel"
-      />
     </div>
   );
 };

@@ -6,7 +6,11 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "seed:payment-fields": "node src/utils/seedPaymentFields.js",
+    "seed:payment-fields:force": "node src/utils/seedPaymentFields.js --force",
+    "seed:payment-fields:dry-run": "node src/utils/seedPaymentFields.js --dry-run",
+    "seed:payment-fields:stats": "node src/utils/seedPaymentFields.js --stats"
   },
   "keywords": [],
   "author": "",
