@@ -21,6 +21,21 @@ const PaymentMethodSchema = new Schema({
     type: Boolean,
     default: false,
   },
+  // XE API error information
+  xeError: {
+    message: String,
+    details: Schema.Types.Mixed, // Store full XE API error response
+    lastAttempt: Date,
+    retryCount: {
+      type: Number,
+      default: 0,
+    },
+    // XE API specific error fields
+    errorCode: String,
+    typeOfFailure: String,
+    traceErrorId: String,
+    failureDateTime: String,
+  },
   // Card specific fields
   card: {
     last4: String,
@@ -91,6 +106,17 @@ const PaymentMethodSchema = new Schema({
   },
 });
 
+// Virtual field to link to XE recipients
+PaymentMethodSchema.virtual("xeRecipients", {
+  ref: "XeRecipient",
+  localField: "_id",
+  foreignField: "paymentMethod",
+});
+
+// Ensure virtual fields are serialized
+PaymentMethodSchema.set("toJSON", { virtuals: true });
+PaymentMethodSchema.set("toObject", { virtuals: true });
+
 // Transaction Schema
 const TransactionSchema = new Schema({
   transactionId: {
@@ -126,6 +152,7 @@ const TransactionSchema = new Schema({
       "escrow_completion",
       "gift_card_withdrawal",
       "paypal_withdrawal",
+      "xe_withdrawal",
     ],
     required: true,
   },

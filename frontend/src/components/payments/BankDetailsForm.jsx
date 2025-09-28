@@ -2,7 +2,14 @@ import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import xeApiService from "../../services/xeApiService";
 
-const BankDetailsForm = ({ consumerDetails, onSubmit, onBack, isLoading = false }) => {
+const BankDetailsForm = ({
+  consumerDetails,
+  onSubmit,
+  onBack,
+  isLoading = false,
+  initialBankDetails = null,
+  selectedMethod = null,
+}) => {
   const [selectedCountry, setSelectedCountry] = useState("");
   const [selectedCurrency, setSelectedCurrency] = useState("");
   const [availableCountries, setAvailableCountries] = useState([]);
@@ -21,6 +28,24 @@ const BankDetailsForm = ({ consumerDetails, onSubmit, onBack, isLoading = false 
     loadSupportedCountries();
   }, []);
 
+  // Pre-populate form when editing
+  useEffect(() => {
+    if (selectedMethod && initialBankDetails) {
+      console.log("🏦 BANK FORM: Pre-populating form with existing data:", {
+        country: selectedMethod.countryCode,
+        currency: selectedMethod.currencyCode,
+        bankDetails: initialBankDetails,
+      });
+
+      // Set country and currency from the payment method
+      setSelectedCountry(selectedMethod.countryCode || "");
+      setSelectedCurrency(selectedMethod.currencyCode || "");
+
+      // Set bank details
+      setBankDetails(initialBankDetails || {});
+    }
+  }, [selectedMethod, initialBankDetails]);
+
   // Load currencies when country changes
   useEffect(() => {
     if (selectedCountry) {
@@ -37,9 +62,12 @@ const BankDetailsForm = ({ consumerDetails, onSubmit, onBack, isLoading = false 
       loadPaymentFields(selectedCountry, selectedCurrency);
     } else {
       setPaymentFields([]);
-      setBankDetails({});
+      // Only clear bank details if not editing
+      if (!selectedMethod) {
+        setBankDetails({});
+      }
     }
-  }, [selectedCountry, selectedCurrency]);
+  }, [selectedCountry, selectedCurrency, selectedMethod]);
 
   const loadSupportedCountries = async () => {
     try {
@@ -155,17 +183,12 @@ const BankDetailsForm = ({ consumerDetails, onSubmit, onBack, isLoading = false 
   const validateBankDetails = () => {
     const errors = {};
 
-    // Validate accountName (required)
-    if (!bankDetails.accountName || !bankDetails.accountName.trim()) {
-      errors.accountName = "Bank Account Name is required";
-    } else if (bankDetails.accountName.length > 50) {
-      errors.accountName = "Bank Account Name must be 50 characters or less";
+    // Validate bankName (optional, but check length if provided)
+    if (bankDetails.bankName && bankDetails.bankName.length > 100) {
+      errors.bankName = "Bank Name must be 100 characters or less";
     }
 
-    // Validate accountType (required)
-    if (!bankDetails.accountType || !bankDetails.accountType.trim()) {
-      errors.accountType = "Account Type is required";
-    }
+    // Validate accountType (optional - no validation needed as it's a dropdown)
 
     // Validate dynamic payment fields
     paymentFields.forEach((field) => {
@@ -368,33 +391,35 @@ const BankDetailsForm = ({ consumerDetails, onSubmit, onBack, isLoading = false 
             <h4 className="text-md font-medium text-gray-700 mb-4">Bank Account Information</h4>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              {/* Bank Account Name */}
+              {/* Bank Name */}
               <div className="space-y-1">
-                <label htmlFor="accountName" className="block text-sm font-medium text-gray-700">
-                  Bank Account Name <span className="text-red-500">*</span>
+                <label htmlFor="bankName" className="block text-sm font-medium text-gray-700">
+                  Bank Name
                 </label>
                 <input
                   type="text"
-                  id="accountName"
-                  name="accountName"
-                  value={bankDetails.accountName || ""}
-                  onChange={(e) => handleBankDetailChange("accountName", e.target.value)}
-                  maxLength={50}
+                  id="bankName"
+                  name="bankName"
+                  value={bankDetails.bankName || ""}
+                  onChange={(e) => handleBankDetailChange("bankName", e.target.value)}
+                  maxLength={100}
                   className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
-                    formErrors.accountName ? "border-red-500" : "border-gray-300"
+                    formErrors.bankName ? "border-red-500" : "border-gray-300"
                   }`}
-                  placeholder="Enter bank account name"
+                  placeholder="Enter your bank name (e.g., Chase Bank, Wells Fargo)"
                 />
-                {formErrors.accountName && <p className="text-red-500 text-sm">{formErrors.accountName}</p>}
+                {formErrors.bankName && <p className="text-red-500 text-sm">{formErrors.bankName}</p>}
                 <div className="text-xs text-gray-500">
-                  <p>Name of the account as shown by your bank (up to 50 characters)</p>
+                  <p>Name of your bank or financial institution (optional, up to 100 characters)</p>
                 </div>
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               {/* Account Type */}
               <div className="space-y-1">
                 <label htmlFor="accountType" className="block text-sm font-medium text-gray-700">
-                  Account Type <span className="text-red-500">*</span>
+                  Account Type
                 </label>
                 <select
                   id="accountType"
@@ -405,7 +430,7 @@ const BankDetailsForm = ({ consumerDetails, onSubmit, onBack, isLoading = false 
                     formErrors.accountType ? "border-red-500" : "border-gray-300"
                   }`}
                 >
-                  <option value="">Select account type</option>
+                  <option value="">Select account type (optional)</option>
                   <option value="Savings">Savings</option>
                   <option value="Current">Current</option>
                   <option value="Checking">Checking</option>
@@ -419,7 +444,7 @@ const BankDetailsForm = ({ consumerDetails, onSubmit, onBack, isLoading = false 
                 </select>
                 {formErrors.accountType && <p className="text-red-500 text-sm">{formErrors.accountType}</p>}
                 <div className="text-xs text-gray-500">
-                  <p>Type of your bank account</p>
+                  <p>Type of your bank account (optional)</p>
                 </div>
               </div>
             </div>
@@ -456,6 +481,11 @@ const BankDetailsForm = ({ consumerDetails, onSubmit, onBack, isLoading = false 
               <p>
                 <strong>Consumer:</strong> {consumerDetails.givenNames} {consumerDetails.familyName}
               </p>
+              {bankDetails.bankName && (
+                <p>
+                  <strong>Bank:</strong> {bankDetails.bankName}
+                </p>
+              )}
               <p>
                 <strong>Country:</strong> {selectedCountry}
               </p>
@@ -482,13 +512,7 @@ const BankDetailsForm = ({ consumerDetails, onSubmit, onBack, isLoading = false 
           <button
             type="submit"
             disabled={
-              !selectedCountry ||
-              !selectedCurrency ||
-              paymentFields.length === 0 ||
-              loading.fields ||
-              isLoading ||
-              !bankDetails.accountName ||
-              !bankDetails.accountType
+              !selectedCountry || !selectedCurrency || paymentFields.length === 0 || loading.fields || isLoading
             }
             className="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >

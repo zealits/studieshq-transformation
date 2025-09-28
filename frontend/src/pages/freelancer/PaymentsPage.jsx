@@ -4,7 +4,9 @@ import { useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import GiftCardWithdrawModal from "../../components/payments/GiftCardWithdrawModal";
 import PayPalWithdrawModal from "../../components/payments/PayPalWithdrawModal";
+import XeWithdrawModal from "../../components/payments/XeWithdrawModal";
 import PaymentMethodsManager from "../../components/payments/PaymentMethodsManager";
+import paymentService from "../../services/paymentService";
 
 const PaymentsPage = () => {
   const [activeTab, setActiveTab] = useState("transactions");
@@ -13,9 +15,26 @@ const PaymentsPage = () => {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showGiftCardModal, setShowGiftCardModal] = useState(false);
   const [showPayPalModal, setShowPayPalModal] = useState(false);
+  const [showXeModal, setShowXeModal] = useState(false);
   const [showWithdrawalDropdown, setShowWithdrawalDropdown] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const dropdownRef = useRef(null);
   const { user } = useSelector((state) => state.auth);
+
+  // Load payment methods
+  const loadPaymentMethods = async () => {
+    try {
+      console.log("🖥️ FREELANCER PAYMENTS PAGE: Loading payment methods...");
+      const response = await paymentService.getPaymentMethods();
+      if (response.success) {
+        setPaymentMethods(response.data || []);
+        console.log("🖥️ FREELANCER PAYMENTS PAGE: ✅ Payment methods loaded:", response.data?.length || 0);
+      }
+    } catch (error) {
+      console.error("🖥️ FREELANCER PAYMENTS PAGE: ❌ Error loading payment methods:", error);
+      setPaymentMethods([]);
+    }
+  };
 
   // Load real escrow and transaction data
   const loadData = async () => {
@@ -24,9 +43,12 @@ const PaymentsPage = () => {
       console.log("🖥️ FREELANCER PAYMENTS PAGE: User ID:", user?.id);
 
       setLoading(true);
-      const response = await escrowService.getFreelancerEscrowData();
-      console.log("🖥️ FREELANCER PAYMENTS PAGE: ✅ Data loaded successfully:", response.data);
-      setEscrowData(response.data);
+
+      // Load both escrow data and payment methods
+      const [escrowResponse] = await Promise.all([escrowService.getFreelancerEscrowData(), loadPaymentMethods()]);
+
+      console.log("🖥️ FREELANCER PAYMENTS PAGE: ✅ Data loaded successfully:", escrowResponse.data);
+      setEscrowData(escrowResponse.data);
     } catch (error) {
       console.error("🖥️ FREELANCER PAYMENTS PAGE: ❌ Error loading payment data:", error);
       toast.error("Failed to load payment data");
@@ -120,6 +142,8 @@ const PaymentsPage = () => {
       setShowPayPalModal(true);
     } else if (method === "giftogram") {
       setShowGiftCardModal(true);
+    } else if (method === "xe") {
+      setShowXeModal(true);
     }
   };
 
@@ -244,6 +268,20 @@ const PaymentsPage = () => {
                         <div className="text-sm text-gray-500">Withdraw as gift card</div>
                       </div>
                     </button>
+                    {paymentMethods.filter(
+                      (method) => method.type === "bank" && method.provider === "xe" && method.approved === true
+                    ).length > 0 && (
+                      <button
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors border-t border-gray-100"
+                        onClick={() => handleWithdrawalMethodSelect("xe")}
+                      >
+                        <span className="text-green-600">🏦</span>
+                        <div>
+                          <div className="font-medium text-gray-900">XE Bank Transfer</div>
+                          <div className="text-sm text-gray-500">Withdraw to approved bank account</div>
+                        </div>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -465,6 +503,16 @@ const PaymentsPage = () => {
         }}
         availableBalance={escrowData?.availableBalance || 0}
         onSuccess={handleGiftCardWithdrawal}
+      />
+
+      {/* XE Withdrawal Modal */}
+      <XeWithdrawModal
+        isOpen={showXeModal}
+        onClose={() => {
+          console.log("🏦 PAYMENTS PAGE: XE Modal onClose called");
+          setShowXeModal(false);
+        }}
+        approvedPaymentMethods={paymentMethods}
       />
     </div>
   );

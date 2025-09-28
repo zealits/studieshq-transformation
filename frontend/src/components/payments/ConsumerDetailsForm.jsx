@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { getStatesByCountry, shouldUseStateDropdown } from "../../services/stateRegionService";
 
 const ConsumerDetailsForm = ({ onSubmit, initialData = null, isLoading = false }) => {
   const [formData, setFormData] = useState({
@@ -23,6 +24,30 @@ const ConsumerDetailsForm = ({ onSubmit, initialData = null, isLoading = false }
   });
 
   const [errors, setErrors] = useState({});
+  const [states, setStates] = useState([]);
+  const [loadingStates, setLoadingStates] = useState(false);
+
+  // Fetch states when country changes
+  useEffect(() => {
+    const fetchStates = async () => {
+      if (formData.address.country && shouldUseStateDropdown(formData.address.country)) {
+        setLoadingStates(true);
+        try {
+          const response = await getStatesByCountry(formData.address.country);
+          setStates(response.data || []);
+        } catch (error) {
+          console.error("Error fetching states:", error);
+          setStates([]);
+        } finally {
+          setLoadingStates(false);
+        }
+      } else {
+        setStates([]);
+      }
+    };
+
+    fetchStates();
+  }, [formData.address.country]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -34,6 +59,8 @@ const ConsumerDetailsForm = ({ onSubmit, initialData = null, isLoading = false }
         address: {
           ...prev.address,
           [addressField]: value,
+          // Clear region when country changes
+          ...(addressField === "country" ? { region: "" } : {}),
         },
       }));
     } else {
@@ -367,18 +394,38 @@ const ConsumerDetailsForm = ({ onSubmit, initialData = null, isLoading = false }
                 <label htmlFor="address.region" className="block text-sm font-medium text-gray-700 mb-1">
                   State/Region <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  id="address.region"
-                  name="address.region"
-                  value={formData.address.region}
-                  onChange={handleInputChange}
-                  maxLength={50}
-                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
-                    errors["address.region"] ? "border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="State/Province"
-                />
+                {shouldUseStateDropdown(formData.address.country) ? (
+                  <select
+                    id="address.region"
+                    name="address.region"
+                    value={formData.address.region}
+                    onChange={handleInputChange}
+                    disabled={loadingStates}
+                    className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
+                      errors["address.region"] ? "border-red-500" : "border-gray-300"
+                    } ${loadingStates ? "bg-gray-100" : ""}`}
+                  >
+                    <option value="">{loadingStates ? "Loading states..." : "Select State/Region"}</option>
+                    {states.map((state) => (
+                      <option key={state.isoCode} value={state.isoCode}>
+                        {state.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    id="address.region"
+                    name="address.region"
+                    value={formData.address.region}
+                    onChange={handleInputChange}
+                    maxLength={50}
+                    className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
+                      errors["address.region"] ? "border-red-500" : "border-gray-300"
+                    }`}
+                    placeholder="State/Province"
+                  />
+                )}
                 {errors["address.region"] && <p className="text-red-500 text-sm mt-1">{errors["address.region"]}</p>}
                 <p className="text-xs text-gray-500 mt-1">At least one of City/Locality or State/Region is required</p>
               </div>

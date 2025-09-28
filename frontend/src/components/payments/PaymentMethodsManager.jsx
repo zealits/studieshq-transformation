@@ -65,29 +65,46 @@ const PaymentMethodsManager = () => {
     try {
       setLoading((prev) => ({ ...prev, submit: true }));
 
-      const response = await xeApiService.addBankPaymentMethod(data);
+      let response;
+      if (selectedMethod) {
+        // Update existing payment method
+        console.log("🏦 MANAGER: Updating existing payment method:", selectedMethod._id);
+        response = await xeApiService.updateBankPaymentMethod(selectedMethod._id, data);
+      } else {
+        // Add new payment method
+        console.log("🏦 MANAGER: Adding new payment method");
+        response = await xeApiService.addBankPaymentMethod(data);
+      }
 
       if (response.success) {
         // Check if XE recipient creation was successful
         if (response.data.xeRecipient?.status === "created") {
-          toast.success("Bank payment method added and verified successfully!");
-        } else if (response.data.xeRecipient?.status === "failed") {
-          // Show warning but still consider it success since payment method was saved
           toast.success(
-            "Bank payment method added, but verification pending. You can retry verification from the payment methods list."
+            selectedMethod
+              ? "Bank payment method updated and verified successfully!"
+              : "Bank payment method added and verified successfully!"
+          );
+        } else if (response.data.xeRecipient?.status === "failed") {
+          toast.success(
+            selectedMethod
+              ? "Bank payment method updated, but verification pending. You can retry verification from the payment methods list."
+              : "Bank payment method added, but verification pending. You can retry verification from the payment methods list."
           );
         } else {
-          toast.success("Bank payment method added successfully!");
+          toast.success(
+            selectedMethod ? "Bank payment method updated successfully!" : "Bank payment method added successfully!"
+          );
         }
         setCurrentStep("list");
         setConsumerDetails(null);
+        setSelectedMethod(null); // Reset selected method
         loadPaymentMethods(); // Refresh the list
       } else {
-        toast.error(response.message || "Failed to add bank payment method");
+        toast.error(response.message || `Failed to ${selectedMethod ? "update" : "add"} bank payment method`);
       }
     } catch (error) {
-      console.error("Error adding bank payment method:", error);
-      toast.error(error.message || "Failed to add bank payment method");
+      console.error(`Error ${selectedMethod ? "updating" : "adding"} bank payment method:`, error);
+      toast.error(error.message || `Failed to ${selectedMethod ? "update" : "add"} bank payment method`);
     } finally {
       setLoading((prev) => ({ ...prev, submit: false }));
     }
@@ -179,7 +196,6 @@ const PaymentMethodsManager = () => {
   const handleEditPaymentMethod = (method) => {
     // Pre-populate the forms with existing data
     const consumerData = method.consumerDetails || method.details?.consumerDetails;
-    const bankData = method.bankDetails || method.details?.bankDetails;
 
     if (consumerData) {
       setConsumerDetails({
@@ -209,6 +225,18 @@ const PaymentMethodsManager = () => {
       const countryCode = method.countryCode || method.details?.countryCode || "Unknown";
       const currencyCode = method.currencyCode || method.details?.currencyCode || "Unknown";
 
+      // Get bank name from XE recipient data if available
+      let bankName = "Unknown Bank";
+      if (method.xeRecipients && method.xeRecipients.length > 0) {
+        const xeRecipient = method.xeRecipients[0]; // Get the first (most recent) XE recipient
+        if (xeRecipient.payoutMethod?.bank?.account?.accountName) {
+          bankName = xeRecipient.payoutMethod.bank.account.accountName;
+        }
+      } else if (method.bankDetails?.bankName || method.details?.bankDetails?.bankName) {
+        // Fallback to bankDetails if XE recipient data is not available
+        bankName = method.bankDetails?.bankName || method.details?.bankDetails?.bankName;
+      }
+
       let consumerName = "Bank Account";
       if (method.consumerDetails) {
         // New structure
@@ -219,7 +247,7 @@ const PaymentMethodsManager = () => {
       }
 
       return {
-        title: `${countryCode}/${currencyCode} Bank Account`,
+        title: `${bankName} (${countryCode}/${currencyCode})`,
         subtitle: consumerName,
         icon: "🏦",
       };
@@ -239,6 +267,16 @@ const PaymentMethodsManager = () => {
             ← Back to Payment Methods
           </button>
         </div>
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900">
+            {selectedMethod ? "Edit Bank Account Details" : "Add Bank Account Details"}
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            {selectedMethod
+              ? "Update your consumer information. You can modify these details and resubmit for verification."
+              : "Enter your consumer information to add a new bank account for international transfers."}
+          </p>
+        </div>
         <ConsumerDetailsForm
           onSubmit={handleConsumerDetailsSubmit}
           isLoading={loading.submit}
@@ -250,13 +288,30 @@ const PaymentMethodsManager = () => {
   }
 
   if (currentStep === "bank") {
+    // Get existing bank details when editing
+    const initialBankDetails = selectedMethod
+      ? selectedMethod.bankDetails || selectedMethod.details?.bankDetails
+      : null;
+
     return (
       <div className="space-y-4">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900">
+            {selectedMethod ? "Update Bank Account Information" : "Bank Account Information"}
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            {selectedMethod
+              ? "Review and update your bank account details. Changes will trigger re-verification with XE."
+              : "Enter your bank account details for international transfers via XE."}
+          </p>
+        </div>
         <BankDetailsForm
           consumerDetails={consumerDetails}
           onSubmit={handleBankDetailsSubmit}
           onBack={handleBackToConsumer}
           isLoading={loading.submit}
+          initialBankDetails={initialBankDetails}
+          selectedMethod={selectedMethod}
         />
       </div>
     );
@@ -292,7 +347,10 @@ const PaymentMethodsManager = () => {
             // Check for payment method approval status
             const isVerified = method.approved === true;
 
-            const hasError = !!((method.details?.xeRecipientError || method.xeRecipientError) && !isVerified);
+            // Check for XE API errors stored in the payment method
+            const hasXeError = !!(method.xeError?.message && !isVerified);
+            const hasLegacyError = !!((method.details?.xeRecipientError || method.xeRecipientError) && !isVerified);
+            const hasError = hasXeError || hasLegacyError;
 
             // Debug: Log verification status for troubleshooting
             if (isVerified) {
@@ -304,7 +362,8 @@ const PaymentMethodsManager = () => {
             } else if (hasError) {
               console.log("❌ Payment method with error:", method._id, {
                 approved: method.approved,
-                error: method.details?.xeRecipientError,
+                xeError: method.xeError?.message,
+                legacyError: method.details?.xeRecipientError,
               });
             }
 
@@ -347,7 +406,20 @@ const PaymentMethodsManager = () => {
                         <div className="flex items-center gap-1">
                           <span
                             className="flex items-center text-amber-600"
-                            title="Verification pending - click to retry"
+                            title={
+                              method.xeError?.message
+                                ? `${method.xeError.message}${
+                                    method.xeError.details?.errors
+                                      ? `\n\nField errors:\n${method.xeError.details.errors
+                                          .map(
+                                            (err) =>
+                                              `• ${err.fieldName}: ${err.errors?.join(", ") || "validation error"}`
+                                          )
+                                          .join("\n")}`
+                                      : ""
+                                  }`
+                                : method.details?.xeRecipientError || "Verification pending - click to retry"
+                            }
                           >
                             <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                               <path
@@ -357,8 +429,8 @@ const PaymentMethodsManager = () => {
                               />
                             </svg>
                           </span>
-                          <span className="px-2 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full">
-                            PENDING
+                          <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">
+                            {method.xeError?.retryCount > 1 ? `ERROR (${method.xeError.retryCount} tries)` : "ERROR"}
                           </span>
                         </div>
                       )}
@@ -367,7 +439,18 @@ const PaymentMethodsManager = () => {
                     <div className="flex items-center gap-2 text-xs text-gray-400">
                       <span>Added on {new Date(method.createdAt).toLocaleDateString()}</span>
                       {isVerified && <span className="text-green-600 font-medium">• Verified & Ready</span>}
-                      {hasError && <span className="text-amber-600 font-medium">• Verification pending</span>}
+                      {hasError && (
+                        <span className="text-red-600 font-medium">
+                          • {method.xeError?.message || method.details?.xeRecipientError || "Verification error"}
+                          {method.xeError?.details?.errors && Array.isArray(method.xeError.details.errors) && (
+                            <span className="text-gray-500 font-normal">
+                              {" "}
+                              ({method.xeError.details.errors.length} field
+                              {method.xeError.details.errors.length > 1 ? "s" : ""})
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -580,11 +663,78 @@ const PaymentMethodsManager = () => {
                       <span className="ml-2">
                         {selectedMethod.approved ? (
                           <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Approved</span>
+                        ) : selectedMethod.xeError?.message ? (
+                          <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                            Error
+                            {selectedMethod.xeError.retryCount > 1
+                              ? ` (${selectedMethod.xeError.retryCount} tries)`
+                              : ""}
+                          </span>
                         ) : (
                           <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">Pending</span>
                         )}
                       </span>
                     </div>
+                    {selectedMethod.xeError?.message && (
+                      <div className="col-span-2">
+                        <span className="text-gray-500">Error Details:</span>
+                        <div className="ml-2 mt-1 p-3 bg-red-50 border border-red-200 rounded text-xs">
+                          <div className="text-red-700 font-medium mb-2">{selectedMethod.xeError.message}</div>
+
+                          <div className="grid grid-cols-2 gap-2 text-gray-600">
+                            {selectedMethod.xeError.typeOfFailure && (
+                              <div>
+                                <span className="font-medium">Type:</span> {selectedMethod.xeError.typeOfFailure}
+                              </div>
+                            )}
+                            {selectedMethod.xeError.errorCode && (
+                              <div>
+                                <span className="font-medium">Code:</span> {selectedMethod.xeError.errorCode}
+                              </div>
+                            )}
+                            {selectedMethod.xeError.traceErrorId && (
+                              <div className="col-span-2">
+                                <span className="font-medium">Trace ID:</span> {selectedMethod.xeError.traceErrorId}
+                              </div>
+                            )}
+                            {selectedMethod.xeError.lastAttempt && (
+                              <div className="col-span-2">
+                                <span className="font-medium">Last attempt:</span>{" "}
+                                {new Date(selectedMethod.xeError.lastAttempt).toLocaleString()}
+                              </div>
+                            )}
+                            {selectedMethod.xeError.failureDateTime && (
+                              <div className="col-span-2">
+                                <span className="font-medium">XE Error Time:</span>{" "}
+                                {new Date(selectedMethod.xeError.failureDateTime).toLocaleString()}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Show structured field errors if available */}
+                          {selectedMethod.xeError.details?.errors &&
+                            Array.isArray(selectedMethod.xeError.details.errors) && (
+                              <div className="mt-2 pt-2 border-t border-red-300">
+                                <div className="font-medium text-red-700 mb-1">
+                                  Field Validation Errors ({selectedMethod.xeError.details.errors.length}):
+                                </div>
+                                {selectedMethod.xeError.details.errors.map((err, index) => (
+                                  <div key={index} className="mb-2 p-2 bg-red-100 rounded text-xs">
+                                    <div className="font-medium text-red-800">{err.fieldName}</div>
+                                    {err.errors && Array.isArray(err.errors) && (
+                                      <ul className="mt-1 text-red-700 list-disc list-inside">
+                                        {err.errors.map((errorMsg, msgIndex) => (
+                                          <li key={msgIndex}>{errorMsg}</li>
+                                        ))}
+                                      </ul>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <span className="text-gray-500">Added:</span>
                       <span className="ml-2 font-medium">
@@ -653,7 +803,8 @@ const PaymentMethodsManager = () => {
 
                         // Custom field labels for better display
                         const fieldLabels = {
-                          accountName: "Account Name",
+                          xeBankName: "Bank Name (XE)",
+                          bankName: "Bank Name",
                           accountType: "Account Type",
                           accountNumber: "Account Number",
                           ncc: "NCC/Routing Number",
@@ -662,7 +813,36 @@ const PaymentMethodsManager = () => {
                           location: "Bank Location",
                         };
 
-                        return Object.entries(bank).map(([key, value]) => (
+                        // Get bank name from XE recipient data if available
+                        let xeBankName = null;
+                        if (selectedMethod.xeRecipients && selectedMethod.xeRecipients.length > 0) {
+                          const xeRecipient = selectedMethod.xeRecipients[0];
+                          if (xeRecipient.payoutMethod?.bank?.account?.accountName) {
+                            xeBankName = xeRecipient.payoutMethod.bank.account.accountName;
+                          }
+                        }
+
+                        // Show bank name first if available (prioritize XE recipient data)
+                        const displayOrder = [
+                          "bankName",
+                          "accountType",
+                          "accountNumber",
+                          "ncc",
+                          "iban",
+                          "bic",
+                          "location",
+                        ];
+                        const orderedEntries = displayOrder
+                          .filter((key) => bank[key])
+                          .map((key) => [key, bank[key]])
+                          .concat(Object.entries(bank).filter(([key]) => !displayOrder.includes(key)));
+
+                        // Add XE recipient bank name at the beginning if available
+                        if (xeBankName && !bank.bankName) {
+                          orderedEntries.unshift(["xeBankName", xeBankName]);
+                        }
+
+                        return orderedEntries.map(([key, value]) => (
                           <div key={key}>
                             <span className="text-gray-500">
                               {fieldLabels[key] || key.replace(/([A-Z])/g, " $1").trim()}:

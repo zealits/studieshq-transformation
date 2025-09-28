@@ -45,7 +45,7 @@ const ExperienceSchema = new Schema({
     type: String,
   },
   from: {
-    type: Date, 
+    type: Date,
     required: true,
   },
   to: {
@@ -138,6 +138,32 @@ const ProfileSchema = new Schema({
   },
   location: {
     type: String,
+  },
+  address: {
+    line1: {
+      type: String,
+    },
+    line2: {
+      type: String,
+    },
+    country: {
+      type: String,
+    },
+    countryCode: {
+      type: String,
+    },
+    city: {
+      type: String,
+    },
+    state: {
+      type: String,
+    },
+    stateCode: {
+      type: String,
+    },
+    postalCode: {
+      type: String,
+    },
   },
   website: {
     type: String,

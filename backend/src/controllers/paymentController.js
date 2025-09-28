@@ -1995,46 +1995,35 @@ exports.addBankPaymentMethod = async (req, res) => {
       });
     }
 
-    // Validate required bank account fields
-    if (!bankDetails.accountName || !bankDetails.accountName.trim()) {
+    // Validate bank account name (optional field)
+    if (bankDetails.bankName && bankDetails.bankName.length > 100) {
       return res.status(400).json({
         success: false,
-        message: "Bank Account Name is required",
+        message: "Bank Name must be 100 characters or less",
       });
     }
 
-    if (bankDetails.accountName.length > 50) {
-      return res.status(400).json({
-        success: false,
-        message: "Bank Account Name must be 50 characters or less",
-      });
-    }
+    // Validate account type if provided (optional field)
+    if (bankDetails.accountType && bankDetails.accountType.trim()) {
+      const validAccountTypes = [
+        "Savings",
+        "Current",
+        "Checking",
+        "NRE",
+        "NRO",
+        "Loan",
+        "Overdraft",
+        "CashCredit",
+        "Business",
+        "Corporate",
+      ];
 
-    if (!bankDetails.accountType || !bankDetails.accountType.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Account Type is required",
-      });
-    }
-
-    const validAccountTypes = [
-      "Savings",
-      "Current",
-      "Checking",
-      "NRE",
-      "NRO",
-      "Loan",
-      "Overdraft",
-      "CashCredit",
-      "Business",
-      "Corporate",
-    ];
-
-    if (!validAccountTypes.includes(bankDetails.accountType)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid account type. Please select a valid account type.",
-      });
+      if (!validAccountTypes.includes(bankDetails.accountType)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid account type. Please select a valid account type.",
+        });
+      }
     }
 
     // Auto-populate bank location with country code if not provided
@@ -2479,5 +2468,334 @@ exports.getFailedXeRecipients = async (req, res) => {
       success: false,
       message: "Server error while getting failed XE recipients",
     });
+  }
+};
+
+// Update existing bank payment method
+exports.updateBankPaymentMethod = async (req, res) => {
+  try {
+    const { paymentMethodId } = req.params;
+    const { consumerDetails, bankDetails, countryCode, currencyCode } = req.body;
+
+    // Validate required fields
+    if (!consumerDetails || !bankDetails || !countryCode || !currencyCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Consumer details, bank details, country code, and currency code are required",
+      });
+    }
+
+    // Find the payment method
+    const paymentMethod = await PaymentMethod.findOne({
+      _id: paymentMethodId,
+      user: req.user.id,
+      type: "bank",
+      provider: "xe",
+    });
+
+    if (!paymentMethod) {
+      return res.status(404).json({
+        success: false,
+        message: "Bank payment method not found",
+      });
+    }
+
+    // Update the payment method
+    paymentMethod.consumerDetails = {
+      givenNames: consumerDetails.givenNames,
+      familyName: consumerDetails.familyName,
+      emailAddress: consumerDetails.emailAddress,
+      mobileNumber: consumerDetails.mobileNumber,
+      phoneNumber: consumerDetails.phoneNumber,
+      title: consumerDetails.title,
+      idCountry: consumerDetails.idCountry,
+      idType: consumerDetails.idType,
+      idNumber: consumerDetails.idNumber,
+      taxNumber: consumerDetails.taxNumber,
+      address: {
+        line1: consumerDetails.address.line1,
+        line2: consumerDetails.address.line2,
+        country: consumerDetails.address.country,
+        locality: consumerDetails.address.locality,
+        region: consumerDetails.address.region,
+        postcode: consumerDetails.address.postcode,
+      },
+    };
+    paymentMethod.bankDetails = bankDetails;
+    paymentMethod.countryCode = countryCode;
+    paymentMethod.currencyCode = currencyCode;
+    paymentMethod.details.updatedAt = new Date().toISOString();
+
+    await paymentMethod.save();
+
+    res.json({
+      success: true,
+      message: "Bank payment method updated successfully",
+      data: {
+        id: paymentMethod._id,
+        type: paymentMethod.type,
+        provider: paymentMethod.provider,
+        countryCode,
+        currencyCode,
+        consumerName: `${consumerDetails.givenNames} ${consumerDetails.familyName}`,
+        isDefault: paymentMethod.isDefault,
+        approved: paymentMethod.approved,
+        updatedAt: paymentMethod.details.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error("🏦 PAYMENT CONTROLLER: Error updating bank payment method:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while updating bank payment method",
+    });
+  }
+};
+
+// Get XE FX quotation for withdrawal
+exports.getXeFxQuotation = async (req, res) => {
+  try {
+    const { paymentMethodId } = req.params;
+    const { amount } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid withdrawal amount is required",
+      });
+    }
+
+    // Verify payment method belongs to user
+    const paymentMethod = await PaymentMethod.findOne({
+      _id: paymentMethodId,
+      user: req.user.id,
+      type: "bank",
+      provider: "xe",
+    });
+
+    if (!paymentMethod) {
+      return res.status(404).json({
+        success: false,
+        message: "Bank payment method not found",
+      });
+    }
+
+    // Get XE recipient details
+    const xeRecipient = await XeRecipient.findByPaymentMethod(paymentMethodId);
+    if (!xeRecipient || xeRecipient.status !== "active") {
+      return res.status(400).json({
+        success: false,
+        message: "Active XE recipient not found for this payment method",
+      });
+    }
+
+    // Get FX quotation from XE API
+    const countryCode = xeApiService.getCountryCodeFromCurrency(xeRecipient.currency);
+    const quotationResult = await xeApiService.getFxQuotation(amount, paymentMethod.currencyCode, countryCode);
+
+    if (!quotationResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to get FX quotation",
+        error: quotationResult.error,
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        quotation: quotationResult.quotation,
+        sourceAmount: amount,
+        sourceCurrency: paymentMethod.currencyCode,
+        targetCurrency: xeRecipient.currency,
+        exchangeRate: quotationResult.quotation?.rate,
+        targetAmount: quotationResult.quotation?.targetAmount,
+        validUntil: quotationResult.quotation?.validUntil,
+      },
+    });
+  } catch (error) {
+    console.error("🏦 PAYMENT CONTROLLER: Error getting XE FX quotation:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while getting FX quotation",
+    });
+  }
+};
+
+// Proceed with XE withdrawal
+exports.proceedXeWithdrawal = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { paymentMethodId } = req.params;
+    const { amount, purpose } = req.body;
+
+    if (!amount || amount <= 0) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Valid withdrawal amount is required",
+      });
+    }
+
+    // Verify payment method belongs to user
+    const paymentMethod = await PaymentMethod.findOne({
+      _id: paymentMethodId,
+      user: req.user.id,
+      type: "bank",
+      provider: "xe",
+    }).session(session);
+
+    if (!paymentMethod) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        message: "Bank payment method not found",
+      });
+    }
+
+    // Get XE recipient details
+    const xeRecipient = await XeRecipient.findByPaymentMethod(paymentMethodId);
+    if (!xeRecipient || xeRecipient.status !== "active") {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Active XE recipient not found for this payment method",
+      });
+    }
+
+    // Check user's wallet balance
+    const wallet = await Wallet.findOne({ user: req.user.id }).session(session);
+    if (!wallet || wallet.balance < amount) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient balance for XE withdrawal",
+        data: {
+          availableBalance: wallet ? wallet.balance : 0,
+          requestedAmount: amount,
+          shortfall: amount - (wallet ? wallet.balance : 0),
+        },
+      });
+    }
+
+    // Get FX quotation
+    const countryCode = xeApiService.getCountryCodeFromCurrency(xeRecipient.currency);
+    const quotationResult = await xeApiService.getFxQuotation(
+      amount,
+      paymentMethod.currencyCode,
+      countryCode,
+      xeRecipient.xeRecipientId
+    );
+
+    if (!quotationResult.success) {
+      await session.abortTransaction();
+      return res.status(500).json({
+        success: false,
+        message: "Failed to get FX quotation for withdrawal",
+        error: quotationResult.error,
+      });
+    }
+
+    // Create XE payment
+    const paymentResult = await xeApiService.createPayment({
+      amount: amount,
+      sourceCurrency: paymentMethod.currencyCode,
+      targetCurrency: xeRecipient.currency,
+      recipientId: xeRecipient.xeRecipientId,
+      clientReference: `shq${req.user.id.slice(-6)}${Date.now().toString().slice(-8)}`,
+      purpose: purpose || "Withdrawal from StudiesHQ",
+      quotationId: quotationResult.quotation?.id,
+    });
+
+    if (!paymentResult.success) {
+      await session.abortTransaction();
+      return res.status(500).json({
+        success: false,
+        message: "Failed to create XE payment",
+        error: paymentResult.error,
+      });
+    }
+
+    // Approve the contract if we have a contract number
+    let contractApprovalResult = null;
+    if (paymentResult.contractNumber) {
+      console.log(`🏦 PAYMENT CONTROLLER: Approving contract ${paymentResult.contractNumber}...`);
+      contractApprovalResult = await xeApiService.approveContract(paymentResult.contractNumber);
+
+      if (!contractApprovalResult.success) {
+        console.error(`🏦 PAYMENT CONTROLLER: Failed to approve contract:`, contractApprovalResult.error);
+        // Note: We don't abort the transaction here as the payment was created successfully
+        // The contract can be approved later manually if needed
+      } else {
+        console.log(`🏦 PAYMENT CONTROLLER: ✅ Contract approved successfully`);
+      }
+    }
+
+    // Deduct amount from wallet
+    wallet.balance -= amount;
+    await wallet.save({ session });
+
+    // Create transaction record
+    const transactionId = `XE-${uuidv4().substring(0, 8)}`;
+    const transaction = new Transaction({
+      transactionId,
+      user: req.user.id,
+      amount: -amount, // Negative for withdrawal
+      type: "xe_withdrawal",
+      status: "pending", // XE payments typically start as pending
+      description: `XE withdrawal to ${xeRecipient.currency}`,
+      metadata: {
+        xePaymentId: paymentResult.payment?.id,
+        xeRecipientId: xeRecipient.xeRecipientId,
+        contractNumber: paymentResult.contractNumber,
+        contractApproved: contractApprovalResult?.success || false,
+        contractApprovalError: contractApprovalResult?.error || null,
+        sourceCurrency: paymentMethod.currencyCode,
+        targetCurrency: xeRecipient.currency,
+        exchangeRate: quotationResult.quotation?.rate,
+        targetAmount: quotationResult.quotation?.targetAmount,
+        purpose: purpose || "Withdrawal from StudiesHQ",
+      },
+    });
+
+    await transaction.save({ session });
+    await session.commitTransaction();
+
+    res.json({
+      success: true,
+      message: "XE withdrawal initiated successfully",
+      data: {
+        transaction: {
+          id: transaction._id,
+          transactionId,
+          amount,
+          type: "xe_withdrawal",
+          status: "pending",
+          xePayment: {
+            id: paymentResult.payment?.id,
+            status: paymentResult.payment?.status,
+            contractNumber: paymentResult.contractNumber,
+            contractApproved: contractApprovalResult?.success || false,
+            contractApprovalError: contractApprovalResult?.error || null,
+            targetAmount: quotationResult.quotation?.targetAmount,
+            targetCurrency: xeRecipient.currency,
+            exchangeRate: quotationResult.quotation?.rate,
+          },
+          createdAt: transaction.createdAt,
+        },
+        newBalance: wallet.balance,
+      },
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("🏦 PAYMENT CONTROLLER: Error proceeding with XE withdrawal:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while processing XE withdrawal",
+    });
+  } finally {
+    session.endSession();
   }
 };

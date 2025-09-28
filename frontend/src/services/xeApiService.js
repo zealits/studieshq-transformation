@@ -104,6 +104,36 @@ class XeApiService {
       throw new Error("Network error while adding bank payment method");
     }
   }
+
+  /**
+   * Update existing bank payment method
+   * @param {string} paymentMethodId - Payment method ID
+   * @param {Object} data - Bank details data
+   * @param {Object} data.consumerDetails - Consumer information
+   * @param {Object} data.bankDetails - Bank account details
+   * @param {string} data.countryCode - Country code
+   * @param {string} data.currencyCode - Currency code
+   * @returns {Promise<Object>} API response
+   */
+  async updateBankPaymentMethod(paymentMethodId, data) {
+    try {
+      console.log("🏦 XE API SERVICE: Updating bank payment method:", paymentMethodId);
+
+      const response = await api.put(`/api/payments/bank/${paymentMethodId}`, data);
+
+      console.log("🏦 XE API SERVICE: ✅ Bank payment method updated successfully");
+
+      return response.data;
+    } catch (error) {
+      console.error("🏦 XE API SERVICE: ❌ Error updating bank payment method:", error);
+
+      if (error.response?.data) {
+        throw new Error(error.response.data.message || "Failed to update bank payment method");
+      }
+
+      throw new Error("Network error while updating bank payment method");
+    }
+  }
 }
 
 export default new XeApiService();

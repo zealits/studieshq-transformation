@@ -12,6 +12,63 @@ class XeApiService {
   }
 
   /**
+   * Maps currency code to country code
+   * @param {string} currencyCode - Currency code (e.g., 'INR', 'USD')
+   * @returns {string} Country code (e.g., 'IN', 'US')
+   */
+  getCountryCodeFromCurrency(currencyCode) {
+    const currencyToCountryMap = {
+      INR: "IN", // Indian Rupee -> India
+      USD: "US", // US Dollar -> United States
+      EUR: "DE", // Euro -> Germany (primary)
+      GBP: "GB", // British Pound -> United Kingdom
+      CAD: "CA", // Canadian Dollar -> Canada
+      AUD: "AU", // Australian Dollar -> Australia
+      JPY: "JP", // Japanese Yen -> Japan
+      CNY: "CN", // Chinese Yuan -> China
+      SGD: "SG", // Singapore Dollar -> Singapore
+      HKD: "HK", // Hong Kong Dollar -> Hong Kong
+      NZD: "NZ", // New Zealand Dollar -> New Zealand
+      CHF: "CH", // Swiss Franc -> Switzerland
+      SEK: "SE", // Swedish Krona -> Sweden
+      NOK: "NO", // Norwegian Krone -> Norway
+      DKK: "DK", // Danish Krone -> Denmark
+      PLN: "PL", // Polish Zloty -> Poland
+      CZK: "CZ", // Czech Koruna -> Czech Republic
+      HUF: "HU", // Hungarian Forint -> Hungary
+      BRL: "BR", // Brazilian Real -> Brazil
+      MXN: "MX", // Mexican Peso -> Mexico
+      ZAR: "ZA", // South African Rand -> South Africa
+      KRW: "KR", // South Korean Won -> South Korea
+      THB: "TH", // Thai Baht -> Thailand
+      MYR: "MY", // Malaysian Ringgit -> Malaysia
+      PHP: "PH", // Philippine Peso -> Philippines
+      IDR: "ID", // Indonesian Rupiah -> Indonesia
+      VND: "VN", // Vietnamese Dong -> Vietnam
+      TRY: "TR", // Turkish Lira -> Turkey
+      RUB: "RU", // Russian Ruble -> Russia
+      AED: "AE", // UAE Dirham -> United Arab Emirates
+      SAR: "SA", // Saudi Riyal -> Saudi Arabia
+      EGP: "EG", // Egyptian Pound -> Egypt
+      NGN: "NG", // Nigerian Naira -> Nigeria
+      KES: "KE", // Kenyan Shilling -> Kenya
+      GHS: "GH", // Ghanaian Cedi -> Ghana
+      MAD: "MA", // Moroccan Dirham -> Morocco
+      TND: "TN", // Tunisian Dinar -> Tunisia
+      DZD: "DZ", // Algerian Dinar -> Algeria
+      ETB: "ET", // Ethiopian Birr -> Ethiopia
+      UGX: "UG", // Ugandan Shilling -> Uganda
+      TZS: "TZ", // Tanzanian Shilling -> Tanzania
+      ZMW: "ZM", // Zambian Kwacha -> Zambia
+      BWP: "BW", // Botswanan Pula -> Botswana
+      MWK: "MW", // Malawian Kwacha -> Malawi
+      ZWL: "ZW", // Zimbabwean Dollar -> Zimbabwe
+    };
+
+    return currencyToCountryMap[currencyCode] || "US"; // Default to US if not found
+  }
+
+  /**
    * Get access token from XE API
    * @returns {Promise<Object>} Token response with access token and expiry
    */
@@ -255,6 +312,112 @@ class XeApiService {
   }
 
   /**
+   * Get FX quotation for withdrawal
+   * @param {number} usdAmount - Amount in USD to withdraw
+   * @param {string} buyCurrency - Target currency (user's currency)
+   * @param {string} countryTo - Target country code
+   * @param {string} xeRecipientId - XE recipient ID (optional)
+   * @returns {Promise<Object>} FX quotation response
+   */
+  async getFxQuotation(usdAmount, buyCurrency, countryTo, xeRecipientId = null) {
+    try {
+      console.log(`🏦 XE API SERVICE: Getting FX quotation for ${usdAmount} USD to ${buyCurrency} (${countryTo})`);
+
+      const accessToken = await this.getValidAccessToken();
+
+      if (!accessToken) {
+        return {
+          success: false,
+          error: "Failed to get access token",
+        };
+      }
+
+      const quotationPayload = {
+        sell: {
+          currency: "USD",
+          amount: usdAmount,
+        },
+        buy: {
+          currency: buyCurrency,
+        },
+        countryTo: countryTo,
+        deliveryMethod: "BankAccount",
+      };
+
+      // Only include settlementDetails if we have a valid recipient ID
+      if (xeRecipientId) {
+        quotationPayload.settlementDetails = {
+          settlementMethod: "BankTransfer",
+          recipientId: xeRecipientId,
+        };
+      }
+
+      console.log("🏦 XE API SERVICE: FX quotation payload:", JSON.stringify(quotationPayload, null, 2));
+
+      const response = await axios.post(`${this.baseURL}/v2/fxquotes`, quotationPayload, {
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log("🏦 XE API SERVICE: ✅ FX quotation retrieved successfully:", response.data);
+
+      return {
+        success: true,
+        quotation: response.data,
+      };
+    } catch (error) {
+      console.error("🏦 XE API SERVICE: ❌ Error getting FX quotation:", error.response?.data || error.message);
+
+      // Handle structured XE API error response
+      let structuredError = null;
+      let errorMessage = error.message;
+
+      if (error.response?.data) {
+        console.log(
+          "🏦 XE API SERVICE: FX quotation raw error response:",
+          JSON.stringify(error.response.data, null, 2)
+        );
+
+        // Handle different XE API error formats
+        if (Array.isArray(error.response.data)) {
+          // Array of error objects
+          structuredError = error.response.data[0]; // Take the first error
+        } else if (
+          error.response.data.errors ||
+          error.response.data.shortErrorMsg ||
+          error.response.data.longErrorMsg
+        ) {
+          // Structured error object
+          structuredError = error.response.data;
+        } else {
+          // Fallback to raw response
+          structuredError = error.response.data;
+        }
+
+        // Extract appropriate error message
+        if (structuredError?.longErrorMsg) {
+          errorMessage = structuredError.longErrorMsg;
+        } else if (structuredError?.shortErrorMsg) {
+          errorMessage = structuredError.shortErrorMsg;
+        } else if (structuredError?.message) {
+          errorMessage = structuredError.message;
+        } else if (error.response.data.message) {
+          errorMessage = error.response.data.message;
+        }
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+        details: structuredError || error.response?.data || null,
+      };
+    }
+  }
+
+  /**
    * Create a recipient on XE API using payment details from database
    * @param {Object} paymentMethod - PaymentMethod object from database
    * @param {string} userId - User ID for generating client reference
@@ -284,9 +447,9 @@ class XeApiService {
         if (paymentMethod.bankDetails.accountNumber) {
           accountData.accountNumber = paymentMethod.bankDetails.accountNumber;
         }
-        if (paymentMethod.bankDetails.accountName || paymentMethod.consumerDetails?.givenNames) {
+        if (paymentMethod.bankDetails.bankName || paymentMethod.consumerDetails?.givenNames) {
           accountData.accountName =
-            paymentMethod.bankDetails.accountName ||
+            paymentMethod.bankDetails.bankName ||
             `${paymentMethod.consumerDetails.givenNames} ${paymentMethod.consumerDetails.familyName}`.trim();
         }
 
@@ -380,19 +543,252 @@ class XeApiService {
 
       // Handle structured XE API error response
       let structuredError = null;
+      let errorMessage = error.message;
+
       if (error.response?.data) {
-        // Check if it's the structured error format
-        if (Array.isArray(error.response.data) && error.response.data.length > 0) {
+        console.log("🏦 XE API SERVICE: Raw error response:", JSON.stringify(error.response.data, null, 2));
+
+        // Handle different XE API error formats
+        if (Array.isArray(error.response.data)) {
+          // Array of error objects
           structuredError = error.response.data[0]; // Take the first error
-        } else if (error.response.data.code !== undefined) {
+        } else if (
+          error.response.data.errors ||
+          error.response.data.shortErrorMsg ||
+          error.response.data.longErrorMsg
+        ) {
+          // Structured error object
           structuredError = error.response.data;
+        } else {
+          // Fallback to raw response
+          structuredError = error.response.data;
+        }
+
+        // Extract appropriate error message
+        if (structuredError?.longErrorMsg) {
+          errorMessage = structuredError.longErrorMsg;
+        } else if (structuredError?.shortErrorMsg) {
+          errorMessage = structuredError.shortErrorMsg;
+        } else if (structuredError?.message) {
+          errorMessage = structuredError.message;
+        } else if (error.response.data.message) {
+          errorMessage = error.response.data.message;
         }
       }
 
       return {
         success: false,
-        error: structuredError?.shortErrorMsg || error.response?.data?.message || error.message,
+        error: errorMessage,
         details: structuredError || error.response?.data || null,
+      };
+    }
+  }
+
+  /**
+   * Create a payment for recipient
+   * @param {Object} paymentData - Payment details
+   * @param {number} paymentData.sellAmount - Amount in USD to send
+   * @param {string} paymentData.buyCurrency - Target currency
+   * @param {string} paymentData.xeRecipientId - XE recipient ID
+   * @param {string} paymentData.clientReference - Client reference for payment
+   * @param {string} paymentData.purpose - Purpose of payment
+   * @returns {Promise<Object>} Payment creation response
+   */
+  async createPayment(paymentData) {
+    try {
+      console.log("🏦 XE API SERVICE: Creating payment for recipient...");
+
+      const accessToken = await this.getValidAccessToken();
+
+      if (!accessToken) {
+        return {
+          success: false,
+          error: "Failed to get access token",
+        };
+      }
+
+      const {
+        sellAmount = paymentData.amount,
+        buyCurrency = paymentData.targetCurrency,
+        xeRecipientId = paymentData.recipientId,
+        clientReference = paymentData.clientReference,
+        purpose = paymentData.purpose || "Freelance Payment",
+      } = paymentData;
+
+      console.log("🏦 XE API SERVICE: Payment data received:", {
+        sellAmount,
+        buyCurrency,
+        xeRecipientId,
+        clientReference,
+        purpose,
+        originalPaymentData: paymentData,
+      });
+
+      // Generate unique client reference if not provided (max 35 chars for XE API)
+      const uniqueClientReference =
+        clientReference || `shq${Date.now().toString().slice(-8)}${Math.random().toString(36).substr(2, 6)}`;
+
+      console.log("🏦 XE API SERVICE: Using client reference:", uniqueClientReference);
+
+      const paymentPayload = {
+        payments: [
+          {
+            clientReference: uniqueClientReference,
+            sellAmount: {
+              currency: "USD",
+              amount: sellAmount,
+            },
+            buyAmount: {
+              currency: buyCurrency,
+            },
+            purpose: purpose,
+            recipient: {
+              recipientId: {
+                xeRecipientId: xeRecipientId,
+                clientReference: uniqueClientReference,
+              },
+              type: "Registered",
+            },
+          },
+        ],
+        autoApprove: false,
+        settlementDetails: {
+          settlementMethod: "BankTransfer",
+          bankAccountId: process.env.XE_BANK_ACCOUNT_ID || 123456,
+        },
+      };
+
+      console.log("🏦 XE API SERVICE: Payment payload:", JSON.stringify(paymentPayload, null, 2));
+
+      const accountNumber = process.env.XE_ACCOUNT_NUMBER || "XEMT0440856664";
+
+      const response = await axios.post(`${this.baseURL}/v2/payments?accountNumber=${accountNumber}`, paymentPayload, {
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log("🏦 XE API SERVICE: ✅ Payment created successfully:", response.data);
+
+      return {
+        success: true,
+        payment: response.data,
+        contractNumber: response.data.identifier?.contractNumber,
+        quoteExpires: response.data.quote?.expires,
+      };
+    } catch (error) {
+      console.error("🏦 XE API SERVICE: ❌ Error creating payment:", error.response?.data || error.message);
+
+      // Handle structured XE API error response
+      let structuredError = null;
+      let errorMessage = error.message;
+
+      if (error.response?.data) {
+        console.log(
+          "🏦 XE API SERVICE: Payment creation raw error response:",
+          JSON.stringify(error.response.data, null, 2)
+        );
+
+        // Handle XE API error format for 400 status code
+        if (error.response.status === 400 && error.response.data) {
+          const errorData = error.response.data;
+
+          // Standard XE API error format
+          if (errorData.longErrorMsg) {
+            errorMessage = errorData.longErrorMsg;
+          } else if (errorData.shortErrorMsg) {
+            errorMessage = errorData.shortErrorMsg;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+
+          structuredError = errorData;
+        } else {
+          // Fallback error handling
+          structuredError = error.response.data;
+          errorMessage = error.response.data.message || error.message;
+        }
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+        details: structuredError || error.response?.data || null,
+        statusCode: error.response?.status,
+      };
+    }
+  }
+
+  /**
+   * Approve a payment contract
+   * @param {string} contractNumber - Contract number to approve
+   * @returns {Promise<Object>} Contract approval response
+   */
+  async approveContract(contractNumber) {
+    try {
+      console.log(`🏦 XE API SERVICE: Approving contract ${contractNumber}...`);
+
+      const accessToken = await this.getValidAccessToken();
+
+      if (!accessToken) {
+        return {
+          success: false,
+          error: "Failed to get access token",
+        };
+      }
+
+      const response = await axios.post(
+        `${this.baseURL}/v2/contracts/${contractNumber}/approve`,
+        {},
+        {
+          headers: {
+            accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      console.log("🏦 XE API SERVICE: ✅ Contract approved successfully:", response.data);
+
+      return {
+        success: true,
+        contract: response.data,
+        contractNumber: response.data.identifier?.contractNumber,
+      };
+    } catch (error) {
+      console.error("🏦 XE API SERVICE: ❌ Error approving contract:", error.response?.data || error.message);
+
+      // Handle structured XE API error response
+      let structuredError = null;
+      let errorMessage = error.message;
+
+      if (error.response?.data) {
+        console.log(
+          "🏦 XE API SERVICE: Contract approval raw error response:",
+          JSON.stringify(error.response.data, null, 2)
+        );
+
+        // Handle XE API error format
+        const errorData = error.response.data;
+
+        if (errorData.longErrorMsg) {
+          errorMessage = errorData.longErrorMsg;
+        } else if (errorData.shortErrorMsg) {
+          errorMessage = errorData.shortErrorMsg;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+
+        structuredError = errorData;
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+        details: structuredError || error.response?.data || null,
+        statusCode: error.response?.status,
       };
     }
   }

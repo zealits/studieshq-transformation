@@ -19,6 +19,7 @@ const escrowRoutes = require("./routes/escrowRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 const otpRoutes = require("./routes/otpRoutes");
 const supportRoutes = require("./routes/supportRoutes");
+const stateRegionRoutes = require("./routes/stateRegionRoutes");
 
 // Load environment variables
 dotenv.config();
@@ -54,6 +55,7 @@ app.use("/api/escrow", escrowRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/otp", otpRoutes);
 app.use("/api/support", supportRoutes);
+app.use("/api/states", stateRegionRoutes);
 
 // Serve static files from the frontend/dist directory
 app.use(

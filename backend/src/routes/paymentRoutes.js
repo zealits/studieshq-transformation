@@ -713,13 +713,30 @@ router.post(
       check("consumerDetails.address.country", "Country is required").not().isEmpty(),
       check("consumerDetails.address.line1", "Address line 1 is required").not().isEmpty(),
       check("bankDetails", "Bank details are required").not().isEmpty(),
-      check("bankDetails.accountName", "Bank account name is required").not().isEmpty(),
-      check("bankDetails.accountType", "Account type is required").not().isEmpty(),
       check("countryCode", "Country code is required").not().isEmpty(),
       check("currencyCode", "Currency code is required").not().isEmpty(),
     ],
   ],
   paymentController.addBankPaymentMethod
+);
+
+// @route   PUT /api/payments/bank/:paymentMethodId
+// @desc    Update existing bank payment method
+// @access  Private
+router.put(
+  "/bank/:paymentMethodId",
+  [
+    auth,
+    [
+      check("consumerDetails.givenNames", "Given names are required").not().isEmpty(),
+      check("consumerDetails.familyName", "Family name is required").not().isEmpty(),
+      check("consumerDetails.emailAddress", "Valid email is required").isEmail(),
+      check("bankDetails", "Bank details are required").not().isEmpty(),
+      check("countryCode", "Country code is required").not().isEmpty(),
+      check("currencyCode", "Currency code is required").not().isEmpty(),
+    ],
+  ],
+  paymentController.updateBankPaymentMethod
 );
 
 // @route   POST /api/payments/bank/retry-recipient/:paymentMethodId
@@ -741,5 +758,29 @@ router.get("/xe-recipients", auth, paymentController.getUserXeRecipients);
 // @desc    Get failed XE recipients for retry
 // @access  Private
 router.get("/xe-recipients/failed", auth, paymentController.getFailedXeRecipients);
+
+// @route   POST /api/payments/bank/xe-quotation/:paymentMethodId
+// @desc    Get FX quotation for XE withdrawal
+// @access  Private
+router.post(
+  "/bank/xe-quotation/:paymentMethodId",
+  [auth, [check("amount", "Withdrawal amount is required").isFloat({ min: 0.01 })]],
+  paymentController.getXeFxQuotation
+);
+
+// @route   POST /api/payments/bank/xe-withdraw/:paymentMethodId
+// @desc    Proceed with XE withdrawal (create payment and approve)
+// @access  Private
+router.post(
+  "/bank/xe-withdraw/:paymentMethodId",
+  [
+    auth,
+    [
+      check("amount", "Withdrawal amount is required").isFloat({ min: 0.01 }),
+      check("purpose", "Purpose is optional").optional().isString(),
+    ],
+  ],
+  paymentController.proceedXeWithdrawal
+);
 
 module.exports = router;
