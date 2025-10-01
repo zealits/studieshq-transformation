@@ -7,7 +7,8 @@ const UserManagementPage = () => {
   const { users, pagination, loading, error } = useSelector((state) => state.userManagement);
 
   const [activeTab, setActiveTab] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchInput, setSearchInput] = useState(""); // Input field value
+  const [searchQuery, setSearchQuery] = useState(""); // Actual search query used for API
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -27,6 +28,12 @@ const UserManagementPage = () => {
     );
   }, [dispatch, currentPage, activeTab, searchQuery]);
 
+  // Reset search input when tab changes
+  useEffect(() => {
+    setSearchInput("");
+    setSearchQuery("");
+  }, [activeTab]);
+
   // Handle user selection for details/editing
   const handleUserSelect = (user) => {
     setSelectedUser(user);
@@ -37,6 +44,26 @@ const UserManagementPage = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedUser(null);
+  };
+
+  // Handle search functionality
+  const handleSearch = () => {
+    setSearchQuery(searchInput);
+    setCurrentPage(1); // Reset to first page when searching
+  };
+
+  // Handle clear search functionality
+  const handleClearSearch = () => {
+    setSearchInput("");
+    setSearchQuery("");
+    setCurrentPage(1);
+  };
+
+  // Handle Enter key press in search input
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
   };
 
   const handleViewDocument = (documentUrl) => {
@@ -201,30 +228,47 @@ const UserManagementPage = () => {
       {/* Search and Filter Controls */}
       <div className="flex flex-col md:flex-row justify-between mb-6 space-y-4 md:space-y-0">
         <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search users..."
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <svg
-                className="w-5 h-5 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                ></path>
-              </svg>
+          <div className="flex">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="Search users..."
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+              />
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <svg
+                  className="w-5 h-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  ></path>
+                </svg>
+              </div>
             </div>
+            <button
+              onClick={handleSearch}
+              className="ml-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
+            >
+              Search
+            </button>
+            {searchQuery && (
+              <button
+                onClick={handleClearSearch}
+                className="ml-2 px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+              >
+                Clear
+              </button>
+            )}
           </div>
         </div>
       </div>

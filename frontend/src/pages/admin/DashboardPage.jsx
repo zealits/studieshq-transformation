@@ -116,7 +116,7 @@ const DashboardPage = () => {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      {/* <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Admin Dashboard</h1>
         <div className="flex space-x-4">
           <select
@@ -130,7 +130,7 @@ const DashboardPage = () => {
             <option value="year">This Year</option>
           </select>
         </div>
-      </div>
+      </div> */}
 
       {/* Tab Navigation */}
       <div className="flex border-b mb-6">
