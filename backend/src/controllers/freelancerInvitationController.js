@@ -19,8 +19,8 @@ exports.downloadTemplate = async (req, res) => {
     // Define the headers and sample data with new columns
     const worksheetData = [
       ["Email", "First Name", "Last Name", "Current Address", "Skills Set"],
-      ["john.doe@example.com", "John", "Doe", "123 Main St, New York, NY 10001", "JavaScript, React, Node.js"],
-      ["jane.smith@example.com", "Jane", "Smith", "456 Oak Ave, Los Angeles, CA 90001", "Python, Django, PostgreSQL"],
+      ["harry.potter@example.com", "harry", "potter", "123 Main St, New York, NY 10001", "JavaScript, React, Node.js"],
+      ["Ron.Weasley@example.com", "Ron", "Weasley", "456 Oak Ave, Los Angeles, CA 90001", "Python, Django, PostgreSQL"],
     ];
 
     // Create worksheet from the data
