@@ -38,7 +38,7 @@ const InviteFreelancerModal = ({ isOpen, onClose, freelancer, onInviteSuccess })
     setIsLoading(true);
     try {
       // const API_URL = import.meta.env.VITE_API_URL || "http://localhost:2001";
-      const API_URL = "https://studieshq.aiiventure.com";
+      const API_URL = "https://studieshq.com";
       
       // Find the selected job
       const selectedJob = openJobs.find((job) => job._id === selectedJobId);

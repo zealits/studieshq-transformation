@@ -9,7 +9,7 @@ const InvitationsPage = () => {
   const [responding, setResponding] = useState(null);
 
   // const API_URL = import.meta.env.VITE_API_URL || "http://localhost:2001";
-  const API_URL = "https://studieshq.aiiventure.com";
+  const API_URL = "https://studieshq.com";
 
   useEffect(() => {
     fetchInvitations();
