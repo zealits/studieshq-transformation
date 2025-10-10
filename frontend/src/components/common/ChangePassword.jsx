@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { changePassword, clearError, clearChangePasswordSuccess } from "../../redux/slices/authSlice";
 
-const ChangePassword = () => {
+const ChangePassword = ({ onSuccess }) => {
   const [formData, setFormData] = useState({
     currentPassword: "",
     newPassword: "",
@@ -87,13 +87,19 @@ const ChangePassword = () => {
         newPassword: "",
         confirmPassword: "",
       });
-      // Clear success message after 5 seconds
-      const timer = setTimeout(() => {
-        dispatch(clearChangePasswordSuccess());
-      }, 5000);
-      return () => clearTimeout(timer);
+
+      // Call onSuccess callback if provided (for forced password change)
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        // Clear success message after 5 seconds if no callback
+        const timer = setTimeout(() => {
+          dispatch(clearChangePasswordSuccess());
+        }, 5000);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [changePasswordSuccess, dispatch]);
+  }, [changePasswordSuccess, dispatch, onSuccess]);
 
   return (
     <div>

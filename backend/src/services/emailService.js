@@ -393,7 +393,9 @@ exports.sendJobInvitationNotification = async (client, freelancer, job, invitati
 
   const content = `
     <p>Hello ${freelancer.name},</p>
-    <p>Great news! <strong>${client.name}</strong> has invited you to work on their project "<strong>${job.title}</strong>".</p>
+    <p>Great news! <strong>${client.name}</strong> has invited you to work on their project "<strong>${
+    job.title
+  }</strong>".</p>
     
     <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
       <h3 style="margin: 0 0 10px 0; color: #1d4ed8;">Project Details:</h3>
@@ -407,12 +409,16 @@ exports.sendJobInvitationNotification = async (client, freelancer, job, invitati
       <p><strong>Deadline:</strong> ${new Date(job.deadline).toLocaleDateString()}</p>
     </div>
     
-    ${invitation.message ? `
+    ${
+      invitation.message
+        ? `
     <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
       <h4 style="margin: 0 0 10px 0; color: #374151;">Personal Message from ${client.name}:</h4>
       <p style="background-color: #ffffff; padding: 10px; border-left: 3px solid #4f46e5; margin: 0;">${invitation.message}</p>
     </div>
-    ` : ""}
+    `
+        : ""
+    }
     
     <p>This invitation expires in 7 days. Click the button below to view the full project details and respond to this invitation.</p>
     <p>Best regards,<br>The StudiesHQ Team</p>
@@ -971,7 +977,9 @@ exports.sendProjectCompletionNotificationToFreelancer = async (freelancer, clien
 
   const content = `
     <p>Hello ${freelancer.name},</p>
-    <p>🎉 Congratulations! You've successfully completed the project "<strong>${project.title}</strong>" for ${client.name}!</p>
+    <p>🎉 Congratulations! You've successfully completed the project "<strong>${project.title}</strong>" for ${
+    client.name
+  }!</p>
     
     <div style="background-color: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
       <h3 style="margin: 0 0 10px 0; color: #059669;">Project Completion Summary:</h3>
@@ -1009,7 +1017,12 @@ exports.sendProjectCompletionNotificationToFreelancer = async (freelancer, clien
  */
 exports.sendEscrowCompletionNotification = async (client, freelancer, project, escrowData) => {
   const clientPromise = exports.sendProjectCompletionNotificationToClient(client, freelancer, project, escrowData);
-  const freelancerPromise = exports.sendProjectCompletionNotificationToFreelancer(freelancer, client, project, escrowData);
+  const freelancerPromise = exports.sendProjectCompletionNotificationToFreelancer(
+    freelancer,
+    client,
+    project,
+    escrowData
+  );
 
   return await Promise.all([clientPromise, freelancerPromise]);
 };
@@ -1041,7 +1054,9 @@ exports.sendNewTicketNotification = async (ticket) => {
     
     <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
       <h4 style="margin: 0 0 10px 0; color: #374151;">Description:</h4>
-      <p style="background-color: #ffffff; padding: 10px; border-left: 3px solid #4f46e5; margin: 0;">${ticket.description}</p>
+      <p style="background-color: #ffffff; padding: 10px; border-left: 3px solid #4f46e5; margin: 0;">${
+        ticket.description
+      }</p>
     </div>
     
     <p>Please review and respond to this ticket as soon as possible.</p>
@@ -1083,7 +1098,9 @@ exports.sendTicketReplyNotification = async (user, ticket, reply) => {
     
     <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
       <h4 style="margin: 0 0 10px 0; color: #374151;">Reply:</h4>
-      <p style="background-color: #ffffff; padding: 10px; border-left: 3px solid #4f46e5; margin: 0;">${reply.content}</p>
+      <p style="background-color: #ffffff; padding: 10px; border-left: 3px solid #4f46e5; margin: 0;">${
+        reply.content
+      }</p>
     </div>
     
     <p>You can view the full conversation and reply to this ticket through your support dashboard.</p>
@@ -1124,7 +1141,9 @@ exports.sendUserReplyNotification = async (ticket, reply) => {
     
     <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
       <h4 style="margin: 0 0 10px 0; color: #374151;">User's Reply:</h4>
-      <p style="background-color: #ffffff; padding: 10px; border-left: 3px solid #4f46e5; margin: 0;">${reply.content}</p>
+      <p style="background-color: #ffffff; padding: 10px; border-left: 3px solid #4f46e5; margin: 0;">${
+        reply.content
+      }</p>
     </div>
     
     <p>Please review and respond to this ticket reply as soon as possible.</p>
@@ -1165,7 +1184,8 @@ exports.sendTicketStatusUpdateNotification = async (user, ticket, oldStatus, new
       statusColor = "#f59e0b";
       break;
     case "resolved":
-      statusMessage = "Your ticket has been resolved! Please review the solution and let us know if you need further assistance.";
+      statusMessage =
+        "Your ticket has been resolved! Please review the solution and let us know if you need further assistance.";
       statusColor = "#10b981";
       break;
     case "closed":
@@ -1200,6 +1220,65 @@ exports.sendTicketStatusUpdateNotification = async (user, ticket, oldStatus, new
     to: user.email,
     subject: `Ticket Status Update: ${ticket.subject} (#${ticket.ticketNumber})`,
     html: getEmailTemplate("Support Ticket Status Updated", content, "View Ticket", ticketUrl),
+  };
+
+  return await transporter.sendMail(mailOptions);
+};
+
+// ======================= FREELANCER INVITATION NOTIFICATIONS =======================
+
+/**
+ * Send freelancer temporary credentials email
+ * @param {string} email - Freelancer's email
+ * @param {string} firstName - Freelancer's first name
+ * @param {string} lastName - Freelancer's last name
+ * @param {string} temporaryPassword - Temporary password
+ * @returns {Promise} - Nodemailer info object
+ */
+exports.sendFreelancerCredentials = async (email, firstName, lastName, temporaryPassword) => {
+  const loginUrl = `${process.env.FRONTEND_URL || "http://localhost:5173"}/login`;
+
+  const content = `
+    <p>Hello ${firstName} ${lastName},</p>
+    <p>Welcome to <strong>StudiesHQ</strong>! Your freelancer account has been created successfully by our admin team.</p>
+    
+    <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+      <h3 style="margin: 0 0 10px 0; color: #92400e;">Your Login Credentials:</h3>
+      <p style="margin: 5px 0;"><strong>Email:</strong> ${email}</p>
+      <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <span style="background-color: #ffffff; padding: 5px 10px; border-radius: 4px; font-family: monospace; font-size: 16px; color: #dc2626;">${temporaryPassword}</span></p>
+    </div>
+
+    <div style="background-color: #fef2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
+      <h3 style="margin: 0 0 10px 0; color: #991b1b;">⚠️ Important - First Login Instructions:</h3>
+      <ol style="margin: 10px 0; padding-left: 20px; color: #991b1b;">
+        <li>Login with your email and temporary password</li>
+        <li>You will be prompted to change your password immediately</li>
+        <li>After changing your password, review and update your profile</li>
+        <li>Once your password is changed, your profile will become active on the platform</li>
+      </ol>
+    </div>
+    
+    <div style="background-color: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+      <h3 style="margin: 0 0 10px 0; color: #059669;">What You Can Do on StudiesHQ:</h3>
+      <ul style="margin: 10px 0; padding-left: 20px;">
+        <li>Browse and apply to projects that match your skills</li>
+        <li>Build your professional profile and showcase your expertise</li>
+        <li>Connect with clients looking for talented freelancers</li>
+        <li>Manage projects and communicate with clients seamlessly</li>
+        <li>Receive secure payments through our escrow system</li>
+      </ul>
+    </div>
+    
+    <p><strong>Please keep this email secure and change your password upon first login.</strong></p>
+    <p>If you have any questions, feel free to reach out to our support team.</p>
+    <p>Best regards,<br>The StudiesHQ Team</p>
+  `;
+
+  const mailOptions = {
+    from: `"StudiesHQ" <${process.env.SMPT_MAIL}>`,
+    to: email,
+    subject: "Welcome to StudiesHQ - Your Account Credentials",
+    html: getEmailTemplate("Welcome to StudiesHQ!", content, "Login Now", loginUrl),
   };
 
   return await transporter.sendMail(mailOptions);

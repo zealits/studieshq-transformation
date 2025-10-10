@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const { createServer } = require("http");
 const path = require("path");
+const fileUpload = require("express-fileupload");
 const { initializeSocket } = require("./sockets/chatSocket");
 const authRoutes = require("./routes/authRoutes");
 const profileRoutes = require("./routes/profileRoutes");
@@ -31,6 +32,13 @@ const httpServer = createServer(app);
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(
+  fileUpload({
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max file size
+    abortOnLimit: true,
+    createParentPath: true,
+  })
+);
 
 // Configure MIME types for JavaScript modules
 app.use((req, res, next) => {

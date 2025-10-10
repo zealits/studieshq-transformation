@@ -214,6 +214,9 @@ exports.login = async (req, res) => {
             email: user.email,
             role: user.role,
             isVerified: user.isVerified,
+            requirePasswordChange: user.requirePasswordChange,
+            firstLogin: user.firstLogin,
+            temporaryPassword: user.temporaryPassword,
           },
         },
       });
@@ -289,6 +292,9 @@ exports.getMe = async (req, res) => {
           email: user.email,
           role: user.role,
           isVerified: user.isVerified,
+          requirePasswordChange: user.requirePasswordChange,
+          firstLogin: user.firstLogin,
+          temporaryPassword: user.temporaryPassword,
           createdAt: user.createdAt,
           profile: profile || {},
         },
@@ -498,11 +504,32 @@ exports.changePassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
 
+    // Clear temporary password flags (for admin-created accounts)
+    if (user.requirePasswordChange) {
+      user.requirePasswordChange = false;
+      user.firstLogin = false;
+      user.temporaryPassword = undefined;
+    }
+
     await user.save();
+
+    // Return updated user data
+    const updatedUser = await User.findById(req.user.id).select("-password");
 
     res.status(200).json({
       success: true,
       message: "Password changed successfully",
+      data: {
+        user: {
+          id: updatedUser._id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          isVerified: updatedUser.isVerified,
+          requirePasswordChange: updatedUser.requirePasswordChange,
+          firstLogin: updatedUser.firstLogin,
+        },
+      },
     });
   } catch (err) {
     console.error(err.message);

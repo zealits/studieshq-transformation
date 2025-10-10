@@ -8,6 +8,7 @@ const admin = require("../middleware/admin");
 // Import admin controller
 const adminController = require("../controllers/adminController");
 const escrowController = require("../controllers/escrowController");
+const freelancerInvitationController = require("../controllers/freelancerInvitationController");
 
 // @route   POST /api/admin/projects/:projectId/milestones
 // @desc    Create milestone for a project
@@ -87,5 +88,48 @@ router.get("/payment/financial-overview", [auth, admin], adminController.getPlat
 // @desc    Get user payment details for admin
 // @access  Private (Admin only)
 router.get("/users/:userId/payments", [auth, admin], adminController.getUserPaymentDetails);
+
+// FREELANCER INVITATION ROUTES
+
+// @route   GET /api/admin/freelancer-invitations/template
+// @desc    Download Excel template for bulk freelancer invitations
+// @access  Private (Admin only)
+router.get(
+  "/freelancer-invitations/template",
+  [auth, checkRole(["admin"])],
+  freelancerInvitationController.downloadTemplate
+);
+
+// @route   POST /api/admin/freelancer-invitations/upload
+// @desc    Upload and process Excel file for bulk freelancer invitations
+// @access  Private (Admin only)
+router.post(
+  "/freelancer-invitations/upload",
+  [auth, checkRole(["admin"])],
+  freelancerInvitationController.uploadAndInvite
+);
+
+// @route   GET /api/admin/freelancer-invitations
+// @desc    Get all freelancer invitations
+// @access  Private (Admin only)
+router.get("/freelancer-invitations", [auth, checkRole(["admin"])], freelancerInvitationController.getAllInvitations);
+
+// @route   POST /api/admin/freelancer-invitations/:id/resend
+// @desc    Resend invitation email
+// @access  Private (Admin only)
+router.post(
+  "/freelancer-invitations/:id/resend",
+  [auth, checkRole(["admin"])],
+  freelancerInvitationController.resendInvitation
+);
+
+// @route   DELETE /api/admin/freelancer-invitations/:id
+// @desc    Delete invitation
+// @access  Private (Admin only)
+router.delete(
+  "/freelancer-invitations/:id",
+  [auth, checkRole(["admin"])],
+  freelancerInvitationController.deleteInvitation
+);
 
 module.exports = router;

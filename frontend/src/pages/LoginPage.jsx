@@ -32,22 +32,55 @@ const LoginPage = () => {
     const result = await dispatch(login(formData));
 
     if (!result.error) {
-      // Get the user's role from the result
-      const userRole = result.payload.data.user.role;
-      
-      // Redirect based on role
+      // Get the user data from the result
+      const user = result.payload.data.user;
+      const userRole = user.role;
+
+      // Debug logging
+      console.log("Login successful - User object:", user);
+      console.log("requirePasswordChange:", user.requirePasswordChange);
+      console.log("firstLogin:", user.firstLogin);
+
+      // Check if user needs to change password (admin-created accounts)
+      if (user.requirePasswordChange) {
+        console.log("Redirecting to password change page...");
+        // Redirect to change password page with return URL
+        navigate(`/${userRole}/settings?requirePasswordChange=true`);
+        return;
+      }
+
+      // For verified users, redirect to profile page to complete verification
+      if (user.isVerified) {
+        console.log("Redirecting to profile page for verification...");
+        switch (userRole) {
+          case "freelancer":
+            navigate("/freelancer/profile");
+            break;
+          case "client":
+            navigate("/client/profile");
+            break;
+          case "admin":
+            navigate("/admin");
+            break;
+          default:
+            navigate("/dashboard");
+        }
+        return;
+      }
+
+      // Fallback redirect based on role (should not reach here for verified users)
       switch (userRole) {
-        case 'freelancer':
-          navigate('/freelancer');
+        case "freelancer":
+          navigate("/freelancer");
           break;
-        case 'client':
-          navigate('/client');
+        case "client":
+          navigate("/client");
           break;
-        case 'admin':
-          navigate('/admin');
+        case "admin":
+          navigate("/admin");
           break;
         default:
-          navigate('/dashboard');
+          navigate("/dashboard");
       }
     }
   };

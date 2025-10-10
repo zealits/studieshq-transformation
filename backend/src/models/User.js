@@ -85,6 +85,17 @@ const UserSchema = new Schema(
     lastLogin: {
       type: Date,
     },
+    firstLogin: {
+      type: Boolean,
+      default: true,
+    },
+    requirePasswordChange: {
+      type: Boolean,
+      default: false,
+    },
+    temporaryPassword: {
+      type: String,
+    },
     createdAt: {
       type: Date,
       default: Date.now,

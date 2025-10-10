@@ -10,6 +10,7 @@ import DashboardLayout from "./layouts/DashboardLayout";
 
 // Components
 import NotificationToast from "./components/common/NotificationToast";
+import ProfileCompletionGuard from "./components/ProfileCompletionGuard";
 
 // Hooks
 import { useSocket } from "./hooks/useSocket";
@@ -155,7 +156,9 @@ function App() {
           path="/freelancer"
           element={
             <ProtectedRoute allowedRoles={["freelancer"]}>
-              <DashboardLayout role="freelancer" />
+              <ProfileCompletionGuard>
+                <DashboardLayout role="freelancer" />
+              </ProfileCompletionGuard>
             </ProtectedRoute>
           }
         >
@@ -177,7 +180,9 @@ function App() {
           path="/client"
           element={
             <ProtectedRoute allowedRoles={["client"]}>
-              <DashboardLayout role="client" />
+              <ProfileCompletionGuard>
+                <DashboardLayout role="client" />
+              </ProfileCompletionGuard>
             </ProtectedRoute>
           }
         >

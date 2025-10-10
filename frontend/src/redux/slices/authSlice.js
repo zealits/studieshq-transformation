@@ -223,9 +223,13 @@ const authSlice = createSlice({
         state.error = null;
         state.changePasswordSuccess = false;
       })
-      .addCase(changePassword.fulfilled, (state) => {
+      .addCase(changePassword.fulfilled, (state, action) => {
         state.isLoading = false;
         state.changePasswordSuccess = true;
+        // Update user data if returned (for clearing requirePasswordChange flag)
+        if (action.payload.data?.user) {
+          state.user = { ...state.user, ...action.payload.data.user };
+        }
       })
       .addCase(changePassword.rejected, (state, action) => {
         state.isLoading = false;

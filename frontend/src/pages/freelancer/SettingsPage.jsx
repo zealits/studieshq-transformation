@@ -1,8 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { toast } from "react-hot-toast";
 import ChangePassword from "../../components/common/ChangePassword";
 
 const SettingsPage = () => {
-  const [activeTab, setActiveTab] = useState("notifications");
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { user } = useSelector((state) => state.auth);
+  const requirePasswordChange = searchParams.get("requirePasswordChange") === "true";
+
+  const [activeTab, setActiveTab] = useState(requirePasswordChange ? "account" : "notifications");
+  const [passwordChangeRequired, setPasswordChangeRequired] = useState(requirePasswordChange);
 
   // Mock notification settings
   const [notificationSettings, setNotificationSettings] = useState({
@@ -80,8 +89,43 @@ const SettingsPage = () => {
     alert("Settings saved successfully!");
   };
 
+  // Handle password change completion
+  const handlePasswordChangeSuccess = () => {
+    setPasswordChangeRequired(false);
+    toast.success("Password changed successfully! Please complete your profile.");
+    // Redirect to profile after password change
+    setTimeout(() => {
+      navigate(`/${user.role}/profile`);
+    }, 2000);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
+      {passwordChangeRequired && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">Password Change Required</h3>
+              <div className="mt-2 text-sm text-yellow-700">
+                <p>
+                  For security reasons, you must change your temporary password before accessing the platform. After
+                  changing your password, you'll be redirected to complete your profile.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <h1 className="text-2xl font-bold mb-6">Settings</h1>
 
       {/* Tabs */}
@@ -93,6 +137,7 @@ const SettingsPage = () => {
               : "text-gray-500 hover:text-gray-700"
           }`}
           onClick={() => setActiveTab("notifications")}
+          disabled={passwordChangeRequired}
         >
           Notifications
         </button>
@@ -101,6 +146,7 @@ const SettingsPage = () => {
             activeTab === "privacy" ? "border-b-2 border-primary text-primary" : "text-gray-500 hover:text-gray-700"
           }`}
           onClick={() => setActiveTab("privacy")}
+          disabled={passwordChangeRequired}
         >
           Privacy & Visibility
         </button>
@@ -109,6 +155,7 @@ const SettingsPage = () => {
             activeTab === "work" ? "border-b-2 border-primary text-primary" : "text-gray-500 hover:text-gray-700"
           }`}
           onClick={() => setActiveTab("work")}
+          disabled={passwordChangeRequired}
         >
           Work Preferences
         </button>
@@ -482,7 +529,7 @@ const SettingsPage = () => {
         {/* Account Tab */}
         {activeTab === "account" && (
           <div>
-            <ChangePassword />
+            <ChangePassword onSuccess={passwordChangeRequired ? handlePasswordChangeSuccess : null} />
           </div>
         )}
       </div>
