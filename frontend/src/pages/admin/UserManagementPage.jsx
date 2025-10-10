@@ -139,10 +139,7 @@ const UserManagementPage = () => {
 
     try {
       setUploading(true);
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-
-      const response = await freelancerInvitationService.uploadAndInvite(formData);
+      const response = await freelancerInvitationService.uploadInvitations(selectedFile);
       setUploadResult(response.data);
       toast.success("Freelancers registered successfully!");
 
