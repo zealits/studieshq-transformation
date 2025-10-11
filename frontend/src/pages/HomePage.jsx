@@ -29,7 +29,7 @@ const HomePage = () => {
       {/* StudiesHQ Difference Section */}
       <DifferenceSection />
       {/* Testimonials Section */}
-      <TestimonialsSection />
+      {/* <TestimonialsSection /> */}
     </div>
   );
 };

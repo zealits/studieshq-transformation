@@ -92,7 +92,7 @@ const ClientValueSection = () => {
             </div>
 
             {/* Statistics */}
-            <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {/* <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6">
               <div className="bg-gray-50 p-4 rounded-lg text-center">
                 <p className="text-3xl font-bold text-[#3884b8] mb-1">85%</p>
                 <p className="text-sm text-gray-600">Long-term client relationships</p>
@@ -105,7 +105,7 @@ const ClientValueSection = () => {
                 <p className="text-3xl font-bold text-[#3884b8] mb-1">70%</p>
                 <p className="text-sm text-gray-600">Repeat client opportunity</p>
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>

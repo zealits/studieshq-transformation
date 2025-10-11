@@ -174,11 +174,11 @@ const MainLayout = () => {
                     Find Jobs
                   </Link>
                 </li>
-                <li>
+                {/* <li>
                   <Link to="/pricing" className="text-gray-600 hover:text-[#3884b8] transition-colors">
                     Pricing
                   </Link>
-                </li>
+                </li> */}
               </ul>
             </div>
 

@@ -118,7 +118,7 @@ const HeroSection = () => {
       </div>
 
       {/* Stats Bar */}
-      <div className="bg-white py-8 shadow-md">
+      {/* <div className="bg-white py-8 shadow-md">
         <div className="container-custom">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             <div>
@@ -139,7 +139,7 @@ const HeroSection = () => {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
     </section>
   );
 };
