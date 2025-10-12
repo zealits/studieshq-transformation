@@ -36,8 +36,22 @@ const UserSchema = new Schema(
     },
     companyType: {
       type: String,
-      enum: ["freelancer_company", "project_sponsor_company"],
       default: null,
+      validate: {
+        validator: function (value) {
+          // If userType is 'individual', companyType should be null or undefined
+          if (this.userType === "individual") {
+            return value === null || value === undefined || value === "";
+          }
+          // If userType is 'company', companyType must be one of the valid enum values
+          if (this.userType === "company") {
+            return value && ["freelancer_company", "project_sponsor_company"].includes(value);
+          }
+          return true;
+        },
+        message:
+          "Company type is required for company users and must be either freelancer_company or project_sponsor_company",
+      },
     },
     isActive: {
       type: Boolean,
