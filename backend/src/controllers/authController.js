@@ -49,10 +49,18 @@ exports.register = async (req, res) => {
       name,
       email,
       password,
-      role,
       userType: userType || "individual",
       isVerified: false,
     };
+
+    // Set role based on userType
+    if (userType === "company") {
+      // For company users, don't set a role - it should be null/undefined
+      // The companyType field will determine the company's purpose
+    } else {
+      // For individual users, set the role (freelancer or client)
+      userData.role = role;
+    }
 
     // Add company-specific data if userType is company
     if (userType === "company") {

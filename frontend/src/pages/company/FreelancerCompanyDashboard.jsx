@@ -8,12 +8,13 @@ const FreelancerCompanyDashboard = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { projects, loading: projectsLoading } = useSelector((state) => state.projects);
-  const { proposals } = useSelector((state) => state.proposals);
+  // Removed proposals selector as we're not fetching proposals for company dashboard
 
   useEffect(() => {
     // Fetch all projects for freelancer company
     dispatch(fetchProjects({}));
-    dispatch(fetchProposals());
+    // Note: Removed fetchProposals() as it's not needed for company dashboard
+    // and was causing error notifications
   }, [dispatch]);
 
   // Get all projects from Redux store
@@ -22,7 +23,7 @@ const FreelancerCompanyDashboard = () => {
   // Calculate stats from real data
   const activeProjectsCount = allProjects?.filter((p) => p.status === "in_progress")?.length || 0;
   const completedProjectsCount = allProjects?.filter((p) => p.status === "completed")?.length || 0;
-  const proposalsCount = proposals?.length || 0;
+  // Removed proposalsCount as we're not fetching proposals for company dashboard
 
   // Calculate total earnings from completed projects
   const totalEarnings =
@@ -111,9 +112,9 @@ const FreelancerCompanyDashboard = () => {
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-sm font-medium text-gray-500 mb-1">Proposals Sent</h3>
-          <p className="text-3xl font-bold text-primary">{proposalsCount}</p>
-          <p className="text-xs text-gray-500 mt-1">This month</p>
+          <h3 className="text-sm font-medium text-gray-500 mb-1">Team Members</h3>
+          <p className="text-3xl font-bold text-primary">0</p>
+          <p className="text-xs text-gray-500 mt-1">Active team members</p>
         </div>
       </div>
 

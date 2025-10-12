@@ -18,6 +18,14 @@ const ProfileCompletionGuard = ({ children }) => {
     "/admin", // Admin users don't need profile verification
   ];
 
+  // For company users, only allow dashboard and profile pages until profile is complete
+  const companyRestrictedPaths = [
+    "/company/freelancer", // Dashboard
+    "/company/freelancer/profile", // Profile page
+    "/company/client", // Dashboard
+    "/company/client/profile", // Profile page
+  ];
+
   // Check if current path is allowed
   const isAllowedPath = allowedPaths.some((path) => location.pathname.startsWith(path));
 
@@ -36,11 +44,38 @@ const ProfileCompletionGuard = ({ children }) => {
     if (user.isVerified && user.profile) {
       const profile = user.profile;
 
-      // Define what constitutes a "complete" profile based on role
+      // Define what constitutes a "complete" profile based on userType and role
       let isProfileComplete = false;
 
-      if (user.role === "freelancer") {
-        // For freelancers, check if they have basic profile info
+      if (user.userType === "company") {
+        // For company users, check if they have company info
+        isProfileComplete = !!(
+          user.company?.businessName &&
+          user.company.businessName.trim().length > 0 &&
+          user.company?.industry &&
+          user.company.industry.trim().length > 0 &&
+          user.company?.companySize &&
+          user.company.companySize.trim().length > 0
+        );
+
+        // Check if verification documents are uploaded for company users
+        const hasVerificationDocs = !!(
+          profile.verificationDocuments?.addressProof?.documentUrl &&
+          profile.verificationDocuments?.identityProof?.documentUrl
+        );
+
+        // For company users, restrict access to only dashboard and profile pages until profile is complete AND verified
+        if (!isProfileComplete || !hasVerificationDocs) {
+          const isCompanyRestrictedPath = companyRestrictedPaths.some((path) => location.pathname.startsWith(path));
+
+          if (!isCompanyRestrictedPath) {
+            // Don't show toast, let the locked page component handle the message
+            navigate("/company/freelancer/profile");
+            return;
+          }
+        }
+      } else if (user.role === "freelancer") {
+        // For individual freelancers, check if they have basic profile info
         isProfileComplete = !!(
           profile.bio &&
           profile.bio.trim().length > 0 &&
@@ -50,7 +85,7 @@ const ProfileCompletionGuard = ({ children }) => {
           profile.location.trim().length > 0
         );
       } else if (user.role === "client") {
-        // For clients, check if they have company info
+        // For individual clients, check if they have company info
         isProfileComplete = !!(
           profile.companyName &&
           profile.companyName.trim().length > 0 &&
@@ -61,8 +96,8 @@ const ProfileCompletionGuard = ({ children }) => {
         );
       }
 
-      // If profile is not complete, redirect to profile page
-      if (!isProfileComplete) {
+      // If profile is not complete, redirect to profile page (for non-company users)
+      if (!isProfileComplete && user.userType !== "company") {
         toast.info("Please complete your profile to access the platform");
         navigate(`/${user.role}/profile`);
         return;

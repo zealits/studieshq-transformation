@@ -19,7 +19,11 @@ const MainLayout = () => {
     }
     if (user && requiresAuth) {
       // If user is logged in and path requires auth, redirect to dashboard
-      return `/${user.role}`;
+      if (user.userType === "company") {
+        return "/company/freelancer";
+      } else {
+        return `/${user.role}`;
+      }
     }
     return path;
   };
@@ -67,7 +71,10 @@ const MainLayout = () => {
           <div className="flex items-center gap-4">
             {user ? (
               <>
-                <Link to={`/${user.role}`} className="text-[#3884b8] hover:text-[#0d81c8] transition-colors">
+                <Link
+                  to={user.userType === "company" ? "/company/freelancer" : `/${user.role}`}
+                  className="text-[#3884b8] hover:text-[#0d81c8] transition-colors"
+                >
                   Dashboard
                 </Link>
                 <button

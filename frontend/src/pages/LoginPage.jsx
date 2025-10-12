@@ -45,19 +45,53 @@ const LoginPage = () => {
       if (user.requirePasswordChange) {
         console.log("Redirecting to password change page...");
         // Redirect to change password page with return URL
-        navigate(`/${userRole}/settings?requirePasswordChange=true`);
+        if (user.userType === "company") {
+          navigate("/company/freelancer/settings?requirePasswordChange=true");
+        } else {
+          navigate(`/${userRole}/settings?requirePasswordChange=true`);
+        }
         return;
       }
 
       // For verified users, redirect to profile page to complete verification
       if (user.isVerified) {
         console.log("Redirecting to profile page for verification...");
+        console.log("User type:", user.userType);
+        console.log("User role:", userRole);
+
+        // Check userType first, then role
+        if (user.userType === "company") {
+          // Company users go to company profile page
+          navigate("/company/freelancer/profile");
+        } else {
+          // Individual users go to their role-specific profile
+          switch (userRole) {
+            case "freelancer":
+              navigate("/freelancer/profile");
+              break;
+            case "client":
+              navigate("/client/profile");
+              break;
+            case "admin":
+              navigate("/admin");
+              break;
+            default:
+              navigate("/dashboard");
+          }
+        }
+        return;
+      }
+
+      // Fallback redirect based on userType and role (should not reach here for verified users)
+      if (user.userType === "company") {
+        navigate("/company/freelancer/profile");
+      } else {
         switch (userRole) {
           case "freelancer":
-            navigate("/freelancer/profile");
+            navigate("/freelancer");
             break;
           case "client":
-            navigate("/client/profile");
+            navigate("/client");
             break;
           case "admin":
             navigate("/admin");
@@ -65,22 +99,6 @@ const LoginPage = () => {
           default:
             navigate("/dashboard");
         }
-        return;
-      }
-
-      // Fallback redirect based on role (should not reach here for verified users)
-      switch (userRole) {
-        case "freelancer":
-          navigate("/freelancer");
-          break;
-        case "client":
-          navigate("/client");
-          break;
-        case "admin":
-          navigate("/admin");
-          break;
-        default:
-          navigate("/dashboard");
       }
     }
   };

@@ -15,8 +15,23 @@ router.post(
     check("name", "Name is required").not().isEmpty(),
     check("email", "Please include a valid email").isEmail(),
     check("password", "Please enter a password with 6 or more characters").isLength({ min: 6 }),
-    check("role", "Role must be either client or freelancer").isIn(["client", "freelancer", "admin"]),
     check("userType", "User type must be either individual or company").optional().isIn(["individual", "company"]),
+    check("role").custom((value, { req }) => {
+      const userType = req.body.userType || "individual";
+      if (userType === "individual") {
+        if (!value) {
+          throw new Error("Role is required for individual users");
+        }
+        if (!["client", "freelancer", "admin"].includes(value)) {
+          throw new Error("Role must be either client or freelancer");
+        }
+      } else if (userType === "company") {
+        if (value) {
+          throw new Error("Role should not be provided for company users");
+        }
+      }
+      return true;
+    }),
     check("companyType", "Company type must be either freelancer_company or project_sponsor_company")
       .optional()
       .isIn(["freelancer_company", "project_sponsor_company"]),

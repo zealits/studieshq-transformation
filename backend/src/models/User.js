@@ -27,7 +27,11 @@ const UserSchema = new Schema(
     role: {
       type: String,
       enum: ["client", "freelancer", "admin"],
-      default: "freelancer",
+      default: function () {
+        // For company users, don't set a default role
+        // For individual users, default to freelancer
+        return this.userType === "individual" ? "freelancer" : undefined;
+      },
     },
     userType: {
       type: String,

@@ -36,29 +36,58 @@ const DashboardLayout = ({ role }) => {
   const getNavLinks = () => {
     // Handle company users
     if (user?.userType === "company") {
+      // Check if company profile is complete and verified
+      const isProfileComplete = !!(
+        user.company?.businessName &&
+        user.company.businessName.trim().length > 0 &&
+        user.company?.industry &&
+        user.company.industry.trim().length > 0 &&
+        user.company?.companySize &&
+        user.company.companySize.trim().length > 0
+      );
+
+      const hasVerificationDocs = !!(
+        profileData?.data?.profile?.verificationDocuments?.addressProof?.documentUrl &&
+        profileData?.data?.profile?.verificationDocuments?.identityProof?.documentUrl
+      );
+
+      const isVerified = isProfileComplete && hasVerificationDocs;
+
       if (user?.companyType === "freelancer_company") {
         return [
           { path: "/company/freelancer", label: "Dashboard", icon: "home" },
-          { path: "/company/freelancer/find-jobs", label: "Find Projects", icon: "search" },
-          { path: "/company/freelancer/invitations", label: "Invitations", icon: "mail" },
-          { path: "/company/freelancer/projects", label: "My Projects", icon: "folder" },
-          { path: "/company/freelancer/messages", label: "Messages", icon: "chat", showUnreadBadge: true },
-          { path: "/company/freelancer/payments", label: "Payments", icon: "dollar" },
+          { path: "/company/freelancer/find-jobs", label: "Find Projects", icon: "search", locked: !isVerified },
+          { path: "/company/freelancer/invitations", label: "Invitations", icon: "mail", locked: !isVerified },
+          { path: "/company/freelancer/projects", label: "My Projects", icon: "folder", locked: !isVerified },
+          {
+            path: "/company/freelancer/messages",
+            label: "Messages",
+            icon: "chat",
+            showUnreadBadge: true,
+            locked: !isVerified,
+          },
+          { path: "/company/freelancer/payments", label: "Payments", icon: "dollar", locked: !isVerified },
           { path: "/company/freelancer/profile", label: "Company Profile", icon: "user" },
-          { path: "/company/freelancer/support", label: "Support", icon: "help" },
-          { path: "/company/freelancer/settings", label: "Settings", icon: "settings" },
+          { path: "/company/freelancer/support", label: "Support", icon: "help", locked: !isVerified },
+          { path: "/company/freelancer/settings", label: "Settings", icon: "settings", locked: !isVerified },
         ];
       } else if (user?.companyType === "project_sponsor_company") {
         return [
           { path: "/company/client", label: "Dashboard", icon: "home" },
-          { path: "/company/client/jobs", label: "Project listing", icon: "briefcase" },
-          { path: "/company/client/freelancers", label: "Find Freelancers", icon: "search" },
-          { path: "/company/client/projects", label: "Ongoing Work", icon: "folder" },
-          { path: "/company/client/messages", label: "Messages", icon: "chat", showUnreadBadge: true },
-          { path: "/company/client/payments", label: "Payments", icon: "dollar" },
+          { path: "/company/client/jobs", label: "Project listing", icon: "briefcase", locked: !isVerified },
+          { path: "/company/client/freelancers", label: "Find Freelancers", icon: "search", locked: !isVerified },
+          { path: "/company/client/projects", label: "Ongoing Work", icon: "folder", locked: !isVerified },
+          {
+            path: "/company/client/messages",
+            label: "Messages",
+            icon: "chat",
+            showUnreadBadge: true,
+            locked: !isVerified,
+          },
+          { path: "/company/client/payments", label: "Payments", icon: "dollar", locked: !isVerified },
           { path: "/company/client/profile", label: "Company Profile", icon: "user" },
-          { path: "/company/client/support", label: "Support", icon: "help" },
-          { path: "/company/client/settings", label: "Settings", icon: "settings" },
+          { path: "/company/client/support", label: "Support", icon: "help", locked: !isVerified },
+          { path: "/company/client/settings", label: "Settings", icon: "settings", locked: !isVerified },
         ];
       }
     }
@@ -331,6 +360,23 @@ const DashboardLayout = ({ role }) => {
             />
           </svg>
         );
+      case "lock":
+        return (
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+            />
+          </svg>
+        );
       default:
         return null;
     }
@@ -377,7 +423,13 @@ const DashboardLayout = ({ role }) => {
             )}
           </div>
           <h2 className="text-base font-semibold text-gray-800">{user?.name || "User"}</h2>
-          <p className="text-sm text-gray-500 mt-1 capitalize">{role}</p>
+          <p className="text-sm text-gray-500 mt-1 capitalize">
+            {user?.userType === "company"
+              ? user?.companyType === "freelancer_company"
+                ? "Freelancer Company"
+                : "Project Sponsor Company"
+              : role}
+          </p>
         </div>
 
         {/* Navigation */}
@@ -405,22 +457,37 @@ const DashboardLayout = ({ role }) => {
                 return location.pathname.startsWith(link.path) && link.path !== `/${role}`;
               })();
 
+              const isLocked = link.locked || false;
+
               return (
                 <li key={link.path}>
-                  <Link
-                    to={link.path}
-                    className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      isActive ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <span className={`mr-3 ${isActive ? "text-white" : "text-gray-500"}`}>
-                        {renderIcon(link.icon)}
-                      </span>
-                      <span>{link.label}</span>
+                  {isLocked ? (
+                    <div
+                      className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 cursor-not-allowed"
+                      title="Complete profile verification to unlock"
+                    >
+                      <div className="flex items-center">
+                        <span className="mr-3 text-gray-300">{renderIcon(link.icon)}</span>
+                        <span>{link.label}</span>
+                      </div>
+                      <span className="text-gray-300">{renderIcon("lock")}</span>
                     </div>
-                    {link.showUnreadBadge && totalUnreadCount > 0 && <NotificationBadge size="xs" />}
-                  </Link>
+                  ) : (
+                    <Link
+                      to={link.path}
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                        isActive ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <span className={`mr-3 ${isActive ? "text-white" : "text-gray-500"}`}>
+                          {renderIcon(link.icon)}
+                        </span>
+                        <span>{link.label}</span>
+                      </div>
+                      {link.showUnreadBadge && totalUnreadCount > 0 && <NotificationBadge size="xs" />}
+                    </Link>
+                  )}
                 </li>
               );
             })}
@@ -466,7 +533,13 @@ const DashboardLayout = ({ role }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-              <h1 className="text-lg font-semibold text-gray-800 capitalize">{role} Dashboard</h1>
+              <h1 className="text-lg font-semibold text-gray-800 capitalize">
+                {user?.userType === "company"
+                  ? user?.companyType === "freelancer_company"
+                    ? "Freelancer Company Dashboard"
+                    : "Project Sponsor Company Dashboard"
+                  : `${role} Dashboard`}
+              </h1>
             </div>
           </div>
         </header>

@@ -114,9 +114,13 @@ const RegisterPage = () => {
       name,
       email,
       password,
-      role,
       userType,
     };
+
+    // Add role only for individual users
+    if (userType === "individual") {
+      registrationData.role = role;
+    }
 
     // Add company-specific data if userType is company
     if (userType === "company") {

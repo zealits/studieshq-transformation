@@ -12,6 +12,7 @@ import DashboardLayout from "./layouts/DashboardLayout";
 import NotificationToast from "./components/common/NotificationToast";
 import ProfileCompletionGuard from "./components/ProfileCompletionGuard";
 import UserTypeRedirect from "./components/UserTypeRedirect";
+import CompanyRouteGuard from "./components/CompanyRouteGuard";
 
 // Hooks
 import { useSocket } from "./hooks/useSocket";
@@ -232,7 +233,7 @@ function App() {
         <Route
           path="/company/freelancer"
           element={
-            <ProtectedRoute allowedRoles={["freelancer"]} allowedUserTypes={["company"]}>
+            <ProtectedRoute allowedUserTypes={["company"]}>
               <ProfileCompletionGuard>
                 <DashboardLayout role="freelancer" />
               </ProfileCompletionGuard>
@@ -240,22 +241,85 @@ function App() {
           }
         >
           <Route index element={<FreelancerCompanyDashboard />} />
-          <Route path="find-jobs" element={<FreelancerFindJobs />} />
-          <Route path="invitations" element={<FreelancerInvitations />} />
-          <Route path="projects" element={<FreelancerProjects />} />
-          <Route path="messages" element={<FreelancerMessages />} />
-          <Route path="payments" element={<FreelancerPayments />} />
+          <Route
+            path="find-jobs"
+            element={
+              <CompanyRouteGuard>
+                <FreelancerFindJobs />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="invitations"
+            element={
+              <CompanyRouteGuard>
+                <FreelancerInvitations />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="projects"
+            element={
+              <CompanyRouteGuard>
+                <FreelancerProjects />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="messages"
+            element={
+              <CompanyRouteGuard>
+                <FreelancerMessages />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="payments"
+            element={
+              <CompanyRouteGuard>
+                <FreelancerPayments />
+              </CompanyRouteGuard>
+            }
+          />
           <Route path="profile" element={<CompanyProfilePage />} />
-          <Route path="support" element={<SupportPage />} />
-          <Route path="support/submit" element={<SubmitTicket />} />
-          <Route path="support/tickets/:id" element={<TicketDetails />} />
-          <Route path="settings" element={<FreelancerSettings />} />
+          <Route
+            path="support"
+            element={
+              <CompanyRouteGuard>
+                <SupportPage />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="support/submit"
+            element={
+              <CompanyRouteGuard>
+                <SubmitTicket />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="support/tickets/:id"
+            element={
+              <CompanyRouteGuard>
+                <TicketDetails />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <CompanyRouteGuard>
+                <FreelancerSettings />
+              </CompanyRouteGuard>
+            }
+          />
         </Route>
 
         <Route
           path="/company/client"
           element={
-            <ProtectedRoute allowedRoles={["client"]} allowedUserTypes={["company"]}>
+            <ProtectedRoute allowedUserTypes={["company"]}>
               <ProfileCompletionGuard>
                 <DashboardLayout role="client" />
               </ProfileCompletionGuard>
@@ -263,25 +327,95 @@ function App() {
           }
         >
           <Route index element={<ProjectSponsorCompanyDashboard />} />
-          <Route path="jobs" element={<ClientJobs />} />
-          <Route path="freelancers" element={<ClientFreelancers />} />
-          <Route path="projects" element={<ClientProjects />} />
-          <Route path="messages" element={<ClientMessages />} />
-          <Route path="payments" element={<ClientPayments />} />
+          <Route
+            path="jobs"
+            element={
+              <CompanyRouteGuard>
+                <ClientJobs />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="freelancers"
+            element={
+              <CompanyRouteGuard>
+                <ClientFreelancers />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="projects"
+            element={
+              <CompanyRouteGuard>
+                <ClientProjects />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="messages"
+            element={
+              <CompanyRouteGuard>
+                <ClientMessages />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="payments"
+            element={
+              <CompanyRouteGuard>
+                <ClientPayments />
+              </CompanyRouteGuard>
+            }
+          />
           <Route path="profile" element={<CompanyProfilePage />} />
-          <Route path="settings" element={<ClientSettings />} />
-          <Route path="support" element={<SupportPage />} />
-          <Route path="support/submit" element={<SubmitTicket />} />
-          <Route path="support/tickets/:id" element={<TicketDetails />} />
+          <Route
+            path="settings"
+            element={
+              <CompanyRouteGuard>
+                <ClientSettings />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="support"
+            element={
+              <CompanyRouteGuard>
+                <SupportPage />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="support/submit"
+            element={
+              <CompanyRouteGuard>
+                <SubmitTicket />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="support/tickets/:id"
+            element={
+              <CompanyRouteGuard>
+                <TicketDetails />
+              </CompanyRouteGuard>
+            }
+          />
           <Route
             path="jobs/:jobId/proposals"
             element={
-              <ProtectedRoute allowedRoles={["client"]} allowedUserTypes={["company"]}>
+              <CompanyRouteGuard>
                 <JobProposals />
-              </ProtectedRoute>
+              </CompanyRouteGuard>
             }
           />
-          <Route path="freelancers/:userId" element={<FreelancerProfileView />} />
+          <Route
+            path="freelancers/:userId"
+            element={
+              <CompanyRouteGuard>
+                <FreelancerProfileView />
+              </CompanyRouteGuard>
+            }
+          />
         </Route>
 
         {/* Admin Routes */}
