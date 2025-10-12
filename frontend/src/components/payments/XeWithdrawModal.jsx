@@ -613,7 +613,7 @@ const XeWithdrawModal = ({ isOpen, onClose, approvedPaymentMethods = [], onWithd
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Contract Number:</span>
-                    <span className="font-medium">{withdrawalResult.contract.contractNumber}</span>
+                    <span className="font-medium">{withdrawalResult.transaction.xePayment.contractNumber}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Status:</span>
@@ -622,25 +622,31 @@ const XeWithdrawModal = ({ isOpen, onClose, approvedPaymentMethods = [], onWithd
                 </div>
               </div>
 
-              {/* Settlement Information */}
-              {withdrawalResult.settlement && (
+              {/* XE Payment Information */}
+              {withdrawalResult.transaction.xePayment && (
                 <div className="bg-blue-50 rounded-lg p-4">
-                  <h5 className="font-medium text-gray-900 mb-3">Settlement Information</h5>
+                  <h5 className="font-medium text-gray-900 mb-3">XE Payment Information</h5>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">You'll Receive:</span>
+                      <span className="text-gray-600">Target Amount:</span>
                       <span className="font-medium text-green-600">
-                        {withdrawalResult.settlement.estimatedAmount?.toFixed(2)} {withdrawalResult.settlement.currency}
+                        {withdrawalResult.transaction.xePayment.targetAmount?.toFixed(2)}{" "}
+                        {withdrawalResult.transaction.xePayment.targetCurrency}
                       </span>
                     </div>
-                    {withdrawalResult.settlement.fees > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Settlement Fees:</span>
-                        <span className="font-medium">
-                          {withdrawalResult.settlement.fees?.toFixed(2)} {withdrawalResult.settlement.currency}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Exchange Rate:</span>
+                      <span className="font-medium">
+                        1 USD = {withdrawalResult.transaction.xePayment.exchangeRate?.toFixed(4)}{" "}
+                        {withdrawalResult.transaction.xePayment.targetCurrency}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Contract Status:</span>
+                      <span className="font-medium capitalize">
+                        {withdrawalResult.transaction.xePayment.contractApproved ? "Approved" : "Pending"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -651,13 +657,11 @@ const XeWithdrawModal = ({ isOpen, onClose, approvedPaymentMethods = [], onWithd
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">New Balance:</span>
-                    <span className="font-medium text-green-600">
-                      ${withdrawalResult.wallet.newBalance.toFixed(2)} USD
-                    </span>
+                    <span className="font-medium text-green-600">${withdrawalResult.newBalance.toFixed(2)} USD</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Total Withdrawn:</span>
-                    <span className="font-medium">${withdrawalResult.wallet.totalWithdrawn.toFixed(2)} USD</span>
+                    <span className="text-gray-600">Amount Withdrawn:</span>
+                    <span className="font-medium">${withdrawalResult.transaction.amount.toFixed(2)} USD</span>
                   </div>
                 </div>
               </div>
