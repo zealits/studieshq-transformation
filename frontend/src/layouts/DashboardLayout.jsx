@@ -34,6 +34,36 @@ const DashboardLayout = ({ role }) => {
   };
 
   const getNavLinks = () => {
+    // Handle company users
+    if (user?.userType === "company") {
+      if (user?.companyType === "freelancer_company") {
+        return [
+          { path: "/company/freelancer", label: "Dashboard", icon: "home" },
+          { path: "/company/freelancer/find-jobs", label: "Find Projects", icon: "search" },
+          { path: "/company/freelancer/invitations", label: "Invitations", icon: "mail" },
+          { path: "/company/freelancer/projects", label: "My Projects", icon: "folder" },
+          { path: "/company/freelancer/messages", label: "Messages", icon: "chat", showUnreadBadge: true },
+          { path: "/company/freelancer/payments", label: "Payments", icon: "dollar" },
+          { path: "/company/freelancer/profile", label: "Company Profile", icon: "user" },
+          { path: "/company/freelancer/support", label: "Support", icon: "help" },
+          { path: "/company/freelancer/settings", label: "Settings", icon: "settings" },
+        ];
+      } else if (user?.companyType === "project_sponsor_company") {
+        return [
+          { path: "/company/client", label: "Dashboard", icon: "home" },
+          { path: "/company/client/jobs", label: "Project listing", icon: "briefcase" },
+          { path: "/company/client/freelancers", label: "Find Freelancers", icon: "search" },
+          { path: "/company/client/projects", label: "Ongoing Work", icon: "folder" },
+          { path: "/company/client/messages", label: "Messages", icon: "chat", showUnreadBadge: true },
+          { path: "/company/client/payments", label: "Payments", icon: "dollar" },
+          { path: "/company/client/profile", label: "Company Profile", icon: "user" },
+          { path: "/company/client/support", label: "Support", icon: "help" },
+          { path: "/company/client/settings", label: "Settings", icon: "settings" },
+        ];
+      }
+    }
+
+    // Handle individual users
     switch (role) {
       case "freelancer":
         return [
@@ -357,10 +387,23 @@ const DashboardLayout = ({ role }) => {
           </div>
           <ul className="space-y-1">
             {getNavLinks().map((link) => {
-              // Check if current path starts with this link's path
-              const isActive =
-                location.pathname === link.path ||
-                (link.path !== `/${role}` && location.pathname.startsWith(link.path));
+              // Check if current path matches exactly or is a sub-path
+              const isActive = (() => {
+                // Exact match
+                if (location.pathname === link.path) return true;
+
+                // For company users, check if path starts with the link path
+                if (user?.userType === "company") {
+                  return (
+                    location.pathname.startsWith(link.path) &&
+                    link.path !== "/company/freelancer" &&
+                    link.path !== "/company/client"
+                  );
+                }
+
+                // For individual users, check if path starts with the link path but not the base role path
+                return location.pathname.startsWith(link.path) && link.path !== `/${role}`;
+              })();
 
               return (
                 <li key={link.path}>

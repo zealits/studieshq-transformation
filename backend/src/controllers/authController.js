@@ -19,7 +19,7 @@ exports.register = async (req, res) => {
     return res.status(400).json({ success: false, errors: errors.array() });
   }
 
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, userType, companyType, company } = req.body;
 
   try {
     // Check if user already exists
@@ -28,14 +28,39 @@ exports.register = async (req, res) => {
       return res.status(400).json({ success: false, errors: [{ msg: "User already exists" }] });
     }
 
+    // Validate company registration requirements
+    if (userType === "company") {
+      if (!companyType) {
+        return res.status(400).json({
+          success: false,
+          errors: [{ msg: "Company type is required for company registration" }],
+        });
+      }
+      if (!company || !company.businessName) {
+        return res.status(400).json({
+          success: false,
+          errors: [{ msg: "Company business name is required" }],
+        });
+      }
+    }
+
     // Create new user
-    user = new User({
+    const userData = {
       name,
       email,
       password,
       role,
+      userType: userType || "individual",
       isVerified: false,
-    });
+    };
+
+    // Add company-specific data if userType is company
+    if (userType === "company") {
+      userData.companyType = companyType;
+      userData.company = company;
+    }
+
+    user = new User(userData);
 
     // Hash password
     const salt = await bcrypt.genSalt(10);
@@ -49,26 +74,31 @@ exports.register = async (req, res) => {
     await user.save();
 
     // Create empty profile
-    const profile = new Profile({
+    const profileData = {
       user: user._id,
       bio: "",
       location: "",
       skills: [],
       social: {},
-      // If freelancer, add these fields
-      ...(role === "freelancer" && {
-        hourlyRate: 0,
-        availability: "As Needed",
-        education: [],
-        experience: [],
-      }),
-      // If client, add these fields
-      ...(role === "client" && {
-        company: "",
-        companySize: "",
-        industry: "",
-      }),
-    });
+    };
+
+    // Add role-specific fields for individual users
+    if (userType === "individual") {
+      if (role === "freelancer") {
+        profileData.hourlyRate = 0;
+        profileData.availability = "As Needed";
+        profileData.education = [];
+        profileData.experience = [];
+      } else if (role === "client") {
+        profileData.company = "";
+        profileData.companySize = "";
+        profileData.industry = "";
+      }
+    }
+    // For company users, we'll handle profile creation differently
+    // Company-specific data is stored in the User model
+
+    const profile = new Profile(profileData);
 
     await profile.save();
 
@@ -85,6 +115,8 @@ exports.register = async (req, res) => {
       user: {
         id: user._id,
         role: user.role,
+        userType: user.userType,
+        companyType: user.companyType,
       },
     };
 
@@ -99,6 +131,8 @@ exports.register = async (req, res) => {
             name: user.name,
             email: user.email,
             role: user.role,
+            userType: user.userType,
+            companyType: user.companyType,
             isVerified: user.isVerified,
           },
           message: "Registration successful. Please check your email to verify your account.",
@@ -199,6 +233,8 @@ exports.login = async (req, res) => {
       user: {
         id: user._id,
         role: user.role,
+        userType: user.userType,
+        companyType: user.companyType,
       },
     };
 
@@ -213,6 +249,8 @@ exports.login = async (req, res) => {
             name: user.name,
             email: user.email,
             role: user.role,
+            userType: user.userType,
+            companyType: user.companyType,
             isVerified: user.isVerified,
             requirePasswordChange: user.requirePasswordChange,
             firstLogin: user.firstLogin,
@@ -291,11 +329,14 @@ exports.getMe = async (req, res) => {
           name: user.name,
           email: user.email,
           role: user.role,
+          userType: user.userType,
+          companyType: user.companyType,
           isVerified: user.isVerified,
           requirePasswordChange: user.requirePasswordChange,
           firstLogin: user.firstLogin,
           temporaryPassword: user.temporaryPassword,
           createdAt: user.createdAt,
+          company: user.company || null,
           profile: profile || {},
         },
       },

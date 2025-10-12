@@ -10,6 +10,26 @@ const RegisterPage = () => {
     password: "",
     confirmPassword: "",
     role: "freelancer",
+    userType: "individual",
+    companyType: "",
+    company: {
+      businessName: "",
+      registrationNumber: "",
+      businessType: "",
+      industry: "",
+      address: {
+        street: "",
+        city: "",
+        state: "",
+        country: "",
+        zipCode: "",
+      },
+      taxId: "",
+      website: "",
+      phoneNumber: "",
+      companySize: "",
+      description: "",
+    },
     agreeToTerms: false,
   });
 
@@ -29,10 +49,37 @@ const RegisterPage = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value,
-    });
+
+    // Handle nested company fields
+    if (name.startsWith("company.")) {
+      const field = name.split(".")[1];
+      if (name.includes("address.")) {
+        const addressField = name.split(".")[2];
+        setFormData({
+          ...formData,
+          company: {
+            ...formData.company,
+            address: {
+              ...formData.company.address,
+              [addressField]: value,
+            },
+          },
+        });
+      } else {
+        setFormData({
+          ...formData,
+          company: {
+            ...formData.company,
+            [field]: value,
+          },
+        });
+      }
+    } else {
+      setFormData({
+        ...formData,
+        [name]: type === "checkbox" ? checked : value,
+      });
+    }
 
     if (error) {
       dispatch(clearError());
@@ -60,8 +107,24 @@ const RegisterPage = () => {
       return;
     }
 
-    const { name, email, password, role } = formData;
-    await dispatch(register({ name, email, password, role }));
+    const { name, email, password, role, userType, companyType, company } = formData;
+
+    // Prepare registration data based on user type
+    const registrationData = {
+      name,
+      email,
+      password,
+      role,
+      userType,
+    };
+
+    // Add company-specific data if userType is company
+    if (userType === "company") {
+      registrationData.companyType = companyType;
+      registrationData.company = company;
+    }
+
+    await dispatch(register(registrationData));
   };
 
   if (registrationSuccess) {
@@ -109,9 +172,69 @@ const RegisterPage = () => {
         {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
 
         <form onSubmit={handleSubmit}>
+          {/* User Type Selection */}
+          <div className="mb-6">
+            <label className="block text-gray-700 font-medium mb-3">I want to register as:</label>
+            <div className="flex gap-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="userType"
+                  value="individual"
+                  checked={formData.userType === "individual"}
+                  onChange={handleChange}
+                  className="mr-2"
+                />
+                Individual
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="userType"
+                  value="company"
+                  checked={formData.userType === "company"}
+                  onChange={handleChange}
+                  className="mr-2"
+                />
+                Company
+              </label>
+            </div>
+          </div>
+
+          {/* Company Type Selection (only show if userType is company) */}
+          {formData.userType === "company" && (
+            <div className="mb-6">
+              <label className="block text-gray-700 font-medium mb-3">Company Type:</label>
+              <div className="flex gap-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="companyType"
+                    value="freelancer_company"
+                    checked={formData.companyType === "freelancer_company"}
+                    onChange={handleChange}
+                    className="mr-2"
+                  />
+                  Freelancer Company (Agency)
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="companyType"
+                    value="project_sponsor_company"
+                    checked={formData.companyType === "project_sponsor_company"}
+                    onChange={handleChange}
+                    className="mr-2"
+                  />
+                  Project Sponsor Company
+                </label>
+              </div>
+            </div>
+          )}
+
           <div className="mb-4">
             <label htmlFor="name" className="block text-gray-700 font-medium mb-2">
-              Full Name
+              {formData.userType === "company" ? "Contact Person Name" : "Full Name"}
             </label>
             <input
               type="text"
@@ -174,33 +297,249 @@ const RegisterPage = () => {
             {passwordError && <p className="text-red-500 text-xs mt-1">{passwordError}</p>}
           </div>
 
-          <div className="mb-6">
-            <label className="block text-gray-700 font-medium mb-2">I am a:</label>
-            <div className="flex gap-4">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="role"
-                  value="freelancer"
-                  checked={formData.role === "freelancer"}
-                  onChange={handleChange}
-                  className="mr-2"
-                />
-                Freelancer
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="role"
-                  value="client"
-                  checked={formData.role === "client"}
-                  onChange={handleChange}
-                  className="mr-2"
-                />
-                Client
-              </label>
+          {/* Role Selection (only show for individual users) */}
+          {formData.userType === "individual" && (
+            <div className="mb-6">
+              <label className="block text-gray-700 font-medium mb-2">I am a:</label>
+              <div className="flex gap-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="freelancer"
+                    checked={formData.role === "freelancer"}
+                    onChange={handleChange}
+                    className="mr-2"
+                  />
+                  Freelancer
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="client"
+                    checked={formData.role === "client"}
+                    onChange={handleChange}
+                    className="mr-2"
+                  />
+                  Client
+                </label>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Company Information Form (only show if userType is company) */}
+          {formData.userType === "company" && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Company Information</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label htmlFor="company.businessName" className="block text-gray-700 font-medium mb-2">
+                    Business Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="company.businessName"
+                    name="company.businessName"
+                    value={formData.company.businessName}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="company.registrationNumber" className="block text-gray-700 font-medium mb-2">
+                    Registration Number
+                  </label>
+                  <input
+                    type="text"
+                    id="company.registrationNumber"
+                    name="company.registrationNumber"
+                    value={formData.company.registrationNumber}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="company.businessType" className="block text-gray-700 font-medium mb-2">
+                    Business Type
+                  </label>
+                  <input
+                    type="text"
+                    id="company.businessType"
+                    name="company.businessType"
+                    value={formData.company.businessType}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="company.industry" className="block text-gray-700 font-medium mb-2">
+                    Industry
+                  </label>
+                  <input
+                    type="text"
+                    id="company.industry"
+                    name="company.industry"
+                    value={formData.company.industry}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="company.taxId" className="block text-gray-700 font-medium mb-2">
+                    Tax ID
+                  </label>
+                  <input
+                    type="text"
+                    id="company.taxId"
+                    name="company.taxId"
+                    value={formData.company.taxId}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="company.website" className="block text-gray-700 font-medium mb-2">
+                    Website
+                  </label>
+                  <input
+                    type="url"
+                    id="company.website"
+                    name="company.website"
+                    value={formData.company.website}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="company.phoneNumber" className="block text-gray-700 font-medium mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    id="company.phoneNumber"
+                    name="company.phoneNumber"
+                    value={formData.company.phoneNumber}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="company.companySize" className="block text-gray-700 font-medium mb-2">
+                    Company Size
+                  </label>
+                  <select
+                    id="company.companySize"
+                    name="company.companySize"
+                    value={formData.company.companySize}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select Company Size</option>
+                    <option value="1-10">1-10 employees</option>
+                    <option value="11-50">11-50 employees</option>
+                    <option value="51-200">51-200 employees</option>
+                    <option value="201-500">201-500 employees</option>
+                    <option value="500+">500+ employees</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label htmlFor="company.address.street" className="block text-gray-700 font-medium mb-2">
+                    Street Address
+                  </label>
+                  <input
+                    type="text"
+                    id="company.address.street"
+                    name="company.address.street"
+                    value={formData.company.address.street}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="company.address.city" className="block text-gray-700 font-medium mb-2">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    id="company.address.city"
+                    name="company.address.city"
+                    value={formData.company.address.city}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="company.address.state" className="block text-gray-700 font-medium mb-2">
+                    State/Province
+                  </label>
+                  <input
+                    type="text"
+                    id="company.address.state"
+                    name="company.address.state"
+                    value={formData.company.address.state}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="company.address.country" className="block text-gray-700 font-medium mb-2">
+                    Country
+                  </label>
+                  <input
+                    type="text"
+                    id="company.address.country"
+                    name="company.address.country"
+                    value={formData.company.address.country}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="company.address.zipCode" className="block text-gray-700 font-medium mb-2">
+                    ZIP/Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    id="company.address.zipCode"
+                    name="company.address.zipCode"
+                    value={formData.company.address.zipCode}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label htmlFor="company.description" className="block text-gray-700 font-medium mb-2">
+                    Company Description
+                  </label>
+                  <textarea
+                    id="company.description"
+                    name="company.description"
+                    value={formData.company.description}
+                    onChange={handleChange}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Tell us about your company..."
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Terms and Conditions Disclaimer */}
           <div className="mb-6">

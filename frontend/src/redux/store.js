@@ -14,6 +14,7 @@ import userManagementReducer from "./slices/userManagementSlice";
 import projectsReducer from "./slices/projectsSlice";
 import chatReducer from "./chatSlice";
 import paymentReducer from "./slices/paymentSlice";
+import companyReducer from "./slices/companySlice";
 
 const persistConfig = {
   key: "root",
@@ -32,6 +33,7 @@ const rootReducer = combineReducers({
   projects: projectsReducer,
   chat: chatReducer,
   payment: paymentReducer,
+  company: companyReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

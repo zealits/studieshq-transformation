@@ -41,10 +41,18 @@ export const login = createAsyncThunk("auth/login", async ({ email, password }, 
 
 export const register = createAsyncThunk(
   "auth/register",
-  async ({ name, email, password, role }, { rejectWithValue }) => {
+  async ({ name, email, password, role, userType, companyType, company }, { rejectWithValue }) => {
     try {
-      console.log(name, email, password, role);
-      const response = await api.post("/api/auth/register", { name, email, password, role });
+      console.log(name, email, password, role, userType, companyType, company);
+      const response = await api.post("/api/auth/register", {
+        name,
+        email,
+        password,
+        role,
+        userType,
+        companyType,
+        company,
+      });
 
       console.log(response.data);
       // Store token in localStorage

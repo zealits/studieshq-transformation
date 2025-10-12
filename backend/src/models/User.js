@@ -29,6 +29,16 @@ const UserSchema = new Schema(
       enum: ["client", "freelancer", "admin"],
       default: "freelancer",
     },
+    userType: {
+      type: String,
+      enum: ["individual", "company"],
+      default: "individual",
+    },
+    companyType: {
+      type: String,
+      enum: ["freelancer_company", "project_sponsor_company"],
+      default: null,
+    },
     isActive: {
       type: Boolean,
       default: true,
@@ -95,6 +105,82 @@ const UserSchema = new Schema(
     },
     temporaryPassword: {
       type: String,
+    },
+    // Company-specific fields (only populated for companies)
+    company: {
+      businessName: {
+        type: String,
+      },
+      registrationNumber: {
+        type: String,
+      },
+      businessType: {
+        type: String,
+      },
+      industry: {
+        type: String,
+      },
+      address: {
+        street: {
+          type: String,
+        },
+        city: {
+          type: String,
+        },
+        state: {
+          type: String,
+        },
+        country: {
+          type: String,
+        },
+        zipCode: {
+          type: String,
+        },
+      },
+      verificationStatus: {
+        type: String,
+        enum: ["pending", "verified", "rejected"],
+        default: "pending",
+      },
+      documents: [
+        {
+          type: {
+            type: String,
+            enum: ["business_license", "tax_certificate", "incorporation_certificate", "other"],
+          },
+          url: {
+            type: String,
+          },
+          uploadedAt: {
+            type: Date,
+            default: Date.now,
+          },
+          status: {
+            type: String,
+            enum: ["pending", "approved", "rejected"],
+            default: "pending",
+          },
+        },
+      ],
+      taxId: {
+        type: String,
+      },
+      website: {
+        type: String,
+      },
+      phoneNumber: {
+        type: String,
+      },
+      companySize: {
+        type: String,
+        enum: ["1-10", "11-50", "51-200", "201-500", "500+"],
+      },
+      description: {
+        type: String,
+      },
+      logo: {
+        type: String,
+      },
     },
     createdAt: {
       type: Date,

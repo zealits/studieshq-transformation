@@ -11,6 +11,7 @@ import DashboardLayout from "./layouts/DashboardLayout";
 // Components
 import NotificationToast from "./components/common/NotificationToast";
 import ProfileCompletionGuard from "./components/ProfileCompletionGuard";
+import UserTypeRedirect from "./components/UserTypeRedirect";
 
 // Hooks
 import { useSocket } from "./hooks/useSocket";
@@ -59,6 +60,11 @@ import ClientSettings from "./pages/client/SettingsPage";
 import JobProposals from "./components/client/JobProposals";
 import FreelancerProfileView from "./components/client/FreelancerProfileView";
 
+// Company Pages
+import FreelancerCompanyDashboard from "./pages/company/FreelancerCompanyDashboard";
+import ProjectSponsorCompanyDashboard from "./pages/company/ProjectSponsorCompanyDashboard";
+import CompanyProfilePage from "./pages/company/CompanyProfilePage";
+
 // Admin Pages
 import AdminDashboard from "./pages/admin/DashboardPage";
 import AdminUserManagement from "./pages/admin/UserManagementPage";
@@ -71,7 +77,7 @@ import AdminSettings from "./pages/admin/SettingsPage";
 import AdminContactManagement from "./pages/admin/ContactManagementPage";
 
 // Protected Routes
-const ProtectedRoute = ({ children, allowedRoles }) => {
+const ProtectedRoute = ({ children, allowedRoles, allowedUserTypes }) => {
   const { user } = useSelector((state) => state.auth);
 
   if (!user) {
@@ -84,6 +90,10 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (allowedUserTypes && !allowedUserTypes.includes(user.userType)) {
     return <Navigate to="/" replace />;
   }
 
@@ -134,6 +144,16 @@ function App() {
           <Route path="reset-password" element={<ResetPasswordPage />} />
           <Route path="verify-email" element={<EmailVerificationPage />} />
         </Route>
+
+        {/* User Type Redirect Route */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <UserTypeRedirect />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Chat Route - Available to all authenticated users */}
         <Route
@@ -201,6 +221,62 @@ function App() {
             path="jobs/:jobId/proposals"
             element={
               <ProtectedRoute allowedRoles={["client"]}>
+                <JobProposals />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="freelancers/:userId" element={<FreelancerProfileView />} />
+        </Route>
+
+        {/* Company Routes */}
+        <Route
+          path="/company/freelancer"
+          element={
+            <ProtectedRoute allowedRoles={["freelancer"]} allowedUserTypes={["company"]}>
+              <ProfileCompletionGuard>
+                <DashboardLayout role="freelancer" />
+              </ProfileCompletionGuard>
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<FreelancerCompanyDashboard />} />
+          <Route path="find-jobs" element={<FreelancerFindJobs />} />
+          <Route path="invitations" element={<FreelancerInvitations />} />
+          <Route path="projects" element={<FreelancerProjects />} />
+          <Route path="messages" element={<FreelancerMessages />} />
+          <Route path="payments" element={<FreelancerPayments />} />
+          <Route path="profile" element={<CompanyProfilePage />} />
+          <Route path="support" element={<SupportPage />} />
+          <Route path="support/submit" element={<SubmitTicket />} />
+          <Route path="support/tickets/:id" element={<TicketDetails />} />
+          <Route path="settings" element={<FreelancerSettings />} />
+        </Route>
+
+        <Route
+          path="/company/client"
+          element={
+            <ProtectedRoute allowedRoles={["client"]} allowedUserTypes={["company"]}>
+              <ProfileCompletionGuard>
+                <DashboardLayout role="client" />
+              </ProfileCompletionGuard>
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<ProjectSponsorCompanyDashboard />} />
+          <Route path="jobs" element={<ClientJobs />} />
+          <Route path="freelancers" element={<ClientFreelancers />} />
+          <Route path="projects" element={<ClientProjects />} />
+          <Route path="messages" element={<ClientMessages />} />
+          <Route path="payments" element={<ClientPayments />} />
+          <Route path="profile" element={<CompanyProfilePage />} />
+          <Route path="settings" element={<ClientSettings />} />
+          <Route path="support" element={<SupportPage />} />
+          <Route path="support/submit" element={<SubmitTicket />} />
+          <Route path="support/tickets/:id" element={<TicketDetails />} />
+          <Route
+            path="jobs/:jobId/proposals"
+            element={
+              <ProtectedRoute allowedRoles={["client"]} allowedUserTypes={["company"]}>
                 <JobProposals />
               </ProtectedRoute>
             }
