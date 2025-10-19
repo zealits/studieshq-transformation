@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { toast } from "react-toastify";
+import api from "../../api/axios";
 import {
   getCompanyProfile,
   updateCompanyProfile,
@@ -38,6 +39,20 @@ const CompanyProfilePage = () => {
         country: "",
         zipCode: "",
       },
+      documents: {
+        businessLicense: {
+          type: "business_license",
+          url: "",
+          status: "pending",
+          file: null,
+        },
+        taxCertificate: {
+          type: "tax_certificate",
+          url: "",
+          status: "pending",
+          file: null,
+        },
+      },
     },
   });
 
@@ -55,6 +70,11 @@ const CompanyProfilePage = () => {
   useEffect(() => {
     // Update form data when company profile is loaded
     if (companyProfile) {
+      // Extract existing documents
+      const existingDocuments = companyProfile.user?.company?.documents || [];
+      const businessLicense = existingDocuments.find((doc) => doc.type === "business_license");
+      const taxCertificate = existingDocuments.find((doc) => doc.type === "tax_certificate");
+
       setFormData({
         name: companyProfile.user?.name || "",
         company: {
@@ -74,6 +94,20 @@ const CompanyProfilePage = () => {
             state: companyProfile.user?.company?.address?.state || "",
             country: companyProfile.user?.company?.address?.country || "",
             zipCode: companyProfile.user?.company?.address?.zipCode || "",
+          },
+          documents: {
+            businessLicense: {
+              type: "business_license",
+              url: businessLicense?.url || "",
+              status: businessLicense?.status || "pending",
+              file: null,
+            },
+            taxCertificate: {
+              type: "tax_certificate",
+              url: taxCertificate?.url || "",
+              status: taxCertificate?.status || "pending",
+              file: null,
+            },
           },
         },
       });
@@ -170,17 +204,49 @@ const CompanyProfilePage = () => {
     }
   };
 
+  const handleDocumentSelect = (e, documentType) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error("Please upload a valid file (JPG, PNG, or PDF)");
+        return;
+      }
+
+      // Validate file size (5MB limit)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        toast.error("File size must be less than 5MB");
+        return;
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        company: {
+          ...prev.company,
+          documents: {
+            ...prev.company.documents,
+            [documentType]: {
+              ...prev.company.documents[documentType],
+              file: file,
+            },
+          },
+        },
+      }));
+      setHasChanges(true);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // If there's a logo file, upload it first
-    if (logoFile) {
-      try {
+    try {
+      // Handle logo upload if there's a new logo file
+      if (logoFile) {
         // For now, we'll simulate uploading by creating a data URL
         // In a real app, you'd upload to a service like Cloudinary or AWS S3
         const logoUrl = logoPreview; // This would be the actual uploaded URL
-
-        // Update the form data with the logo URL
         const updatedFormData = {
           ...formData,
           company: {
@@ -188,14 +254,14 @@ const CompanyProfilePage = () => {
             logo: logoUrl,
           },
         };
-
         dispatch(updateCompanyProfile(updatedFormData));
-      } catch (error) {
-        toast.error("Failed to upload logo");
-        return;
+      } else {
+        // Send the profile update (documents will be handled in the Redux slice)
+        dispatch(updateCompanyProfile(formData));
       }
-    } else {
-      dispatch(updateCompanyProfile(formData));
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload documents");
     }
   };
 
@@ -522,39 +588,86 @@ const CompanyProfilePage = () => {
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-sm text-gray-600 mb-3">Upload your business documents for verification:</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                    <svg
-                      className="w-8 h-8 mx-auto text-gray-400 mb-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  {/* Business License Upload */}
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary transition-colors">
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      onChange={(e) => handleDocumentSelect(e, "businessLicense")}
+                      disabled={!isEditing}
+                      className="hidden"
+                      id="business-license-upload"
+                    />
+                    <label
+                      htmlFor="business-license-upload"
+                      className={`cursor-pointer ${!isEditing ? "cursor-not-allowed" : ""}`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
-                    </svg>
-                    <p className="text-sm text-gray-600">Business License</p>
-                    <p className="text-xs text-gray-500">Upload business license document</p>
+                      <svg
+                        className="w-8 h-8 mx-auto text-gray-400 mb-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                        />
+                      </svg>
+                      <p className="text-sm text-gray-600">Business License</p>
+                      <p className="text-xs text-gray-500">Upload business license document</p>
+                      {formData.company.documents.businessLicense.file && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Selected: {formData.company.documents.businessLicense.file.name}
+                        </p>
+                      )}
+                      {formData.company.documents.businessLicense.url &&
+                        !formData.company.documents.businessLicense.file && (
+                          <p className="text-xs text-green-600 mt-1">✓ Document uploaded</p>
+                        )}
+                    </label>
                   </div>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                    <svg
-                      className="w-8 h-8 mx-auto text-gray-400 mb-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+
+                  {/* Tax Certificate Upload */}
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary transition-colors">
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      onChange={(e) => handleDocumentSelect(e, "taxCertificate")}
+                      disabled={!isEditing}
+                      className="hidden"
+                      id="tax-certificate-upload"
+                    />
+                    <label
+                      htmlFor="tax-certificate-upload"
+                      className={`cursor-pointer ${!isEditing ? "cursor-not-allowed" : ""}`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
-                    </svg>
-                    <p className="text-sm text-gray-600">Tax Certificate</p>
-                    <p className="text-xs text-gray-500">Upload tax registration certificate</p>
+                      <svg
+                        className="w-8 h-8 mx-auto text-gray-400 mb-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                        />
+                      </svg>
+                      <p className="text-sm text-gray-600">Tax Certificate</p>
+                      <p className="text-xs text-gray-500">Upload tax registration certificate</p>
+                      {formData.company.documents.taxCertificate.file && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Selected: {formData.company.documents.taxCertificate.file.name}
+                        </p>
+                      )}
+                      {formData.company.documents.taxCertificate.url &&
+                        !formData.company.documents.taxCertificate.file && (
+                          <p className="text-xs text-green-600 mt-1">✓ Document uploaded</p>
+                        )}
+                    </label>
                   </div>
                 </div>
               </div>

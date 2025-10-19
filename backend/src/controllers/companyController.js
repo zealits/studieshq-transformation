@@ -74,10 +74,49 @@ exports.updateCompanyProfile = async (req, res) => {
 
     // Update company information
     if (company) {
+      // Handle documents separately to maintain proper structure
+      const { documents, ...otherCompanyData } = company;
+
       user.company = {
         ...user.company,
-        ...company,
+        ...otherCompanyData,
       };
+
+      // Handle document updates
+      if (documents) {
+        // Update existing documents or add new ones
+        if (documents.businessLicense && documents.businessLicense.url) {
+          const existingDocIndex = user.company.documents.findIndex((doc) => doc.type === "business_license");
+          const documentData = {
+            type: "business_license",
+            url: documents.businessLicense.url,
+            status: documents.businessLicense.status || "pending",
+            uploadedAt: new Date(),
+          };
+
+          if (existingDocIndex >= 0) {
+            user.company.documents[existingDocIndex] = documentData;
+          } else {
+            user.company.documents.push(documentData);
+          }
+        }
+
+        if (documents.taxCertificate && documents.taxCertificate.url) {
+          const existingDocIndex = user.company.documents.findIndex((doc) => doc.type === "tax_certificate");
+          const documentData = {
+            type: "tax_certificate",
+            url: documents.taxCertificate.url,
+            status: documents.taxCertificate.status || "pending",
+            uploadedAt: new Date(),
+          };
+
+          if (existingDocIndex >= 0) {
+            user.company.documents[existingDocIndex] = documentData;
+          } else {
+            user.company.documents.push(documentData);
+          }
+        }
+      }
     }
 
     await user.save();

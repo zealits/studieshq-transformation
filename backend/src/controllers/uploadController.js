@@ -80,11 +80,14 @@ const verificationUpload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (req, file, cb) => {
+    console.log("Multer fileFilter - file:", file);
     // Accept only specific file types
     const allowedTypes = ["image/jpeg", "image/png", "application/pdf"];
     if (allowedTypes.includes(file.mimetype)) {
+      console.log("File type accepted:", file.mimetype);
       cb(null, true);
     } else {
+      console.log("File type rejected:", file.mimetype);
       cb(new Error("Invalid file type. Only JPEG, PNG and PDF files are allowed."), false);
     }
   },
@@ -164,7 +167,12 @@ const uploadProfileImage = async (req, res) => {
  */
 const uploadVerificationDocument = async (req, res) => {
   try {
+    console.log("Upload verification document - req.file:", req.file);
+    console.log("Upload verification document - req.body:", req.body);
+    console.log("Upload verification document - req.files:", req.files);
+
     if (!req.file) {
+      console.log("No file found in req.file");
       return res.status(400).json({
         success: false,
         message: "No file uploaded",

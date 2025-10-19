@@ -19,7 +19,27 @@ router.post("/profile-image", auth, upload.single("image"), uploadProfileImage);
 // @route   POST /api/upload/verification-document
 // @desc    Upload verification document (Cloudinary)
 // @access  Private
-router.post("/verification-document", auth, verificationUpload.single("document"), uploadVerificationDocument);
+router.post(
+  "/verification-document",
+  auth,
+  (req, res, next) => {
+    console.log("Verification document upload - Content-Type:", req.headers["content-type"]);
+    console.log("Verification document upload - Body:", req.body);
+    next();
+  },
+  verificationUpload.single("document"),
+  (err, req, res, next) => {
+    if (err) {
+      console.error("Multer error:", err);
+      return res.status(400).json({
+        success: false,
+        message: err.message || "File upload error",
+      });
+    }
+    next();
+  },
+  uploadVerificationDocument
+);
 
 // @route   POST /api/upload/milestone-deliverable
 // @desc    Upload milestone deliverable files (Local Storage)

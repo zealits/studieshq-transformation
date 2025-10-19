@@ -33,13 +33,21 @@ const httpServer = createServer(app);
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(
-  fileUpload({
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max file size
-    abortOnLimit: true,
-    createParentPath: true,
-  })
-);
+
+// Apply fileUpload middleware only to non-upload routes
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/upload/")) {
+    // Skip fileUpload middleware for upload routes (use multer instead)
+    next();
+  } else {
+    // Apply fileUpload middleware for other routes
+    fileUpload({
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max file size
+      abortOnLimit: true,
+      createParentPath: true,
+    })(req, res, next);
+  }
+});
 
 // Configure MIME types for JavaScript modules
 app.use((req, res, next) => {

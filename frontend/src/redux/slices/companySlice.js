@@ -24,9 +24,61 @@ export const updateCompanyProfile = createAsyncThunk(
   "company/updateProfile",
   async (profileData, { rejectWithValue }) => {
     try {
-      const response = await api.put("/api/company/profile", profileData);
+      // First upload any selected documents
+      const uploadPromises = [];
+      const documentTypes = [];
+
+      if (profileData.company?.documents?.businessLicense?.file) {
+        const formData = new FormData();
+        formData.append("document", profileData.company.documents.businessLicense.file);
+        formData.append("documentType", "business_license");
+        documentTypes.push("businessLicense");
+        console.log("Uploading business license file:", profileData.company.documents.businessLicense.file);
+        uploadPromises.push(
+          api.post("/api/upload/verification-document", formData, {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          })
+        );
+      }
+
+      if (profileData.company?.documents?.taxCertificate?.file) {
+        const formData = new FormData();
+        formData.append("document", profileData.company.documents.taxCertificate.file);
+        formData.append("documentType", "tax_certificate");
+        documentTypes.push("taxCertificate");
+        console.log("Uploading tax certificate file:", profileData.company.documents.taxCertificate.file);
+        uploadPromises.push(
+          api.post("/api/upload/verification-document", formData, {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          })
+        );
+      }
+
+      // Wait for all uploads to complete
+      let uploadResults = [];
+      if (uploadPromises.length > 0) {
+        uploadResults = await Promise.all(uploadPromises);
+      }
+
+      // Update profile data with uploaded document URLs
+      const updatedProfileData = { ...profileData };
+      uploadResults.forEach((result, index) => {
+        const documentType = documentTypes[index];
+        if (result.data.success) {
+          updatedProfileData.company.documents[documentType].url = result.data.data.documentUrl;
+          updatedProfileData.company.documents[documentType].file = null; // Clear the file after upload
+        }
+      });
+
+      // Now send the profile update
+      const response = await api.put("/api/company/profile", updatedProfileData);
       return response.data;
     } catch (error) {
+      console.error("Update company profile error:", error);
       return rejectWithValue({
         message: error.response?.data?.error || "Failed to update company profile",
       });
