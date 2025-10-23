@@ -36,14 +36,29 @@ const UserManagementPage = () => {
   const [invitationPagination, setInvitationPagination] = useState({});
 
   useEffect(() => {
-    dispatch(
-      fetchUsers({
-        page: currentPage,
-        limit: 10,
-        role: activeTab !== "all" ? activeTab : undefined,
-        search: searchQuery,
-      })
-    );
+    const params = {
+      page: currentPage,
+      limit: 10,
+      search: searchQuery,
+    };
+
+    // Handle different tab filters
+    if (activeTab === "company") {
+      params.userType = "company";
+    } else if (
+      activeTab !== "all" &&
+      activeTab !== "suspended" &&
+      activeTab !== "pending" &&
+      activeTab !== "invitations"
+    ) {
+      params.role = activeTab;
+    } else if (activeTab === "suspended") {
+      params.status = "suspended";
+    } else if (activeTab === "pending") {
+      params.status = "pending";
+    }
+
+    dispatch(fetchUsers(params));
   }, [dispatch, currentPage, activeTab, searchQuery]);
 
   // Fetch invitations when invitations tab is active
@@ -265,6 +280,12 @@ const UserManagementPage = () => {
         return <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">Client</span>;
       case "admin":
         return <span className="px-2 py-1 text-xs rounded-full bg-gray-900 text-white">Admin</span>;
+      case "freelancer_company":
+        return <span className="px-2 py-1 text-xs rounded-full bg-indigo-100 text-indigo-800">Freelancer Company</span>;
+      case "project_sponsor_company":
+        return (
+          <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">Project Sponsor Company</span>
+        );
       default:
         return <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">{role}</span>;
     }
@@ -393,6 +414,14 @@ const UserManagementPage = () => {
           onClick={() => setActiveTab("admin")}
         >
           Admins
+        </button>
+        <button
+          className={`pb-2 px-4 font-medium whitespace-nowrap ${
+            activeTab === "company" ? "border-b-2 border-primary text-primary" : "text-gray-500 hover:text-gray-700"
+          }`}
+          onClick={() => setActiveTab("company")}
+        >
+          Company Users
         </button>
         <button
           className={`pb-2 px-4 font-medium whitespace-nowrap ${
@@ -843,6 +872,10 @@ const UserManagementPage = () => {
                           <div>{renderStatusBadge(selectedUser.status)}</div>
                         </div>
                         <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">User Type</label>
+                          <p className="text-sm text-gray-600 capitalize">{selectedUser.userType || "individual"}</p>
+                        </div>
+                        <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Verification Status</label>
                           <div>{renderVerificationBadge(selectedUser)}</div>
                         </div>
@@ -859,6 +892,165 @@ const UserManagementPage = () => {
                           </p>
                         </div>
                       </div>
+
+                      {/* Company Information Section */}
+                      {selectedUser.userType === "company" && selectedUser.company && (
+                        <div className="border-t pt-4 mt-4">
+                          <h4 className="font-medium mb-3">Company Information</h4>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
+                              <p className="text-sm text-gray-600">
+                                {selectedUser.company.businessName || "Not provided"}
+                              </p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Company Type</label>
+                              <p className="text-sm text-gray-600 capitalize">
+                                {selectedUser.companyType?.replace("_", " ") || "Not specified"}
+                              </p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Registration Number
+                              </label>
+                              <p className="text-sm text-gray-600">
+                                {selectedUser.company.registrationNumber || "Not provided"}
+                              </p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Business Type</label>
+                              <p className="text-sm text-gray-600">
+                                {selectedUser.company.businessType || "Not provided"}
+                              </p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Industry</label>
+                              <p className="text-sm text-gray-600">{selectedUser.company.industry || "Not provided"}</p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Company Size</label>
+                              <p className="text-sm text-gray-600">
+                                {selectedUser.company.companySize || "Not provided"}
+                              </p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Tax ID</label>
+                              <p className="text-sm text-gray-600">{selectedUser.company.taxId || "Not provided"}</p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
+                              <p className="text-sm text-gray-600">
+                                {selectedUser.company.website ? (
+                                  <a
+                                    href={selectedUser.company.website}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:underline"
+                                  >
+                                    {selectedUser.company.website}
+                                  </a>
+                                ) : (
+                                  "Not provided"
+                                )}
+                              </p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                              <p className="text-sm text-gray-600">
+                                {selectedUser.company.phoneNumber || "Not provided"}
+                              </p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Company Verification
+                              </label>
+                              <span
+                                className={`px-2 py-1 text-xs rounded-full ${
+                                  selectedUser.company.verificationStatus === "verified"
+                                    ? "bg-green-100 text-green-800"
+                                    : selectedUser.company.verificationStatus === "rejected"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-yellow-100 text-yellow-800"
+                                }`}
+                              >
+                                {selectedUser.company.verificationStatus || "pending"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Company Address */}
+                          {selectedUser.company.address && (
+                            <div className="mt-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Business Address</label>
+                              <div className="text-sm text-gray-600">
+                                {[
+                                  selectedUser.company.address.street,
+                                  selectedUser.company.address.city,
+                                  selectedUser.company.address.state,
+                                  selectedUser.company.address.country,
+                                  selectedUser.company.address.zipCode,
+                                ]
+                                  .filter(Boolean)
+                                  .join(", ") || "Not provided"}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Company Description */}
+                          {selectedUser.company.description && (
+                            <div className="mt-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Company Description
+                              </label>
+                              <p className="text-sm text-gray-600">{selectedUser.company.description}</p>
+                            </div>
+                          )}
+
+                          {/* Company Documents */}
+                          {selectedUser.company.documents && selectedUser.company.documents.length > 0 && (
+                            <div className="mt-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Company Documents</label>
+                              <div className="space-y-2">
+                                {selectedUser.company.documents.map((doc, index) => (
+                                  <div
+                                    key={index}
+                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                                  >
+                                    <div>
+                                      <p className="text-sm font-medium capitalize">{doc.type.replace("_", " ")}</p>
+                                      <p className="text-xs text-gray-500">
+                                        Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <span
+                                        className={`px-2 py-1 text-xs rounded-full ${
+                                          doc.status === "approved"
+                                            ? "bg-green-100 text-green-800"
+                                            : doc.status === "rejected"
+                                            ? "bg-red-100 text-red-800"
+                                            : "bg-yellow-100 text-yellow-800"
+                                        }`}
+                                      >
+                                        {doc.status}
+                                      </span>
+                                      {doc.url && (
+                                        <button
+                                          onClick={() => window.open(doc.url, "_blank")}
+                                          className="text-blue-600 hover:text-blue-800 text-sm"
+                                        >
+                                          View Document
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <div className="border-t pt-4 mt-4">
                         <h4 className="font-medium mb-2">Verification Documents</h4>

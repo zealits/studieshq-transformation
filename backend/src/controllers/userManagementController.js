@@ -8,14 +8,19 @@ const Profile = require("../models/Profile");
  */
 exports.getAllUsers = async (req, res) => {
   try {
-    const { page = 1, limit = 10, role, status, search } = req.query;
+    const { page = 1, limit = 10, role, status, search, userType } = req.query;
     const query = {};
 
     // Apply filters
     if (role) query.role = role;
     if (status) query.status = status;
+    if (userType) query.userType = userType;
     if (search) {
-      query.$or = [{ name: { $regex: search, $options: "i" } }, { email: { $regex: search, $options: "i" } }];
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { "company.businessName": { $regex: search, $options: "i" } },
+      ];
     }
 
     const users = await User.find(query)

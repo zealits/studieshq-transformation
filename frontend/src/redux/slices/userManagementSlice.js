@@ -4,7 +4,7 @@ import api from "../../api/axios";
 // Async thunks
 export const fetchUsers = createAsyncThunk(
   "userManagement/fetchUsers",
-  async ({ page = 1, limit = 10, role, status, search }, { rejectWithValue }) => {
+  async ({ page = 1, limit = 10, role, status, search, userType }, { rejectWithValue }) => {
     try {
       const params = new URLSearchParams({
         page,
@@ -12,6 +12,7 @@ export const fetchUsers = createAsyncThunk(
         ...(role && { role }),
         ...(status && { status }),
         ...(search && { search }),
+        ...(userType && { userType }),
       });
 
       const response = await api.get(`/api/admin/users?${params}`);
