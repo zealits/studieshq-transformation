@@ -14,7 +14,7 @@ const XeWithdrawModal = ({ isOpen, onClose, approvedPaymentMethods = [], onWithd
   const [timerActive, setTimerActive] = useState(false);
   const [withdrawalResult, setWithdrawalResult] = useState(null);
 
-  // Filter for approved XE payment methods
+  // Filter for approved bank transfer payment methods
   const xePaymentMethods = approvedPaymentMethods.filter(
     (method) => method.type === "bank" && method.provider === "xe" && method.approved === true
   );
@@ -77,7 +77,7 @@ const XeWithdrawModal = ({ isOpen, onClose, approvedPaymentMethods = [], onWithd
     setError(null);
 
     try {
-      console.log("🏦 XE WITHDRAW: Getting quotation for:", {
+      console.log("🏦 BANK TRANSFER WITHDRAW: Getting quotation for:", {
         paymentMethodId: selectedPaymentMethod._id,
         amount: parseFloat(amount),
       });
@@ -92,19 +92,19 @@ const XeWithdrawModal = ({ isOpen, onClose, approvedPaymentMethods = [], onWithd
         setTimeLeft(90);
         setTimerActive(true);
 
-        console.log("🏦 XE WITHDRAW: ✅ Quotation received:", response.data);
+        console.log("🏦 BANK TRANSFER WITHDRAW: ✅ Quotation received:", response.data);
         toast.success("Quotation received successfully!");
       } else {
         throw new Error(response.message || "Failed to get quotation");
       }
     } catch (error) {
-      console.error("🏦 XE WITHDRAW: ❌ Error getting quotation:", error);
+      console.error("🏦 BANK TRANSFER WITHDRAW: ❌ Error getting quotation:", error);
 
       let errorMessage = "Failed to get quotation";
 
       // Handle structured error responses from XE API
       if (error.details) {
-        console.log("🏦 XE WITHDRAW: Structured error details:", error.details);
+        console.log("🏦 BANK TRANSFER WITHDRAW: Structured error details:", error.details);
 
         if (error.details.errors && Array.isArray(error.details.errors)) {
           // Handle structured errors with fieldName and errors array
@@ -159,8 +159,8 @@ const XeWithdrawModal = ({ isOpen, onClose, approvedPaymentMethods = [], onWithd
     setError(null);
 
     try {
-      console.log("🏦 XE WITHDRAW: === PROCEEDING WITH WITHDRAWAL ===");
-      console.log("🏦 XE WITHDRAW: Proceeding with:", {
+      console.log("🏦 BANK TRANSFER WITHDRAW: === PROCEEDING WITH WITHDRAWAL ===");
+      console.log("🏦 BANK TRANSFER WITHDRAW: Proceeding with:", {
         paymentMethodId: selectedPaymentMethod._id,
         amount: parseFloat(amount),
         quotationId: quotation.quotation.quoteId,
@@ -174,13 +174,13 @@ const XeWithdrawModal = ({ isOpen, onClose, approvedPaymentMethods = [], onWithd
       });
 
       if (response.success) {
-        console.log("🏦 XE WITHDRAW: ✅ Withdrawal completed successfully:", response.data);
+        console.log("🏦 BANK TRANSFER WITHDRAW: ✅ Withdrawal completed successfully:", response.data);
 
         setWithdrawalResult(response.data);
         setStep("success");
         setTimerActive(false);
 
-        toast.success("XE withdrawal processed successfully!");
+        toast.success("Bank transfer withdrawal processed successfully!");
 
         // Notify parent component about successful withdrawal
         if (onWithdrawalSuccess) {
@@ -190,13 +190,13 @@ const XeWithdrawModal = ({ isOpen, onClose, approvedPaymentMethods = [], onWithd
         throw new Error(response.message || "Failed to process withdrawal");
       }
     } catch (error) {
-      console.error("🏦 XE WITHDRAW: ❌ Error processing withdrawal:", error);
+      console.error("🏦 BANK TRANSFER WITHDRAW: ❌ Error processing withdrawal:", error);
 
       let errorMessage = "Failed to process withdrawal";
 
       // Handle structured error responses from backend
       if (error.details) {
-        console.log("🏦 XE WITHDRAW: Structured error details:", error.details);
+        console.log("🏦 BANK TRANSFER WITHDRAW: Structured error details:", error.details);
 
         if (error.details.longErrorMsg) {
           errorMessage = error.details.longErrorMsg;
@@ -250,15 +250,15 @@ const XeWithdrawModal = ({ isOpen, onClose, approvedPaymentMethods = [], onWithd
     const countryCode = method.countryCode || "Unknown";
     const currencyCode = method.currencyCode || "Unknown";
 
-    // Get bank name from XE recipient data if available
+    // Get bank name from bank transfer recipient data if available
     let bankName = "Unknown Bank";
     if (method.xeRecipients && method.xeRecipients.length > 0) {
-      const xeRecipient = method.xeRecipients[0]; // Get the first (most recent) XE recipient
+      const xeRecipient = method.xeRecipients[0]; // Get the first (most recent) bank transfer recipient
       if (xeRecipient.payoutMethod?.bank?.account?.accountName) {
         bankName = xeRecipient.payoutMethod.bank.account.accountName;
       }
     } else if (method.bankDetails?.bankName) {
-      // Fallback to bankDetails if XE recipient data is not available
+      // Fallback to bankDetails if bank transfer recipient data is not available
       bankName = method.bankDetails.bankName;
     }
 
@@ -281,7 +281,7 @@ const XeWithdrawModal = ({ isOpen, onClose, approvedPaymentMethods = [], onWithd
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <h3 className="text-lg font-semibold text-gray-900">
-            {step === "amount" && "XE Bank Withdrawal"}
+            {step === "amount" && "Bank Transfer Withdrawal"}
             {step === "quotation" && "Withdrawal Quote"}
             {step === "processing" && "Processing Withdrawal"}
             {step === "success" && "Withdrawal Successful"}
@@ -556,7 +556,7 @@ const XeWithdrawModal = ({ isOpen, onClose, approvedPaymentMethods = [], onWithd
               <div>
                 <h4 className="text-lg font-medium text-gray-900 mb-2">Processing Your Withdrawal</h4>
                 <p className="text-gray-600">
-                  We're creating and approving your payment with XE. This may take a few moments...
+                  We're creating and approving your payment with bank transfer. This may take a few moments...
                 </p>
               </div>
 
@@ -595,7 +595,8 @@ const XeWithdrawModal = ({ isOpen, onClose, approvedPaymentMethods = [], onWithd
                 </div>
                 <h4 className="text-lg font-medium text-gray-900 mt-4 mb-2">Withdrawal Processed Successfully!</h4>
                 <p className="text-gray-600">
-                  Your XE withdrawal has been created and approved. Funds will be transferred to your bank account.
+                  Your bank transfer withdrawal has been created and approved. Funds will be transferred to your bank
+                  account.
                 </p>
               </div>
 
@@ -622,10 +623,10 @@ const XeWithdrawModal = ({ isOpen, onClose, approvedPaymentMethods = [], onWithd
                 </div>
               </div>
 
-              {/* XE Payment Information */}
+              {/* Bank Transfer Payment Information */}
               {withdrawalResult.transaction.xePayment && (
                 <div className="bg-blue-50 rounded-lg p-4">
-                  <h5 className="font-medium text-gray-900 mb-3">XE Payment Information</h5>
+                  <h5 className="font-medium text-gray-900 mb-3">Bank Transfer Payment Information</h5>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Target Amount:</span>

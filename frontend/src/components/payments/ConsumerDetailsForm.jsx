@@ -104,15 +104,15 @@ const ConsumerDetailsForm = ({ onSubmit, initialData = null, isLoading = false }
     // Address Line 1 is now mandatory for complete address information
     if (!formData.address.line1.trim()) {
       newErrors["address.line1"] = "Address line 1 is required for complete address information";
-    } else if (formData.address.line1.length > 70) {
-      newErrors["address.line1"] = "Address line 1 must be 70 characters or less";
+    } else if (formData.address.line1.length > 34) {
+      newErrors["address.line1"] = "Address line 1 must be 34 characters or less";
     }
 
     // Address Line 2 is now mandatory
     if (!formData.address.line2.trim()) {
       newErrors["address.line2"] = "Address line 2 is required for bank account verification";
-    } else if (formData.address.line2.length > 70) {
-      newErrors["address.line2"] = "Address line 2 must be 70 characters or less";
+    } else if (formData.address.line2.length > 34) {
+      newErrors["address.line2"] = "Address line 2 must be 34 characters or less";
     }
 
     // Postal code is now mandatory

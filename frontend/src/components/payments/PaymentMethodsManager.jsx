@@ -77,7 +77,7 @@ const PaymentMethodsManager = () => {
       }
 
       if (response.success) {
-        // Check if XE recipient creation was successful
+        // Check if bank transfer recipient creation was successful
         if (response.data.xeRecipient?.status === "created") {
           toast.success(
             selectedMethod
@@ -186,7 +186,7 @@ const PaymentMethodsManager = () => {
         }
       }
     } catch (error) {
-      console.error("Error retrying XE recipient creation:", error);
+      console.error("Error retrying bank transfer recipient creation:", error);
       toast.error(error.message || "Failed to verify bank account");
     } finally {
       setLoading((prev) => ({ ...prev, retry: null }));
@@ -225,15 +225,15 @@ const PaymentMethodsManager = () => {
       const countryCode = method.countryCode || method.details?.countryCode || "Unknown";
       const currencyCode = method.currencyCode || method.details?.currencyCode || "Unknown";
 
-      // Get bank name from XE recipient data if available
+      // Get bank name from bank transfer recipient data if available
       let bankName = "Unknown Bank";
       if (method.xeRecipients && method.xeRecipients.length > 0) {
-        const xeRecipient = method.xeRecipients[0]; // Get the first (most recent) XE recipient
+        const xeRecipient = method.xeRecipients[0]; // Get the first (most recent) bank transfer recipient
         if (xeRecipient.payoutMethod?.bank?.account?.accountName) {
           bankName = xeRecipient.payoutMethod.bank.account.accountName;
         }
       } else if (method.bankDetails?.bankName || method.details?.bankDetails?.bankName) {
-        // Fallback to bankDetails if XE recipient data is not available
+        // Fallback to bankDetails if bank transfer recipient data is not available
         bankName = method.bankDetails?.bankName || method.details?.bankDetails?.bankName;
       }
 
@@ -301,8 +301,8 @@ const PaymentMethodsManager = () => {
           </h2>
           <p className="text-sm text-gray-600 mt-1">
             {selectedMethod
-              ? "Review and update your bank account details. Changes will trigger re-verification with XE."
-              : "Enter your bank account details for international transfers via XE."}
+              ? "Review and update your bank account details. Changes will trigger re-verification with bank transfer system."
+              : "Enter your bank account details for international transfers via bank transfer."}
           </p>
         </div>
         <BankDetailsForm
@@ -347,7 +347,7 @@ const PaymentMethodsManager = () => {
             // Check for payment method approval status
             const isVerified = method.approved === true;
 
-            // Check for XE API errors stored in the payment method
+            // Check for bank transfer API errors stored in the payment method
             const hasXeError = !!(method.xeError?.message && !isVerified);
             const hasLegacyError = !!((method.details?.xeRecipientError || method.xeRecipientError) && !isVerified);
             const hasError = hasXeError || hasLegacyError;
@@ -569,7 +569,7 @@ const PaymentMethodsManager = () => {
           <div>
             <h4 className="text-sm font-medium text-blue-900 mb-1">Bank Account Information</h4>
             <div className="text-sm text-blue-800 space-y-1">
-              <p>• Bank accounts are verified through XE secure payment system</p>
+              <p>• Bank accounts are verified through secure payment system</p>
               <p>• Different countries require different banking information (routing numbers, IFSC codes, etc.)</p>
               <p>• All bank details are encrypted and stored securely</p>
               <p>• Payment processing typically takes 2-5 business days</p>
@@ -705,7 +705,7 @@ const PaymentMethodsManager = () => {
                             )}
                             {selectedMethod.xeError.failureDateTime && (
                               <div className="col-span-2">
-                                <span className="font-medium">XE Error Time:</span>{" "}
+                                <span className="font-medium">Bank Transfer Error Time:</span>{" "}
                                 {new Date(selectedMethod.xeError.failureDateTime).toLocaleString()}
                               </div>
                             )}
@@ -803,7 +803,7 @@ const PaymentMethodsManager = () => {
 
                         // Custom field labels for better display
                         const fieldLabels = {
-                          xeBankName: "Bank Name (XE)",
+                          xeBankName: "Bank Name (Bank Transfer)",
                           bankName: "Bank Name",
                           accountType: "Account Type",
                           accountNumber: "Account Number",
@@ -813,7 +813,7 @@ const PaymentMethodsManager = () => {
                           location: "Bank Location",
                         };
 
-                        // Get bank name from XE recipient data if available
+                        // Get bank name from bank transfer recipient data if available
                         let xeBankName = null;
                         if (selectedMethod.xeRecipients && selectedMethod.xeRecipients.length > 0) {
                           const xeRecipient = selectedMethod.xeRecipients[0];
@@ -822,7 +822,7 @@ const PaymentMethodsManager = () => {
                           }
                         }
 
-                        // Show bank name first if available (prioritize XE recipient data)
+                        // Show bank name first if available (prioritize bank transfer recipient data)
                         const displayOrder = [
                           "bankName",
                           "accountType",
@@ -837,7 +837,7 @@ const PaymentMethodsManager = () => {
                           .map((key) => [key, bank[key]])
                           .concat(Object.entries(bank).filter(([key]) => !displayOrder.includes(key)));
 
-                        // Add XE recipient bank name at the beginning if available
+                        // Add bank transfer recipient bank name at the beginning if available
                         if (xeBankName && !bank.bankName) {
                           orderedEntries.unshift(["xeBankName", xeBankName]);
                         }
@@ -855,13 +855,13 @@ const PaymentMethodsManager = () => {
                   </div>
                 )}
 
-                {/* XE Recipient Information - Success */}
+                {/* Bank Transfer Recipient Information - Success */}
                 {(selectedMethod.details?.xeRecipientId ||
                   selectedMethod.xeRecipientId ||
                   selectedMethod.details?.xeRecipientDocId) && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-gray-900">XE Recipient Information</h4>
+                      <h4 className="font-medium text-gray-900">Bank Transfer Recipient Information</h4>
                       <div className="flex items-center gap-2">
                         <svg className="h-5 w-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
                           <path
@@ -877,7 +877,7 @@ const PaymentMethodsManager = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-gray-500">XE Recipient ID:</span>
+                        <span className="text-gray-500">Bank Transfer Recipient ID:</span>
                         <span className="ml-2 font-medium font-mono text-xs">
                           {selectedMethod.details?.xeRecipientId || selectedMethod.xeRecipientId || "N/A"}
                         </span>
@@ -902,7 +902,7 @@ const PaymentMethodsManager = () => {
                       </div>
                       <div>
                         <span className="text-gray-500">Integration:</span>
-                        <span className="ml-2 font-medium">XE Money Transfer</span>
+                        <span className="ml-2 font-medium">Bank Transfer</span>
                       </div>
                     </div>
                     <div className="mt-3 p-3 bg-green-100 rounded text-xs text-green-800">
@@ -914,13 +914,14 @@ const PaymentMethodsManager = () => {
                             clipRule="evenodd"
                           />
                         </svg>
-                        ✅ This payment method is verified and ready to receive international payments through XE.
+                        ✅ This payment method is verified and ready to receive international payments through bank
+                        transfer.
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* XE Recipient Error Information */}
+                {/* Bank Transfer Recipient Error Information */}
                 {(selectedMethod.details?.xeRecipientError || selectedMethod.xeRecipientError) &&
                   !(
                     selectedMethod.details?.xeRecipientId ||
@@ -928,7 +929,7 @@ const PaymentMethodsManager = () => {
                     selectedMethod.details?.xeRecipientDocId
                   ) && (
                     <div className="bg-red-50 rounded-lg p-4">
-                      <h4 className="font-medium text-gray-900 mb-3">XE Integration Status</h4>
+                      <h4 className="font-medium text-gray-900 mb-3">Bank Transfer Integration Status</h4>
                       <div className="text-sm">
                         <div className="mb-2">
                           <span className="text-gray-500">Status:</span>
@@ -1004,7 +1005,9 @@ const PaymentMethodsManager = () => {
                                   clipRule="evenodd"
                                 />
                               </svg>
-                              <span>XE recipient creation failed. You can edit details or retry verification.</span>
+                              <span>
+                                Bank transfer recipient creation failed. You can edit details or retry verification.
+                              </span>
                             </div>
                             <button
                               onClick={() => {

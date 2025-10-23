@@ -264,7 +264,7 @@ const PaymentsPage = () => {
                     >
                       <span className="text-purple-600">🎁</span>
                       <div>
-                        <div className="font-medium text-gray-900">Giftogram</div>
+                        <div className="font-medium text-gray-900">Gift Cards</div>
                         <div className="text-sm text-gray-500">Withdraw as gift card</div>
                       </div>
                     </button>
@@ -277,7 +277,7 @@ const PaymentsPage = () => {
                       >
                         <span className="text-green-600">🏦</span>
                         <div>
-                          <div className="font-medium text-gray-900">XE Bank Transfer</div>
+                          <div className="font-medium text-gray-900">Bank Transfer</div>
                           <div className="text-sm text-gray-500">Withdraw to approved bank account</div>
                         </div>
                       </button>
@@ -423,6 +423,9 @@ const PaymentsPage = () => {
                             {transaction.type === "paypal_withdrawal" && transaction.recipientEmail && (
                               <p className="text-xs text-indigo-600">PayPal sent to: {transaction.recipientEmail}</p>
                             )}
+                            {transaction.type === "xe_withdrawal" && (
+                              <p className="text-xs text-green-600">Bank transfer withdrawal</p>
+                            )}
                           </div>
                         </td>
                         <td className="py-3 px-4">
@@ -435,6 +438,8 @@ const PaymentsPage = () => {
                               ? "GIFT CARD"
                               : transaction.type === "paypal_withdrawal"
                               ? "PAYPAL"
+                              : transaction.type === "xe_withdrawal"
+                              ? "BANK TRANSFER"
                               : transaction.type.replace("_", " ").toUpperCase()}
                           </span>
                         </td>
