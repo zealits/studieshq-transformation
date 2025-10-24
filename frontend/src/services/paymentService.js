@@ -129,7 +129,7 @@ class PaymentService {
   }
 
   /**
-   * Proceed with XE withdrawal (create payment and approve)
+   * Proceed with XE withdrawal (create payment contract - no auto approval)
    * @param {string} paymentMethodId - Payment method ID
    * @param {Object} withdrawalData - Withdrawal data
    * @param {number} withdrawalData.amount - Withdrawal amount in USD
@@ -145,7 +145,7 @@ class PaymentService {
         purpose: withdrawalData.purpose || "Freelance Payment",
       });
 
-      console.log("💳 PAYMENT SERVICE: ✅ XE withdrawal processed successfully");
+      console.log("💳 PAYMENT SERVICE: ✅ XE withdrawal contract created successfully");
 
       return response.data;
     } catch (error) {
@@ -156,6 +156,80 @@ class PaymentService {
       }
 
       throw new Error("Network error while processing XE withdrawal");
+    }
+  }
+
+  /**
+   * Approve XE withdrawal contract
+   * @param {string} transactionId - Transaction ID
+   * @returns {Promise<Object>} API response with approval result
+   */
+  async approveXeWithdrawal(transactionId) {
+    try {
+      console.log("💳 PAYMENT SERVICE: Approving XE withdrawal:", transactionId);
+
+      const response = await api.post(`/api/payments/bank/withdraw/approve/${transactionId}`);
+
+      console.log("💳 PAYMENT SERVICE: ✅ XE withdrawal approved successfully");
+
+      return response.data;
+    } catch (error) {
+      console.error("💳 PAYMENT SERVICE: ❌ Error approving XE withdrawal:", error);
+
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+
+      throw new Error("Network error while approving XE withdrawal");
+    }
+  }
+
+  /**
+   * Cancel XE withdrawal contract
+   * @param {string} transactionId - Transaction ID
+   * @returns {Promise<Object>} API response with cancellation result
+   */
+  async cancelXeWithdrawal(transactionId) {
+    try {
+      console.log("💳 PAYMENT SERVICE: Cancelling XE withdrawal:", transactionId);
+
+      const response = await api.post(`/api/payments/bank/withdraw/cancel/${transactionId}`);
+
+      console.log("💳 PAYMENT SERVICE: ✅ XE withdrawal cancelled successfully");
+
+      return response.data;
+    } catch (error) {
+      console.error("💳 PAYMENT SERVICE: ❌ Error cancelling XE withdrawal:", error);
+
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+
+      throw new Error("Network error while cancelling XE withdrawal");
+    }
+  }
+
+  /**
+   * Auto-cancel expired XE withdrawal contracts
+   * @returns {Promise<Object>} API response with auto-cancellation result
+   */
+  async autoCancelExpiredContracts() {
+    try {
+      console.log("💳 PAYMENT SERVICE: Auto-cancelling expired contracts...");
+
+      const response = await api.post("/api/payments/bank/withdraw/auto-cancel-expired");
+
+      console.log("💳 PAYMENT SERVICE: ✅ Expired contracts auto-cancelled successfully");
+
+      return response.data;
+    } catch (error) {
+      console.error("💳 PAYMENT SERVICE: ❌ Error auto-cancelling expired contracts:", error);
+
+      if (error.response?.data) {
+        throw error.response.data;
+      }
+
+      throw new Error("Network error while auto-cancelling expired contracts");
     }
   }
 }

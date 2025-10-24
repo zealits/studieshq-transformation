@@ -16,12 +16,31 @@ exports.getPaymentMethods = async (req, res) => {
   try {
     const paymentMethods = await PaymentMethod.find({ user: req.user.id });
 
+    // Populate xeRecipients for each payment method
+    const paymentMethodsWithXeRecipients = await Promise.all(
+      paymentMethods.map(async (method) => {
+        const methodObj = method.toObject();
+
+        // Find XE recipients for this payment method
+        const xeRecipients = await XeRecipient.find({
+          paymentMethod: method._id,
+          status: "active",
+        });
+
+        // Add xeRecipients to the method object
+        methodObj.xeRecipients = xeRecipients;
+
+        return methodObj;
+      })
+    );
+
     res.status(200).json({
       success: true,
-      count: paymentMethods.length,
-      data: paymentMethods,
+      count: paymentMethodsWithXeRecipients.length,
+      data: paymentMethodsWithXeRecipients,
     });
   } catch (error) {
+    console.error("Error fetching payment methods:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -2622,7 +2641,7 @@ exports.getXeFxQuotation = async (req, res) => {
   }
 };
 
-// Proceed with XE withdrawal
+// Proceed with XE withdrawal - Modified to skip quotation and create contract directly
 exports.proceedXeWithdrawal = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -2680,25 +2699,7 @@ exports.proceedXeWithdrawal = async (req, res) => {
       });
     }
 
-    // Get FX quotation
-    const countryCode = xeApiService.getCountryCodeFromCurrency(xeRecipient.currency);
-    const quotationResult = await xeApiService.getFxQuotation(
-      amount,
-      paymentMethod.currencyCode,
-      countryCode,
-      xeRecipient.xeRecipientId
-    );
-
-    if (!quotationResult.success) {
-      await session.abortTransaction();
-      return res.status(500).json({
-        success: false,
-        message: "Failed to get FX quotation for withdrawal",
-        error: quotationResult.error,
-      });
-    }
-
-    // Create XE payment
+    // Create XE payment directly (skip quotation step)
     const paymentResult = await xeApiService.createPayment({
       amount: amount,
       sourceCurrency: paymentMethod.currencyCode,
@@ -2706,7 +2707,6 @@ exports.proceedXeWithdrawal = async (req, res) => {
       recipientId: xeRecipient.xeRecipientId,
       clientReference: `shq${req.user.id.slice(-6)}${Date.now().toString().slice(-8)}`,
       purpose: purpose || "Withdrawal from StudiesHQ",
-      quotationId: quotationResult.quotation?.id,
     });
 
     if (!paymentResult.success) {
@@ -2718,45 +2718,24 @@ exports.proceedXeWithdrawal = async (req, res) => {
       });
     }
 
-    // Approve the contract if we have a contract number
-    let contractApprovalResult = null;
-    if (paymentResult.contractNumber) {
-      console.log(`🏦 PAYMENT CONTROLLER: Approving contract ${paymentResult.contractNumber}...`);
-      contractApprovalResult = await xeApiService.approveContract(paymentResult.contractNumber);
-
-      if (!contractApprovalResult.success) {
-        console.error(`🏦 PAYMENT CONTROLLER: Failed to approve contract:`, contractApprovalResult.error);
-        // Note: We don't abort the transaction here as the payment was created successfully
-        // The contract can be approved later manually if needed
-      } else {
-        console.log(`🏦 PAYMENT CONTROLLER: ✅ Contract approved successfully`);
-      }
-    }
-
-    // Deduct amount from wallet
-    wallet.balance -= amount;
-    await wallet.save({ session });
-
-    // Create transaction record
+    // Create transaction record (but don't deduct from wallet yet - wait for approval)
     const transactionId = `XE-${uuidv4().substring(0, 8)}`;
     const transaction = new Transaction({
       transactionId,
       user: req.user.id,
       amount: -amount, // Negative for withdrawal
       type: "xe_withdrawal",
-      status: "pending", // XE payments typically start as pending
-      description: `XE withdrawal to ${xeRecipient.currency}`,
+      status: "pending_approval", // New status for manual approval
+      description: `XE withdrawal to ${xeRecipient.currency} - Pending approval`,
       metadata: {
         xePaymentId: paymentResult.payment?.id,
         xeRecipientId: xeRecipient.xeRecipientId,
         contractNumber: paymentResult.contractNumber,
-        contractApproved: contractApprovalResult?.success || false,
-        contractApprovalError: contractApprovalResult?.error || null,
+        quoteExpires: paymentResult.quoteExpires,
         sourceCurrency: paymentMethod.currencyCode,
         targetCurrency: xeRecipient.currency,
-        exchangeRate: quotationResult.quotation?.rate,
-        targetAmount: quotationResult.quotation?.targetAmount,
         purpose: purpose || "Withdrawal from StudiesHQ",
+        requiresManualApproval: true,
       },
     });
 
@@ -2765,27 +2744,33 @@ exports.proceedXeWithdrawal = async (req, res) => {
 
     res.json({
       success: true,
-      message: "XE withdrawal initiated successfully",
+      message: "XE withdrawal contract created successfully - awaiting approval",
       data: {
         transaction: {
           id: transaction._id,
           transactionId,
           amount,
           type: "xe_withdrawal",
-          status: "pending",
+          status: "pending_approval",
           xePayment: {
             id: paymentResult.payment?.id,
             status: paymentResult.payment?.status,
             contractNumber: paymentResult.contractNumber,
-            contractApproved: contractApprovalResult?.success || false,
-            contractApprovalError: contractApprovalResult?.error || null,
-            targetAmount: quotationResult.quotation?.targetAmount,
+            quoteExpires: paymentResult.quoteExpires,
             targetCurrency: xeRecipient.currency,
-            exchangeRate: quotationResult.quotation?.rate,
+            requiresManualApproval: true,
+            // Include complete XE payment response for FX details
+            quote: paymentResult.payment?.quote,
+            summary: paymentResult.payment?.summary,
+            settlementOptions: paymentResult.payment?.settlementOptions,
+            deliveryMethod: paymentResult.payment?.deliveryMethod,
+            settlementStatus: paymentResult.payment?.settlementStatus,
+            quoteStatus: paymentResult.payment?.quoteStatus,
+            contractType: paymentResult.payment?.contractType,
           },
           createdAt: transaction.createdAt,
         },
-        newBalance: wallet.balance,
+        currentBalance: wallet.balance, // Don't change balance yet
       },
     });
   } catch (error) {
@@ -2797,5 +2782,395 @@ exports.proceedXeWithdrawal = async (req, res) => {
     });
   } finally {
     session.endSession();
+  }
+};
+
+// Approve XE withdrawal contract
+exports.approveXeWithdrawal = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { transactionId } = req.params;
+
+    // Find the transaction
+    const transaction = await Transaction.findOne({
+      _id: transactionId,
+      user: req.user.id,
+      type: "xe_withdrawal",
+      status: "pending_approval",
+    }).session(session);
+
+    if (!transaction) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        message: "Pending XE withdrawal not found",
+      });
+    }
+
+    const contractNumber = transaction.metadata?.contractNumber;
+    if (!contractNumber) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Contract number not found in transaction",
+      });
+    }
+
+    // Check if quote has expired
+    const quoteExpires = transaction.metadata?.quoteExpires;
+    if (quoteExpires && new Date() > new Date(quoteExpires)) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Quote has expired. Please create a new withdrawal request.",
+        expiredAt: quoteExpires,
+      });
+    }
+
+    // Approve the contract
+    console.log(`🏦 PAYMENT CONTROLLER: Approving contract ${contractNumber}...`);
+    const approvalResult = await xeApiService.approveContract(contractNumber);
+
+    if (!approvalResult.success) {
+      await session.abortTransaction();
+      return res.status(500).json({
+        success: false,
+        message: "Failed to approve contract",
+        error: approvalResult.error,
+      });
+    }
+
+    // Deduct amount from wallet
+    const wallet = await Wallet.findOne({ user: req.user.id }).session(session);
+    if (!wallet) {
+      await session.abortTransaction();
+      return res.status(404).json({
+        success: false,
+        message: "Wallet not found",
+      });
+    }
+
+    if (wallet.balance < Math.abs(transaction.amount)) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient balance for withdrawal",
+        data: {
+          availableBalance: wallet.balance,
+          requiredAmount: Math.abs(transaction.amount),
+        },
+      });
+    }
+
+    wallet.balance -= Math.abs(transaction.amount);
+    await wallet.save({ session });
+
+    // Update transaction status
+    transaction.status = "completed";
+    transaction.description = transaction.description.replace("Pending approval", "Approved and completed");
+    transaction.metadata.contractApproved = true;
+    transaction.metadata.approvedAt = new Date().toISOString();
+    transaction.metadata.approvalResponse = approvalResult.contract;
+
+    await transaction.save({ session });
+    await session.commitTransaction();
+
+    res.json({
+      success: true,
+      message: "XE withdrawal approved and completed successfully",
+      data: {
+        transaction: {
+          id: transaction._id,
+          transactionId: transaction.transactionId,
+          amount: Math.abs(transaction.amount),
+          type: "xe_withdrawal",
+          status: "completed",
+          contractNumber: contractNumber,
+          approvedAt: transaction.metadata.approvedAt,
+        },
+        newBalance: wallet.balance,
+      },
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("🏦 PAYMENT CONTROLLER: Error approving XE withdrawal:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while approving XE withdrawal",
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+// Cancel XE withdrawal contract
+exports.cancelXeWithdrawal = async (req, res) => {
+  const maxRetries = 3;
+  let retryCount = 0;
+
+  while (retryCount < maxRetries) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      const { transactionId } = req.params;
+
+      // Find the transaction
+      const transaction = await Transaction.findOne({
+        _id: transactionId,
+        user: req.user.id,
+        type: "xe_withdrawal",
+        status: "pending_approval",
+      }).session(session);
+
+      if (!transaction) {
+        await session.abortTransaction();
+        return res.status(404).json({
+          success: false,
+          message: "Pending XE withdrawal not found",
+        });
+      }
+
+      const contractNumber = transaction.metadata?.contractNumber;
+      if (!contractNumber) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: "Contract number not found in transaction",
+        });
+      }
+
+      // Cancel the contract
+      console.log(`🏦 PAYMENT CONTROLLER: Cancelling contract ${contractNumber}...`);
+      const cancelResult = await xeApiService.cancelContract(contractNumber);
+
+      if (!cancelResult.success) {
+        await session.abortTransaction();
+        return res.status(500).json({
+          success: false,
+          message: "Failed to cancel contract",
+          error: cancelResult.error,
+        });
+      }
+
+      // Update transaction status
+      transaction.status = "cancelled";
+      transaction.description = transaction.description.replace("Pending approval", "Cancelled by user");
+      transaction.metadata.contractCancelled = true;
+      transaction.metadata.cancelledAt = new Date().toISOString();
+      transaction.metadata.cancellationResponse = cancelResult;
+
+      await transaction.save({ session });
+      await session.commitTransaction();
+
+      res.json({
+        success: true,
+        message: "XE withdrawal cancelled successfully",
+        data: {
+          transaction: {
+            id: transaction._id,
+            transactionId: transaction.transactionId,
+            amount: Math.abs(transaction.amount),
+            type: "xe_withdrawal",
+            status: "cancelled",
+            contractNumber: contractNumber,
+            cancelledAt: transaction.metadata.cancelledAt,
+          },
+        },
+      });
+      return; // Success, exit the retry loop
+    } catch (error) {
+      await session.abortTransaction();
+
+      // Check if it's a write conflict error
+      if (error.code === 112 && error.codeName === "WriteConflict") {
+        retryCount++;
+        console.log(`🏦 PAYMENT CONTROLLER: Write conflict detected, retrying... (${retryCount}/${maxRetries})`);
+
+        if (retryCount < maxRetries) {
+          // Wait a bit before retrying
+          await new Promise((resolve) => setTimeout(resolve, 100 * retryCount));
+          continue;
+        }
+      }
+
+      console.error("🏦 PAYMENT CONTROLLER: Error cancelling XE withdrawal:", error);
+      res.status(500).json({
+        success: false,
+        message: "Server error while cancelling XE withdrawal",
+      });
+      return;
+    } finally {
+      session.endSession();
+    }
+  }
+};
+
+// Handle auto-cancel from page refresh/close events (sendBeacon)
+exports.handleAutoCancelFromBeacon = async (req, res) => {
+  try {
+    const { transactionId, reason } = req.body;
+
+    if (!transactionId) {
+      return res.status(400).json({
+        success: false,
+        message: "Transaction ID is required",
+      });
+    }
+
+    console.log(`🏦 PAYMENT CONTROLLER: Auto-cancelling contract ${transactionId} due to: ${reason}`);
+
+    // Find the transaction
+    const transaction = await Transaction.findOne({
+      _id: transactionId,
+      type: "xe_withdrawal",
+      status: "pending_approval",
+    });
+
+    if (!transaction) {
+      console.log(`🏦 PAYMENT CONTROLLER: Transaction ${transactionId} not found or already processed`);
+      return res.status(404).json({
+        success: false,
+        message: "Transaction not found or already processed",
+      });
+    }
+
+    const contractNumber = transaction.metadata?.contractNumber;
+    if (!contractNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "Contract number not found in transaction",
+      });
+    }
+
+    // Cancel the contract
+    const cancelResult = await xeApiService.cancelContract(contractNumber);
+
+    if (!cancelResult.success) {
+      console.error(`🏦 PAYMENT CONTROLLER: Failed to cancel contract ${contractNumber}:`, cancelResult.error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to cancel contract",
+        error: cancelResult.error,
+      });
+    }
+
+    // Update transaction status
+    transaction.status = "cancelled";
+    transaction.description = transaction.description.replace("Pending approval", `Auto-cancelled due to ${reason}`);
+    transaction.metadata.contractCancelled = true;
+    transaction.metadata.cancelledAt = new Date().toISOString();
+    transaction.metadata.cancellationResponse = cancelResult;
+    transaction.metadata.autoCancelledReason = reason;
+
+    await transaction.save();
+
+    console.log(`🏦 PAYMENT CONTROLLER: ✅ Contract ${contractNumber} auto-cancelled successfully due to: ${reason}`);
+
+    res.json({
+      success: true,
+      message: "Contract auto-cancelled successfully",
+      data: {
+        transactionId: transaction._id,
+        contractNumber: contractNumber,
+        reason: reason,
+        cancelledAt: transaction.metadata.cancelledAt,
+      },
+    });
+  } catch (error) {
+    console.error("🏦 PAYMENT CONTROLLER: Error in auto-cancel from beacon:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while auto-cancelling contract",
+    });
+  }
+};
+
+// Auto-cancel expired XE withdrawal contracts
+exports.autoCancelExpiredContracts = async (req, res) => {
+  try {
+    console.log("🏦 PAYMENT CONTROLLER: Checking for expired XE withdrawal contracts...");
+
+    // Find all pending approval transactions that might be expired
+    const pendingTransactions = await Transaction.find({
+      type: "xe_withdrawal",
+      status: "pending_approval",
+      "metadata.quoteExpires": { $exists: true },
+    });
+
+    const now = new Date();
+    const expiredTransactions = [];
+    const cancelledTransactions = [];
+
+    for (const transaction of pendingTransactions) {
+      const quoteExpires = new Date(transaction.metadata.quoteExpires);
+
+      if (now > quoteExpires) {
+        console.log(
+          `🏦 PAYMENT CONTROLLER: Found expired transaction ${transaction.transactionId}, contract ${transaction.metadata.contractNumber}`
+        );
+        expiredTransactions.push(transaction);
+
+        // Cancel the contract
+        const contractNumber = transaction.metadata.contractNumber;
+        if (contractNumber) {
+          const cancelResult = await xeApiService.cancelContract(contractNumber);
+
+          if (cancelResult.success) {
+            // Update transaction status
+            transaction.status = "cancelled";
+            transaction.description = transaction.description.replace(
+              "Pending approval",
+              "Auto-cancelled due to expiration"
+            );
+            transaction.metadata.contractCancelled = true;
+            transaction.metadata.cancelledAt = new Date().toISOString();
+            transaction.metadata.cancellationResponse = cancelResult;
+            transaction.metadata.autoCancelled = true;
+            transaction.metadata.expiredAt = quoteExpires;
+
+            await transaction.save();
+            cancelledTransactions.push(transaction);
+
+            console.log(`🏦 PAYMENT CONTROLLER: ✅ Auto-cancelled expired contract ${contractNumber}`);
+          } else {
+            console.error(
+              `🏦 PAYMENT CONTROLLER: ❌ Failed to auto-cancel contract ${contractNumber}:`,
+              cancelResult.error
+            );
+          }
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "Expired contracts check completed",
+      data: {
+        totalChecked: pendingTransactions.length,
+        expiredFound: expiredTransactions.length,
+        successfullyCancelled: cancelledTransactions.length,
+        expiredTransactions: expiredTransactions.map((t) => ({
+          id: t._id,
+          transactionId: t.transactionId,
+          contractNumber: t.metadata.contractNumber,
+          expiredAt: t.metadata.quoteExpires,
+        })),
+        cancelledTransactions: cancelledTransactions.map((t) => ({
+          id: t._id,
+          transactionId: t.transactionId,
+          contractNumber: t.metadata.contractNumber,
+          cancelledAt: t.metadata.cancelledAt,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("🏦 PAYMENT CONTROLLER: Error auto-cancelling expired contracts:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while auto-cancelling expired contracts",
+    });
   }
 };

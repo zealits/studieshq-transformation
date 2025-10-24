@@ -136,6 +136,16 @@ const PaymentsPage = () => {
     }
   };
 
+  const handleXeWithdrawal = async (withdrawalData) => {
+    try {
+      // Reload data after successful XE withdrawal
+      const response = await escrowService.getFreelancerEscrowData();
+      setEscrowData(response.data);
+    } catch (error) {
+      console.error("Error reloading data after XE withdrawal:", error);
+    }
+  };
+
   const handleWithdrawalMethodSelect = (method) => {
     setShowWithdrawalDropdown(false);
     if (method === "paypal") {
@@ -518,6 +528,8 @@ const PaymentsPage = () => {
           setShowXeModal(false);
         }}
         approvedPaymentMethods={paymentMethods}
+        availableBalance={escrowData?.availableBalance || 0}
+        onWithdrawalSuccess={handleXeWithdrawal}
       />
     </div>
   );

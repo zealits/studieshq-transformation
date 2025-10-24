@@ -158,7 +158,7 @@ const TransactionSchema = new Schema({
   },
   status: {
     type: String,
-    enum: ["pending", "completed", "failed", "disputed"],
+    enum: ["pending", "pending_approval", "completed", "failed", "disputed", "cancelled"],
     default: "pending",
   },
   paymentMethod: {

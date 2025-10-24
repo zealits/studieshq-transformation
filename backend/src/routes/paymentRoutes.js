@@ -769,7 +769,7 @@ router.post(
 );
 
 // @route   POST /api/payments/bank/xe-withdraw/:paymentMethodId
-// @desc    Proceed with XE withdrawal (create payment and approve)
+// @desc    Proceed with XE withdrawal (create payment contract - no auto approval)
 // @access  Private
 router.post(
   "/bank/xe-withdraw/:paymentMethodId",
@@ -781,6 +781,41 @@ router.post(
     ],
   ],
   paymentController.proceedXeWithdrawal
+);
+
+// @route   POST /api/payments/bank/withdraw/approve/:transactionId
+// @desc    Approve XE withdrawal contract
+// @access  Private
+router.post(
+  "/bank/withdraw/approve/:transactionId",
+  auth,
+  checkRole(["freelancer"]),
+  paymentController.approveXeWithdrawal
+);
+
+// @route   POST /api/payments/bank/withdraw/cancel/:transactionId
+// @desc    Cancel XE withdrawal contract
+// @access  Private
+router.post(
+  "/bank/withdraw/cancel/:transactionId",
+  auth,
+  checkRole(["freelancer"]),
+  paymentController.cancelXeWithdrawal
+);
+
+// @route   POST /api/payments/cancel-xe-withdrawal
+// @desc    Handle auto-cancel from page refresh/close events (sendBeacon)
+// @access  Public (for sendBeacon reliability)
+router.post("/cancel-xe-withdrawal", paymentController.handleAutoCancelFromBeacon);
+
+// @route   POST /api/payments/bank/withdraw/auto-cancel-expired
+// @desc    Auto-cancel expired XE withdrawal contracts
+// @access  Private (Admin/Freelancer)
+router.post(
+  "/bank/withdraw/auto-cancel-expired",
+  auth,
+  checkRole(["admin", "freelancer"]),
+  paymentController.autoCancelExpiredContracts
 );
 
 module.exports = router;

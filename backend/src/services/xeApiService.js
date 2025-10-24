@@ -630,6 +630,9 @@ class XeApiService {
 
       console.log("🏦 XE API SERVICE: Using client reference:", uniqueClientReference);
 
+      // Determine purpose of payment code based on currency
+      const purposeOfPaymentCode = buyCurrency === "INR" ? "CORP_INR_UTILTY" : "CORP_INVOICE";
+
       const paymentPayload = {
         payments: [
           {
@@ -641,7 +644,7 @@ class XeApiService {
             buyAmount: {
               currency: buyCurrency,
             },
-            purpose: purpose,
+            purposeOfPaymentCode: purposeOfPaymentCode,
             recipient: {
               recipientId: {
                 xeRecipientId: xeRecipientId,
@@ -653,7 +656,7 @@ class XeApiService {
         ],
         autoApprove: false,
         settlementDetails: {
-          settlementMethod: "BankTransfer",
+          settlementMethod: "DirectDebit",
           bankAccountId: process.env.XE_BANK_ACCOUNT_ID || 123456,
         },
       };
@@ -767,6 +770,78 @@ class XeApiService {
       if (error.response?.data) {
         console.log(
           "🏦 XE API SERVICE: Contract approval raw error response:",
+          JSON.stringify(error.response.data, null, 2)
+        );
+
+        // Handle XE API error format
+        const errorData = error.response.data;
+
+        if (errorData.longErrorMsg) {
+          errorMessage = errorData.longErrorMsg;
+        } else if (errorData.shortErrorMsg) {
+          errorMessage = errorData.shortErrorMsg;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+
+        structuredError = errorData;
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+        details: structuredError || error.response?.data || null,
+        statusCode: error.response?.status,
+      };
+    }
+  }
+
+  /**
+   * Cancel a payment contract
+   * @param {string} contractNumber - Contract number to cancel
+   * @returns {Promise<Object>} Contract cancellation response
+   */
+  async cancelContract(contractNumber) {
+    try {
+      console.log(`🏦 XE API SERVICE: Cancelling contract ${contractNumber}...`);
+
+      const accessToken = await this.getValidAccessToken();
+
+      if (!accessToken) {
+        return {
+          success: false,
+          error: "Failed to get access token",
+        };
+      }
+
+      const response = await axios.delete(`${this.baseURL}/v2/contracts/${contractNumber}`, {
+        headers: {
+          accept: "*/*",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      console.log("🏦 XE API SERVICE: ✅ Contract cancelled successfully:", {
+        status: response.status,
+        statusText: response.statusText,
+      });
+
+      return {
+        success: true,
+        status: response.status,
+        statusText: response.statusText,
+        contractNumber: contractNumber,
+      };
+    } catch (error) {
+      console.error("🏦 XE API SERVICE: ❌ Error cancelling contract:", error.response?.data || error.message);
+
+      // Handle structured XE API error response
+      let structuredError = null;
+      let errorMessage = error.message;
+
+      if (error.response?.data) {
+        console.log(
+          "🏦 XE API SERVICE: Contract cancellation raw error response:",
           JSON.stringify(error.response.data, null, 2)
         );
 
