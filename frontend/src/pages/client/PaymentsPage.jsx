@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import escrowService from "../../services/escrowService";
 import { useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import AddFundsModal from "../../components/payments/AddFundsModal";
 import PayPalWithdrawModal from "../../components/payments/PayPalWithdrawModal";
+import XeWithdrawModal from "../../components/payments/XeWithdrawModal";
+import PaymentMethodsManager from "../../components/payments/PaymentMethodsManager";
+import paymentService from "../../services/paymentService";
 
 const PaymentsPage = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -11,7 +14,26 @@ const PaymentsPage = () => {
   const [escrowData, setEscrowData] = useState(null);
   const [showAddFundsModal, setShowAddFundsModal] = useState(false);
   const [showPayPalModal, setShowPayPalModal] = useState(false);
+  const [showXeModal, setShowXeModal] = useState(false);
+  const [showWithdrawalDropdown, setShowWithdrawalDropdown] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const dropdownRef = useRef(null);
   const { user } = useSelector((state) => state.auth);
+
+  // Load payment methods
+  const loadPaymentMethods = async () => {
+    try {
+      console.log("🖥️ CLIENT PAYMENTS PAGE: Loading payment methods...");
+      const response = await paymentService.getPaymentMethods();
+      if (response.success) {
+        setPaymentMethods(response.data || []);
+        console.log("🖥️ CLIENT PAYMENTS PAGE: ✅ Payment methods loaded:", response.data?.length || 0);
+      }
+    } catch (error) {
+      console.error("🖥️ CLIENT PAYMENTS PAGE: ❌ Error loading payment methods:", error);
+      setPaymentMethods([]);
+    }
+  };
 
   // Load real escrow and transaction data
   const loadData = async () => {
@@ -44,8 +66,23 @@ const PaymentsPage = () => {
   useEffect(() => {
     if (user) {
       loadData();
+      loadPaymentMethods();
     }
   }, [user]);
+
+  // Handle click outside dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowWithdrawalDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Auto-refresh payment data every 30 seconds to catch updates
   // useEffect(() => {
@@ -83,6 +120,25 @@ const PaymentsPage = () => {
       setEscrowData(response.data);
     } catch (error) {
       console.error("Error reloading data after PayPal withdrawal:", error);
+    }
+  };
+
+  const handleXeWithdrawal = async (withdrawalData) => {
+    try {
+      // Reload data after successful XE withdrawal
+      const response = await escrowService.getClientEscrowData();
+      setEscrowData(response.data);
+    } catch (error) {
+      console.error("Error reloading data after XE withdrawal:", error);
+    }
+  };
+
+  const handleWithdrawalMethodSelect = (method) => {
+    setShowWithdrawalDropdown(false);
+    if (method === "paypal") {
+      setShowPayPalModal(true);
+    } else if (method === "xe") {
+      setShowXeModal(true);
     }
   };
 
@@ -166,13 +222,52 @@ const PaymentsPage = () => {
             <button className="btn-primary" onClick={() => setShowAddFundsModal(true)}>
               Add Funds
             </button>
-            <button
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors flex items-center"
-              onClick={() => setShowPayPalModal(true)}
-              disabled={!escrowData?.availableBalance || escrowData.availableBalance <= 0}
-            >
-              💰 Withdraw via PayPal
-            </button>
+            <div className="relative" ref={dropdownRef}>
+              <button
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors flex items-center gap-2"
+                onClick={() => setShowWithdrawalDropdown(!showWithdrawalDropdown)}
+                disabled={!escrowData?.availableBalance || escrowData.availableBalance <= 0}
+              >
+                💰 Withdraw
+                <svg
+                  className={`w-4 h-4 transition-transform ${showWithdrawalDropdown ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showWithdrawalDropdown && (
+                <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+                  <button
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                    onClick={() => handleWithdrawalMethodSelect("paypal")}
+                  >
+                    <span className="text-indigo-600">💰</span>
+                    <div>
+                      <div className="font-medium text-gray-900">PayPal</div>
+                      <div className="text-sm text-gray-500">Withdraw to PayPal account</div>
+                    </div>
+                  </button>
+                  {paymentMethods.filter(
+                    (method) => method.type === "bank" && method.provider === "xe" && method.approved === true
+                  ).length > 0 && (
+                    <button
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors border-t border-gray-100"
+                      onClick={() => handleWithdrawalMethodSelect("xe")}
+                    >
+                      <span className="text-green-600">🏦</span>
+                      <div>
+                        <div className="font-medium text-gray-900">Bank Transfer</div>
+                        <div className="text-sm text-gray-500">Withdraw to approved bank account</div>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -272,6 +367,14 @@ const PaymentsPage = () => {
         >
           Invoices & Receipts
         </button>
+        <button
+          className={`pb-2 px-4 font-medium ${
+            activeTab === "methods" ? "border-b-2 border-primary text-primary" : "text-gray-500 hover:text-gray-700"
+          }`}
+          onClick={() => setActiveTab("methods")}
+        >
+          Payment Methods
+        </button>
       </div>
 
       {/* Content based on active tab */}
@@ -366,6 +469,8 @@ const PaymentsPage = () => {
         </div>
       )}
 
+      {activeTab === "methods" && <PaymentMethodsManager />}
+
       {/* Add Funds Modal with PayPal Integration */}
       <AddFundsModal
         isOpen={showAddFundsModal}
@@ -379,6 +484,15 @@ const PaymentsPage = () => {
         onClose={() => setShowPayPalModal(false)}
         availableBalance={escrowData?.availableBalance || 0}
         onSuccess={handlePayPalWithdrawal}
+      />
+
+      {/* XE Withdrawal Modal */}
+      <XeWithdrawModal
+        isOpen={showXeModal}
+        onClose={() => setShowXeModal(false)}
+        approvedPaymentMethods={paymentMethods}
+        availableBalance={escrowData?.availableBalance || 0}
+        onWithdrawalSuccess={handleXeWithdrawal}
       />
     </div>
   );

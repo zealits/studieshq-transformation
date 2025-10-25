@@ -789,7 +789,7 @@ router.post(
 router.post(
   "/bank/withdraw/approve/:transactionId",
   auth,
-  checkRole(["freelancer"]),
+  checkRole(["freelancer", "client"]),
   paymentController.approveXeWithdrawal
 );
 
@@ -799,7 +799,7 @@ router.post(
 router.post(
   "/bank/withdraw/cancel/:transactionId",
   auth,
-  checkRole(["freelancer"]),
+  checkRole(["freelancer", "client"]),
   paymentController.cancelXeWithdrawal
 );
 

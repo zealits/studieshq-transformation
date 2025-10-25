@@ -14,8 +14,9 @@ const XeWithdrawalApprovalModal = ({
   const [timerActive, setTimerActive] = useState(false);
   const [isExpired, setIsExpired] = useState(false);
   const [hasBeenCancelled, setHasBeenCancelled] = useState(false);
+  const [contractStatus, setContractStatus] = useState("pending"); // "pending", "cancelled", "approved"
 
-  // Calculate time left until expiry
+  // Calculate time left until expiry and check contract status
   useEffect(() => {
     if (withdrawalTransaction?.xePayment?.quote?.expires) {
       const expiryTime = new Date(withdrawalTransaction.xePayment.quote.expires);
@@ -30,6 +31,16 @@ const XeWithdrawalApprovalModal = ({
         setTimeLeft(0);
         setTimerActive(false);
         setIsExpired(true);
+      }
+    }
+
+    // Check if contract was already cancelled or approved
+    if (withdrawalTransaction?.status) {
+      if (withdrawalTransaction.status === "cancelled") {
+        setContractStatus("cancelled");
+        setHasBeenCancelled(true);
+      } else if (withdrawalTransaction.status === "completed") {
+        setContractStatus("approved");
       }
     }
   }, [withdrawalTransaction]);
@@ -74,6 +85,7 @@ const XeWithdrawalApprovalModal = ({
     try {
       console.log(`🏦 MODAL: Auto-cancelling contract due to: ${reason}`);
       setHasBeenCancelled(true);
+      setContractStatus("cancelled");
 
       // Only attempt to cancel if the transaction is still pending
       if (withdrawalTransaction.status === "pending_approval") {
@@ -143,11 +155,17 @@ const XeWithdrawalApprovalModal = ({
       return;
     }
 
+    if (hasBeenCancelled) {
+      toast.error("Cannot approve cancelled contract");
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await paymentService.approveXeWithdrawal(withdrawalTransaction.id);
 
       if (response.success) {
+        setContractStatus("approved");
         toast.success("Withdrawal approved successfully!");
         onApprovalSuccess?.(response.data);
         onClose();
@@ -166,6 +184,7 @@ const XeWithdrawalApprovalModal = ({
     setLoading(true);
     try {
       await autoCancelContract("User clicked cancel button");
+      setContractStatus("cancelled");
       toast.success("Withdrawal cancelled successfully!");
       onCancellationSuccess?.({
         message: "Withdrawal cancelled by user",
@@ -312,7 +331,7 @@ const XeWithdrawalApprovalModal = ({
             )}
 
             {/* Expiry Timer */}
-            {xePayment?.quote?.expires && (
+            {xePayment?.quote?.expires && contractStatus === "pending" && (
               <div
                 className={`p-4 rounded-lg border-2 ${
                   isExpiredOrExpiring ? "border-red-200 bg-red-50" : "border-blue-200 bg-blue-50"
@@ -343,24 +362,68 @@ const XeWithdrawalApprovalModal = ({
 
           {/* Action Buttons */}
           <div className="flex space-x-3">
-            <button
-              onClick={handleCancel}
-              disabled={loading}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? "Processing..." : "Cancel"}
-            </button>
-            <button
-              onClick={handleApprove}
-              disabled={loading || isExpired}
-              className={`flex-1 px-4 py-2 rounded-md text-white transition-colors ${
-                isExpired
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              }`}
-            >
-              {loading ? "Processing..." : isExpired ? "Expired" : "Approve"}
-            </button>
+            {contractStatus === "cancelled" ? (
+              <div className="w-full text-center py-4">
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                  <div className="flex items-center justify-center mb-2">
+                    <svg className="w-6 h-6 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <h3 className="text-lg font-medium text-red-800">Contract Cancelled</h3>
+                  </div>
+                  <p className="text-sm text-red-600">
+                    This withdrawal contract has been cancelled and is no longer available for approval.
+                  </p>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="mt-4 w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700"
+                >
+                  Close
+                </button>
+              </div>
+            ) : contractStatus === "approved" ? (
+              <div className="w-full text-center py-4">
+                <div className="bg-green-50 border border-green-200 rounded-md p-4">
+                  <div className="flex items-center justify-center mb-2">
+                    <svg className="w-6 h-6 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <h3 className="text-lg font-medium text-green-800">Contract Approved</h3>
+                  </div>
+                  <p className="text-sm text-green-600">
+                    This withdrawal contract has been approved and is being processed.
+                  </p>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700"
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={handleCancel}
+                  disabled={loading || hasBeenCancelled}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? "Processing..." : hasBeenCancelled ? "Cancelled" : "Cancel"}
+                </button>
+                <button
+                  onClick={handleApprove}
+                  disabled={loading || isExpired || hasBeenCancelled}
+                  className={`flex-1 px-4 py-2 rounded-md text-white transition-colors ${
+                    isExpired || hasBeenCancelled
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  }`}
+                >
+                  {loading ? "Processing..." : isExpired ? "Expired" : hasBeenCancelled ? "Cancelled" : "Approve"}
+                </button>
+              </>
+            )}
           </div>
 
           {/* Warning for expired contracts */}
