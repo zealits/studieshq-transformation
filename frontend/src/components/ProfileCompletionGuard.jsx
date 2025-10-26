@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -7,6 +7,7 @@ const ProfileCompletionGuard = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useSelector((state) => state.auth);
+  const toastShownRef = useRef(false);
 
   // Paths that don't require profile completion
   const allowedPaths = [
@@ -94,9 +95,14 @@ const ProfileCompletionGuard = ({ children }) => {
       }
 
       // If profile is not complete, redirect to profile page (for non-company users)
-      
       if (!isProfileComplete && user.userType !== "company") {
-        toast.info("Please complete your profile to access the platform");
+        if (!toastShownRef.current) {
+          toast.info("Please complete your profile to access the platform", {
+            autoClose: 10000,
+            toastId: "profile-completion",
+          });
+          toastShownRef.current = true;
+        }
         navigate(`/${user.role}/profile`);
         return;
       }
@@ -108,13 +114,30 @@ const ProfileCompletionGuard = ({ children }) => {
       );
 
       // If no verification documents, show a gentle reminder but don't force redirect
-      if (!hasVerificationDocs && !location.pathname.includes("/profile")) {
-        toast.info("Complete your profile verification to unlock all features", {
-          duration: 5000,
-        });
+      if (!hasVerificationDocs && !location.pathname.includes("/profile") && user.userType !== "company") {
+        if (!toastShownRef.current) {
+          toast.info("Complete your profile verification to unlock all features", {
+            autoClose: 10000,
+            toastId: "verification-reminder",
+          });
+          toastShownRef.current = true;
+        }
       }
     }
   }, [user, location.pathname, navigate, isAllowedPath]);
+
+  // Reset toast flag when user changes
+  useEffect(() => {
+    toastShownRef.current = false;
+  }, [user?.id]);
+
+  // Cleanup toasts when component unmounts
+  useEffect(() => {
+    return () => {
+      toast.dismiss("profile-completion");
+      toast.dismiss("verification-reminder");
+    };
+  }, []);
 
   return <>{children}</>;
 };

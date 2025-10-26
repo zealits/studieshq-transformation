@@ -47,9 +47,7 @@ const DashboardLayout = ({ role }) => {
         user.company?.companySize &&
         user.company.companySize.trim().length > 0
       );
-  
 
-   
       const hasVerificationDocs = !!(
         user?.company?.documents?.find((doc) => doc.type === "business_license" && doc.url) &&
         user?.company?.documents?.find((doc) => doc.type === "tax_certificate" && doc.url)
@@ -99,28 +97,60 @@ const DashboardLayout = ({ role }) => {
     // Handle individual users
     switch (role) {
       case "freelancer":
+        // Check if individual freelancer profile is complete
+        const freelancerProfileComplete = !!(
+          profileData?.data?.profile?.bio &&
+          profileData.data.profile.bio.trim().length > 0 &&
+          profileData?.data?.profile?.skills &&
+          profileData.data.profile.skills.length > 0 &&
+          profileData?.data?.profile?.location &&
+          profileData.data.profile.location.trim().length > 0
+        );
+
         return [
-          { path: "/freelancer", label: "Dashboard", icon: "home" },
-          { path: "/freelancer/find-jobs", label: "Find Projects", icon: "search" },
-          { path: "/freelancer/invitations", label: "Invitations", icon: "mail" },
-          { path: "/freelancer/projects", label: "My Projects", icon: "folder" },
-          { path: "/freelancer/messages", label: "Messages", icon: "chat", showUnreadBadge: true },
-          { path: "/freelancer/payments", label: "Payments", icon: "dollar" },
+          { path: "/freelancer", label: "Dashboard", icon: "home" , locked: !freelancerProfileComplete},
+          { path: "/freelancer/find-jobs", label: "Find Projects", icon: "search", locked: !freelancerProfileComplete },
+          { path: "/freelancer/invitations", label: "Invitations", icon: "mail", locked: !freelancerProfileComplete },
+          { path: "/freelancer/projects", label: "My Projects", icon: "folder", locked: !freelancerProfileComplete },
+          {
+            path: "/freelancer/messages",
+            label: "Messages",
+            icon: "chat",
+            showUnreadBadge: true,
+            locked: !freelancerProfileComplete,
+          },
+          { path: "/freelancer/payments", label: "Payments", icon: "dollar", locked: !freelancerProfileComplete },
           { path: "/freelancer/profile", label: "My Profile", icon: "user" },
-          { path: "/freelancer/support", label: "Support", icon: "help" },
-          { path: "/freelancer/settings", label: "Settings", icon: "settings" },
+          { path: "/freelancer/support", label: "Support", icon: "help", locked: !freelancerProfileComplete },
+          { path: "/freelancer/settings", label: "Settings", icon: "settings", locked: !freelancerProfileComplete },
         ];
       case "client":
+        // Check if individual client profile is complete
+        const clientProfileComplete = !!(
+          profileData?.data?.profile?.companyName &&
+          profileData.data.profile.companyName.trim().length > 0 &&
+          profileData?.data?.profile?.industry &&
+          profileData.data.profile.industry.trim().length > 0 &&
+          profileData?.data?.profile?.companySize &&
+          profileData.data.profile.companySize.trim().length > 0
+        );
+
         return [
           { path: "/client", label: "Dashboard", icon: "home" },
-          { path: "/client/jobs", label: "Project listing", icon: "briefcase" },
-          { path: "/client/freelancers", label: "Find Freelancers", icon: "search" },
-          { path: "/client/projects", label: "Ongoing Work", icon: "folder" },
-          { path: "/client/messages", label: "Messages", icon: "chat", showUnreadBadge: true },
-          { path: "/client/payments", label: "Payments", icon: "dollar" },
+          { path: "/client/jobs", label: "Project listing", icon: "briefcase", locked: !clientProfileComplete },
+          { path: "/client/freelancers", label: "Find Freelancers", icon: "search", locked: !clientProfileComplete },
+          { path: "/client/projects", label: "Ongoing Work", icon: "folder", locked: !clientProfileComplete },
+          {
+            path: "/client/messages",
+            label: "Messages",
+            icon: "chat",
+            showUnreadBadge: true,
+            locked: !clientProfileComplete,
+          },
+          { path: "/client/payments", label: "Payments", icon: "dollar", locked: !clientProfileComplete },
           { path: "/client/profile", label: "My Profile", icon: "user" },
-          { path: "/client/support", label: "Support", icon: "help" },
-          { path: "/client/settings", label: "Settings", icon: "settings" },
+          { path: "/client/support", label: "Support", icon: "help", locked: !clientProfileComplete },
+          { path: "/client/settings", label: "Settings", icon: "settings", locked: !clientProfileComplete },
         ];
       case "admin":
         return [
