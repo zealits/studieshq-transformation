@@ -10,7 +10,15 @@ const User = require("../models/User");
  */
 exports.getCurrentProfile = async (req, res) => {
   try {
-    const profile = await Profile.findOne({ user: req.user.id }).populate("user", ["name", "email", "avatar", "role"]);
+    const profile = await Profile.findOne({ user: req.user.id }).populate("user", [
+      "name",
+      "email",
+      "avatar",
+      "role",
+      "resume",
+      "parsedResumeData",
+      "resumeParsedAt",
+    ]);
 
     if (!profile) {
       return res.status(404).json({ success: false, message: "Profile not found for this user" });
@@ -158,6 +166,9 @@ exports.createOrUpdateProfile = async (req, res) => {
       "email",
       "avatar",
       "role",
+      "resume",
+      "parsedResumeData",
+      "resumeParsedAt",
     ]);
 
     console.log("Profile updated successfully for user:", req.user.id);
@@ -190,7 +201,7 @@ exports.createOrUpdateProfile = async (req, res) => {
  */
 exports.getAllProfiles = async (req, res) => {
   try {
-    const profiles = await Profile.find().populate("user", ["name", "email", "avatar", "role"]);
+    const profiles = await Profile.find().populate("user", ["name", "email", "avatar", "role", "resume"]);
     res.json({ success: true, data: { profiles } });
   } catch (err) {
     console.error("Error in getAllProfiles:", err.message);
@@ -225,7 +236,13 @@ exports.getAllFreelancers = async (req, res) => {
       ...profileFilter,
     };
 
-    const freelancerProfiles = await Profile.find(completeFilter).populate("user", ["name", "email", "avatar", "role"]);
+    const freelancerProfiles = await Profile.find(completeFilter).populate("user", [
+      "name",
+      "email",
+      "avatar",
+      "role",
+      "resume",
+    ]);
 
     res.json({ success: true, data: { freelancers: freelancerProfiles } });
   } catch (err) {
@@ -246,6 +263,7 @@ exports.getProfileByUserId = async (req, res) => {
       "email",
       "avatar",
       "role",
+      "resume",
     ]);
 
     if (!profile) {

@@ -5,6 +5,7 @@ const path = require("path");
 const fs = require("fs");
 const User = require("../models/User");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const resumeParserService = require("../services/resumeParserService");
 
 // Configure Cloudinary
 cloudinary.config(cloudinaryConfig);
@@ -39,10 +40,12 @@ const ensureDirectoryExists = (dirPath) => {
 // Create upload directory for milestone deliverables
 const uploadsDir = path.join(__dirname, "../uploads");
 const milestoneDeliverablesDir = path.join(uploadsDir, "milestone-deliverables");
+const resumesDir = path.join(uploadsDir, "resumes");
 
 // Ensure milestone deliverables directory exists
 ensureDirectoryExists(uploadsDir);
 ensureDirectoryExists(milestoneDeliverablesDir);
+ensureDirectoryExists(resumesDir);
 
 // Local storage for milestone deliverables
 const milestoneStorage = multer.diskStorage({
@@ -53,6 +56,18 @@ const milestoneStorage = multer.diskStorage({
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const fileExtension = path.extname(file.originalname);
     cb(null, `milestone-${req.user.id}-${uniqueSuffix}${fileExtension}`);
+  },
+});
+
+// Local storage for resumes
+const resumeStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, resumesDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const fileExtension = path.extname(file.originalname);
+    cb(null, `resume-${req.user.id}-${uniqueSuffix}${fileExtension}`);
   },
 });
 
@@ -117,6 +132,28 @@ const milestoneUpload = multer({
       cb(null, true);
     } else {
       cb(new Error("Invalid file type. Please upload valid deliverable files."), false);
+    }
+  },
+});
+
+// Configure multer upload for resumes (Local Storage)
+const resumeUpload = multer({
+  storage: resumeStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit for resumes
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept resume file types
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/plain",
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only PDF, DOC, DOCX, and TXT files are allowed for resumes."), false);
     }
   },
 });
@@ -238,6 +275,90 @@ const uploadMilestoneDeliverable = async (req, res) => {
 };
 
 /**
+ * @desc    Upload resume (Local Storage) and parse it
+ * @route   POST /api/upload/resume
+ * @access  Private
+ */
+const uploadResume = async (req, res) => {
+  try {
+    // Check if user is authenticated
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: "Not authorized" });
+    }
+
+    // Check if file is provided
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No resume file provided" });
+    }
+
+    // Prepare resume data
+    const resumeData = {
+      filename: req.file.filename,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      uploadedAt: new Date(),
+    };
+
+    // Update user's resume in database first (without parsed data)
+    const user = await User.findByIdAndUpdate(req.user.id, { resume: resumeData }, { new: true }).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Send immediate response to user
+    res.json({
+      success: true,
+      data: {
+        user,
+        resume: resumeData,
+        parsedData: null, // Will be updated later
+        downloadUrl: `/api/upload/files/resumes/${req.file.filename}`,
+      },
+    });
+
+    // Parse the resume asynchronously in the background
+    setImmediate(async () => {
+      try {
+        console.log("Starting background resume parsing...");
+        const filePath = path.join(resumesDir, req.file.filename);
+
+        // Check if file still exists
+        if (!fs.existsSync(filePath)) {
+          console.error("Resume file not found for parsing:", filePath);
+          return;
+        }
+
+        // Read the file from disk
+        const fileBuffer = fs.readFileSync(filePath);
+
+        const parseResult = await resumeParserService.parseResume(fileBuffer, req.file.originalname, req.file.mimetype);
+
+        if (parseResult.success) {
+          console.log("Background resume parsing successful:", parseResult.filename);
+
+          // Update user with parsed data
+          await User.findByIdAndUpdate(req.user.id, {
+            parsedResumeData: parseResult.parsedData,
+            resumeParsedAt: new Date(),
+          });
+
+          console.log("User profile updated with parsed resume data");
+        } else {
+          console.warn("Background resume parsing failed:", parseResult.error);
+        }
+      } catch (parseError) {
+        console.error("Background resume parsing error:", parseError.message);
+      }
+    });
+  } catch (err) {
+    console.error("Error in uploadResume:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
  * @desc    Serve milestone deliverable files (Local Storage only)
  * @route   GET /api/upload/files/milestone-deliverables/:filename
  * @access  Public (files are protected by being stored with unique names)
@@ -261,12 +382,105 @@ const serveFile = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Serve resume files (Local Storage only)
+ * @route   GET /api/upload/files/resumes/:filename
+ * @access  Public (files are protected by being stored with unique names)
+ */
+const serveResume = async (req, res) => {
+  try {
+    const { filename } = req.params;
+
+    const filePath = path.join(resumesDir, filename);
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: "File not found" });
+    }
+
+    // Serve the file
+    res.sendFile(filePath);
+  } catch (error) {
+    console.error("Error serving resume:", error);
+    res.status(500).json({ success: false, message: "Error serving resume" });
+  }
+};
+
+/**
+ * @desc    Delete resume (Local Storage) and remove from user profile
+ * @route   DELETE /api/upload/resume
+ * @access  Private
+ */
+const deleteResume = async (req, res) => {
+  try {
+    // Check if user is authenticated
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: "Not authorized" });
+    }
+
+    // Get user's current resume data
+    const user = await User.findById(req.user.id).select("resume");
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (!user.resume || !user.resume.filename) {
+      return res.status(404).json({ success: false, message: "No resume found to delete" });
+    }
+
+    // Delete the physical file
+    const filePath = path.join(resumesDir, user.resume.filename);
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+        console.log("Resume file deleted:", user.resume.filename);
+      } catch (fileError) {
+        console.warn("Failed to delete resume file:", fileError.message);
+        // Continue with database cleanup even if file deletion fails
+      }
+    }
+
+    // Remove resume data from user profile
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      {
+        $unset: {
+          resume: 1,
+          parsedResumeData: 1,
+          resumeParsedAt: 1,
+        },
+      },
+      { new: true }
+    ).select("-password");
+
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: "Failed to update user profile" });
+    }
+
+    res.json({
+      success: true,
+      message: "Resume deleted successfully",
+      data: {
+        user: updatedUser,
+      },
+    });
+  } catch (err) {
+    console.error("Error in deleteResume:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 module.exports = {
   upload,
   verificationUpload,
   milestoneUpload,
+  resumeUpload,
   uploadProfileImage,
   uploadVerificationDocument,
   uploadMilestoneDeliverable,
+  uploadResume,
+  deleteResume,
   serveFile,
+  serveResume,
 };

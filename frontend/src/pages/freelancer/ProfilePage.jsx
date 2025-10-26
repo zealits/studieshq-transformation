@@ -16,6 +16,7 @@ const ProfilePage = () => {
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showImageConfirm, setShowImageConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // OTP verification states
   const [showOTPModal, setShowOTPModal] = useState(false);
@@ -42,6 +43,15 @@ const ProfilePage = () => {
     education: [],
     experience: [],
     portfolioItems: [],
+    resume: {
+      filename: "",
+      originalname: "",
+      mimetype: "",
+      size: 0,
+      uploadedAt: null,
+    },
+    parsedResumeData: null,
+    resumeParsedAt: null,
     verificationDocuments: {
       addressProof: {
         type: "",
@@ -76,7 +86,8 @@ const ProfilePage = () => {
     if (data && data.success) {
       // Get the profile from the nested data structure
       const profile = data.data.profile || {};
-      // console.log("Setting freelancer profile data:", profile);
+      console.log("Setting freelancer profile data:", profile);
+      console.log("User resume data:", profile.user?.resume);
 
       // Create deep copies of array objects to make them mutable
       const deepCopyEducation = profile.education ? profile.education.map((item) => ({ ...item })) : [];
@@ -102,6 +113,15 @@ const ProfilePage = () => {
         education: deepCopyEducation,
         experience: deepCopyExperience,
         portfolioItems: deepCopyPortfolioItems,
+        resume: {
+          filename: profile.user?.resume?.filename || "",
+          originalname: profile.user?.resume?.originalname || "",
+          mimetype: profile.user?.resume?.mimetype || "",
+          size: profile.user?.resume?.size || 0,
+          uploadedAt: profile.user?.resume?.uploadedAt || null,
+        },
+        parsedResumeData: profile.user?.parsedResumeData || null,
+        resumeParsedAt: profile.user?.resumeParsedAt || null,
         verificationDocuments: {
           addressProof: {
             type: profile.verificationDocuments?.addressProof?.type || "",
@@ -362,6 +382,132 @@ const ProfilePage = () => {
     setShowOTPModal(false);
   };
 
+  // Handle resume upload
+  const handleResumeUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/plain",
+    ];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Please upload only PDF, DOC, DOCX, or TXT files for resume");
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Resume file size should be less than 10MB");
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("resume", file);
+
+      const response = await api.post("/api/upload/resume", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      if (response.data.success) {
+        toast.success("Resume uploaded successfully");
+        console.log("Resume upload response:", response.data);
+        // Update form data with resume info
+        setFormData((prev) => ({
+          ...prev,
+          resume: {
+            filename: response.data.data.resume.filename,
+            originalname: response.data.data.resume.originalname,
+            mimetype: response.data.data.resume.mimetype,
+            size: response.data.data.resume.size,
+            uploadedAt: response.data.data.resume.uploadedAt,
+          },
+          parsedResumeData: response.data.data.parsedData,
+        }));
+
+        // Show message about background parsing
+        if (!response.data.data.parsedData) {
+          toast.info("Resume is being parsed in the background. Parsed data will appear shortly.");
+
+          // Poll for parsed data updates every 5 seconds for up to 2 minutes
+          let pollCount = 0;
+          const maxPolls = 24; // 2 minutes / 5 seconds
+
+          const pollForParsedData = setInterval(async () => {
+            pollCount++;
+            try {
+              const profileResponse = await dispatch(fetchMyProfile());
+              const profile = profileResponse.payload?.data?.profile;
+
+              if (profile?.user?.parsedResumeData) {
+                clearInterval(pollForParsedData);
+                toast.success("Resume parsed successfully!");
+                console.log("Parsed resume data:", profile.user.parsedResumeData);
+
+                // Update form data with parsed data
+                setFormData((prev) => ({
+                  ...prev,
+                  parsedResumeData: profile.user.parsedResumeData,
+                  resumeParsedAt: profile.user.resumeParsedAt,
+                }));
+              } else if (pollCount >= maxPolls) {
+                clearInterval(pollForParsedData);
+                toast.warning("Resume parsing is taking longer than expected. Please refresh the page later.");
+              }
+            } catch (error) {
+              console.error("Error polling for parsed data:", error);
+              if (pollCount >= maxPolls) {
+                clearInterval(pollForParsedData);
+              }
+            }
+          }, 5000);
+        } else {
+          toast.success("Resume parsed successfully! Check console for details.");
+          console.log("Parsed resume data:", response.data.data.parsedData);
+        }
+
+        // Refresh profile data
+        dispatch(fetchMyProfile());
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to upload resume");
+    }
+  };
+
+  // Handle resume deletion
+  const handleResumeDelete = async () => {
+    try {
+      const response = await api.delete("/api/upload/resume");
+
+      if (response.data.success) {
+        toast.success("Resume deleted successfully");
+        // Clear resume data from form
+        setFormData((prev) => ({
+          ...prev,
+          resume: {
+            filename: "",
+            originalname: "",
+            mimetype: "",
+            size: 0,
+            uploadedAt: null,
+          },
+          parsedResumeData: null,
+          resumeParsedAt: null,
+        }));
+        // Refresh profile data
+        dispatch(fetchMyProfile());
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to delete resume");
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mx-auto">
@@ -464,6 +610,36 @@ const ProfilePage = () => {
                   >
                     Change Image
                   </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Resume Delete Confirmation Modal */}
+          {showDeleteConfirm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+                <h3 className="text-lg font-semibold mb-4 text-red-600">Delete Resume</h3>
+                <p className="text-gray-600 mb-6">
+                  Are you sure you want to delete your resume? This action cannot be undone and will also remove all
+                  parsed resume data.
+                </p>
+                <div className="flex justify-end gap-4">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      handleResumeDelete();
+                    }}
+                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                  >
+                    Delete Resume
+                  </button>
                 </div>
               </div>
             </div>
@@ -754,6 +930,232 @@ const ProfilePage = () => {
                     </div>
                     <p className="text-sm text-gray-500 mt-1">Rates must be in multiples of 10 (USD)</p>
                   </div>
+
+                  {/* Resume Upload Section */}
+                  <div className="col-span-2 mt-6">
+                    <h3 className="text-lg font-semibold mb-4">Resume</h3>
+                    <div className="border border-gray-300 rounded-lg p-4">
+                      {formData.resume.filename ? (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex-shrink-0">
+                              <svg
+                                className="w-8 h-8 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{formData.resume.originalname}</p>
+                              <p className="text-xs text-gray-500">
+                                {(formData.resume.size / 1024 / 1024).toFixed(2)} MB •
+                                {formData.resume.uploadedAt &&
+                                  ` Uploaded ${new Date(formData.resume.uploadedAt).toLocaleDateString()}`}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <a
+                              href={`${
+                                import.meta.env.VITE_API_URL || "http://localhost:2001"
+                              }/api/upload/files/resumes/${formData.resume.filename}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:text-primary-dark text-sm font-medium"
+                            >
+                              View
+                            </a>
+                            <span className="text-gray-300">|</span>
+                            <a
+                              href={`${
+                                import.meta.env.VITE_API_URL || "http://localhost:2001"
+                              }/api/upload/files/resumes/${formData.resume.filename}`}
+                              download={formData.resume.originalname}
+                              className="text-primary hover:text-primary-dark text-sm font-medium"
+                            >
+                              Download
+                            </a>
+                            {isEditing && (
+                              <>
+                                <span className="text-gray-300">|</span>
+                                <label
+                                  htmlFor="resume-upload"
+                                  className="text-primary hover:text-primary-dark text-sm font-medium cursor-pointer"
+                                >
+                                  Replace
+                                </label>
+                                <span className="text-gray-300">|</span>
+                                <button
+                                  onClick={() => setShowDeleteConfirm(true)}
+                                  className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-6">
+                          <svg
+                            className="mx-auto h-12 w-12 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                            />
+                          </svg>
+                          <p className="mt-2 text-sm text-gray-600">No resume uploaded</p>
+                          <p className="text-xs text-gray-500">Upload your resume to showcase your experience</p>
+                          {isEditing && (
+                            <label
+                              htmlFor="resume-upload"
+                              className="mt-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark cursor-pointer"
+                            >
+                              Upload Resume
+                            </label>
+                          )}
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        id="resume-upload"
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,.txt"
+                        onChange={handleResumeUpload}
+                        disabled={!isEditing}
+                      />
+                      <p className="text-xs text-gray-500 mt-2">Accepted formats: PDF, DOC, DOCX, TXT (max 10MB)</p>
+                    </div>
+                  </div>
+
+                  {/* Parsed Resume Data Section */}
+                  {formData.parsedResumeData && (
+                    <div className="col-span-2 mt-6">
+                      <h3 className="text-lg font-semibold mb-4">Parsed Resume Data</h3>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div className="mb-4">
+                          <h4 className="font-medium text-gray-900 mb-2">Personal Information</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            {formData.parsedResumeData.name && (
+                              <div>
+                                <span className="font-medium">Name:</span> {formData.parsedResumeData.name}
+                              </div>
+                            )}
+                            {formData.parsedResumeData.phone && (
+                              <div>
+                                <span className="font-medium">Phone:</span> {formData.parsedResumeData.phone}
+                              </div>
+                            )}
+                            {formData.parsedResumeData.mail && (
+                              <div>
+                                <span className="font-medium">Email:</span> {formData.parsedResumeData.mail}
+                              </div>
+                            )}
+                            {formData.parsedResumeData.location && (
+                              <div>
+                                <span className="font-medium">Location:</span> {formData.parsedResumeData.location}
+                              </div>
+                            )}
+                            {formData.parsedResumeData.total_experience_years && (
+                              <div>
+                                <span className="font-medium">Experience:</span>{" "}
+                                {formData.parsedResumeData.total_experience_years} years
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {formData.parsedResumeData.skills && formData.parsedResumeData.skills.length > 0 && (
+                          <div className="mb-4">
+                            <h4 className="font-medium text-gray-900 mb-2">Skills</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {formData.parsedResumeData.skills.map((skill, index) => (
+                                <span key={index} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                  {skill}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {formData.parsedResumeData.education && formData.parsedResumeData.education.length > 0 && (
+                          <div className="mb-4">
+                            <h4 className="font-medium text-gray-900 mb-2">Education</h4>
+                            {formData.parsedResumeData.education.map((edu, index) => (
+                              <div key={index} className="text-sm mb-2">
+                                <div className="font-medium">{edu.name}</div>
+                                <div className="text-gray-600">{edu.qualification}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {formData.parsedResumeData.experience && formData.parsedResumeData.experience.length > 0 && (
+                          <div className="mb-4">
+                            <h4 className="font-medium text-gray-900 mb-2">Experience</h4>
+                            {formData.parsedResumeData.experience.map((exp, index) => (
+                              <div key={index} className="text-sm mb-2">
+                                <div className="font-medium">
+                                  {exp.designation} at {exp.company_name}
+                                </div>
+                                <div className="text-gray-600">{exp.description}</div>
+                                {exp.location && (
+                                  <div className="text-gray-500">
+                                    <span className="font-medium">Location:</span> {exp.location}
+                                  </div>
+                                )}
+                                <div className="text-gray-500">
+                                  {exp.start} - {exp.end}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {formData.parsedResumeData.projects && formData.parsedResumeData.projects.length > 0 && (
+                          <div className="mb-4">
+                            <h4 className="font-medium text-gray-900 mb-2">Projects</h4>
+                            {formData.parsedResumeData.projects.map((project, index) => (
+                              <div key={index} className="text-sm mb-2">
+                                <div className="font-medium">{project.title}</div>
+                                <div className="text-gray-600">{project.description}</div>
+                                {project.project_link && (
+                                  <div className="text-blue-600 mt-1">
+                                    <a
+                                      href={project.project_link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="hover:underline"
+                                    >
+                                      View Project →
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="text-xs text-gray-500 mt-2">
+                          Parsed on: {formData.resumeParsedAt && new Date(formData.resumeParsedAt).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Social Links Section */}
                   <div className="col-span-2 mt-6">
