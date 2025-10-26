@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { toast } from "react-hot-toast";
+import { toast } from "react-toastify";
 
 const ProfileCompletionGuard = ({ children }) => {
   const navigate = useNavigate();
@@ -58,14 +58,11 @@ const ProfileCompletionGuard = ({ children }) => {
           user.company.companySize.trim().length > 0
         );
 
-        // Check if verification documents are uploaded for company users
-        const hasVerificationDocs = !!(
-          profile.verificationDocuments?.addressProof?.documentUrl &&
-          profile.verificationDocuments?.identityProof?.documentUrl
-        );
+        // For company users, check company verification status instead of individual documents
+        const isVerified = isProfileComplete && user.company?.address?.verificationStatus === "verified";
 
         // For company users, restrict access to only dashboard and profile pages until profile is complete AND verified
-        if (!isProfileComplete || !hasVerificationDocs) {
+        if (!isVerified) {
           const isCompanyRestrictedPath = companyRestrictedPaths.some((path) => location.pathname.startsWith(path));
 
           if (!isCompanyRestrictedPath) {
@@ -97,6 +94,7 @@ const ProfileCompletionGuard = ({ children }) => {
       }
 
       // If profile is not complete, redirect to profile page (for non-company users)
+      
       if (!isProfileComplete && user.userType !== "company") {
         toast.info("Please complete your profile to access the platform");
         navigate(`/${user.role}/profile`);

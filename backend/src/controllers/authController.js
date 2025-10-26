@@ -263,6 +263,7 @@ exports.login = async (req, res) => {
             requirePasswordChange: user.requirePasswordChange,
             firstLogin: user.firstLogin,
             temporaryPassword: user.temporaryPassword,
+            company: user.company || null,
           },
         },
       });

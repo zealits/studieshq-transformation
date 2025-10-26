@@ -4,6 +4,7 @@ import { fetchUsers, updateUserVerification } from "../../redux/slices/userManag
 import { toast } from "react-hot-toast";
 import freelancerInvitationService from "../../services/freelancerInvitationService";
 import { formatDate } from "../../utils/dateUtils";
+import api from "../../api/axios";
 
 const UserManagementPage = () => {
   const dispatch = useDispatch();
@@ -257,6 +258,114 @@ const UserManagementPage = () => {
     }
   };
 
+  // Handle company document approval
+  const handleCompanyDocumentUpdate = async (userId, documentType, status) => {
+    try {
+      const response = await api.put(`/api/company/${userId}/documents/${documentType}/verify`, {
+        status,
+      });
+
+      // Update the selected user in the modal immediately
+      if (selectedUser && selectedUser._id === userId) {
+        setSelectedUser((prev) => ({
+          ...prev,
+          company: {
+            ...prev.company,
+            documents: prev.company.documents.map((doc) =>
+              doc.type === documentType
+                ? { ...doc, status: status, verifiedAt: status === "approved" ? new Date().toISOString() : null }
+                : doc
+            ),
+            verificationStatus: response.data.verificationStatus,
+          },
+          isVerified: response.data.isVerified,
+        }));
+      }
+
+      // Also update the user in the main users list
+      dispatch(fetchUsers({ page: currentPage, limit: 10, search: searchQuery }));
+
+      toast.success(`Document ${status} successfully`);
+    } catch (error) {
+      console.error("Failed to update company document:", error);
+      toast.error(`Error: ${error.response?.data?.error || error.message || "Failed to update document status"}`);
+    }
+  };
+
+  // Handle company document cleanup
+  const handleCompanyDocumentCleanup = async (userId) => {
+    try {
+      const response = await api.put(`/api/company/${userId}/cleanup-documents`);
+
+      // Update the selected user in the modal immediately
+      if (selectedUser && selectedUser._id === userId) {
+        setSelectedUser((prev) => ({
+          ...prev,
+          company: {
+            ...prev.company,
+            documents: response.data.documents,
+            verificationStatus: response.data.verificationStatus,
+          },
+          isVerified: response.data.isVerified,
+        }));
+      }
+
+      // Also update the user in the main users list
+      dispatch(fetchUsers({ page: currentPage, limit: 10, search: searchQuery }));
+
+      toast.success(`Cleaned up ${response.data.removedDocuments} invalid documents. Verification status updated.`);
+    } catch (error) {
+      console.error("Failed to cleanup company documents:", error);
+      toast.error(`Error: ${error.response?.data?.error || error.message || "Failed to cleanup documents"}`);
+    }
+  };
+
+  // Handle company document rejection
+  const handleCompanyDocumentRejection = async (userId, documentType) => {
+    if (!rejectionState.reason.trim()) {
+      toast.error("Please provide a rejection reason");
+      return;
+    }
+
+    try {
+      const response = await api.put(`/api/company/${userId}/documents/${documentType}/verify`, {
+        status: "rejected",
+        rejectionReason: rejectionState.reason,
+      });
+
+      // Update the selected user in the modal immediately
+      if (selectedUser) {
+        setSelectedUser((prev) => ({
+          ...prev,
+          company: {
+            ...prev.company,
+            documents: prev.company.documents.map((doc) =>
+              doc.type === documentType
+                ? { ...doc, status: "rejected", verifiedAt: null, rejectionReason: rejectionState.reason }
+                : doc
+            ),
+            verificationStatus: response.data.verificationStatus,
+          },
+          isVerified: response.data.isVerified,
+        }));
+      }
+
+      // Also update the user in the main users list
+      dispatch(fetchUsers({ page: currentPage, limit: 10, search: searchQuery }));
+
+      // Reset rejection state
+      setRejectionState({
+        activeDocumentType: null,
+        reason: "",
+      });
+
+      toast.success("Document rejected successfully");
+    } catch (error) {
+      console.error("Failed to reject company document:", error);
+      toast.error(`Error: ${error.response?.data?.error || error.message || "Failed to reject document"}`);
+    }
+  };
+
   // Render status badge
   const renderStatusBadge = (status) => {
     switch (status) {
@@ -293,8 +402,12 @@ const UserManagementPage = () => {
 
   // Render verification badge (for document verification, not email)
   const renderVerificationBadge = (user) => {
-    const profile = user.profile || {};
-    const isDocumentVerified = profile.isVerified || false;
+    // For company users, check company verification status
+    // For individual users, check profile.isVerified
+    const isDocumentVerified =
+      user.userType === "company"
+        ? user.company?.address?.verificationStatus === "verified"
+        : user.profile?.isVerified || false;
 
     if (isDocumentVerified) {
       return (
@@ -1010,40 +1123,133 @@ const UserManagementPage = () => {
                           {/* Company Documents */}
                           {selectedUser.company.documents && selectedUser.company.documents.length > 0 && (
                             <div className="mt-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Company Documents</label>
+                              <div className="flex items-center justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700">Company Documents</label>
+                                <button
+                                  onClick={() => handleCompanyDocumentCleanup(selectedUser._id)}
+                                  className="px-3 py-1 text-xs bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
+                                  title="Clean up invalid documents and update verification status"
+                                >
+                                  Cleanup Documents
+                                </button>
+                              </div>
                               <div className="space-y-2">
                                 {selectedUser.company.documents.map((doc, index) => (
-                                  <div
-                                    key={index}
-                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                                  >
-                                    <div>
-                                      <p className="text-sm font-medium capitalize">{doc.type.replace("_", " ")}</p>
-                                      <p className="text-xs text-gray-500">
-                                        Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                      <span
-                                        className={`px-2 py-1 text-xs rounded-full ${
-                                          doc.status === "approved"
-                                            ? "bg-green-100 text-green-800"
-                                            : doc.status === "rejected"
-                                            ? "bg-red-100 text-red-800"
-                                            : "bg-yellow-100 text-yellow-800"
-                                        }`}
-                                      >
-                                        {doc.status}
-                                      </span>
-                                      {doc.url && (
-                                        <button
-                                          onClick={() => window.open(doc.url, "_blank")}
-                                          className="text-blue-600 hover:text-blue-800 text-sm"
+                                  <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                                    <div className="flex items-center justify-between mb-3">
+                                      <div>
+                                        <p className="text-sm font-medium capitalize">
+                                          {doc.type?.replace("_", " ") || "Document"}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                          Uploaded:{" "}
+                                          {doc.uploadedAt
+                                            ? new Date(doc.uploadedAt).toLocaleDateString()
+                                            : "Not available"}
+                                        </p>
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        <span
+                                          className={`px-2 py-1 text-xs rounded-full ${
+                                            doc.status === "approved"
+                                              ? "bg-green-100 text-green-800"
+                                              : doc.status === "rejected"
+                                              ? "bg-red-100 text-red-800"
+                                              : "bg-yellow-100 text-yellow-800"
+                                          }`}
                                         >
-                                          View Document
-                                        </button>
-                                      )}
+                                          {doc.status || "pending"}
+                                        </span>
+                                        {doc.url && (
+                                          <button
+                                            onClick={() => window.open(doc.url, "_blank")}
+                                            className="text-blue-600 hover:text-blue-800 text-sm"
+                                          >
+                                            View Document
+                                          </button>
+                                        )}
+                                      </div>
                                     </div>
+
+                                    {/* Action buttons for company documents */}
+                                    {doc.status !== "approved" && doc.url && (
+                                      <div className="flex items-center space-x-2">
+                                        <button
+                                          onClick={() =>
+                                            handleCompanyDocumentUpdate(selectedUser._id, doc.type, "approved")
+                                          }
+                                          className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-green-600 hover:text-green-800 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 transition-colors"
+                                        >
+                                          <svg
+                                            className="w-4 h-4 mr-1.5"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth="2"
+                                              d="M5 13l4 4L19 7"
+                                            />
+                                          </svg>
+                                          Approve
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            setRejectionState({ activeDocumentType: doc.type, reason: "" })
+                                          }
+                                          className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-800 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 transition-colors"
+                                        >
+                                          <svg
+                                            className="w-4 h-4 mr-1.5"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth="2"
+                                              d="M6 18L18 6M6 6l12 12"
+                                            />
+                                          </svg>
+                                          Reject
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {/* Rejection reason input for company documents */}
+                                    {rejectionState.activeDocumentType === doc.type && (
+                                      <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                                        <label className="block text-sm font-medium text-red-800 mb-2">
+                                          Why are you rejecting this {doc.type?.replace("_", " ") || "document"}?
+                                        </label>
+                                        <textarea
+                                          rows={3}
+                                          className="block w-full px-3 py-2 border border-red-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                                          placeholder="Please explain why this document is being rejected..."
+                                          value={rejectionState.reason}
+                                          onChange={(e) =>
+                                            setRejectionState((prev) => ({ ...prev, reason: e.target.value }))
+                                          }
+                                        />
+                                        <div className="mt-2 flex space-x-2">
+                                          <button
+                                            onClick={() => handleCompanyDocumentRejection(selectedUser._id, doc.type)}
+                                            className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700"
+                                          >
+                                            Submit Rejection
+                                          </button>
+                                          <button
+                                            onClick={() => setRejectionState({ activeDocumentType: null, reason: "" })}
+                                            className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-400"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -1052,303 +1258,334 @@ const UserManagementPage = () => {
                         </div>
                       )}
 
-                      <div className="border-t pt-4 mt-4">
-                        <h4 className="font-medium mb-2">Verification Documents</h4>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Identity Proof</label>
-                            <div className="bg-gray-50 p-4 rounded-lg">
-                              <div className="flex items-center justify-between mb-3">
-                                <div>
-                                  <p className="text-sm font-medium">
-                                    {selectedUser.verificationDocuments?.identityProof?.type || "Not provided"}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    Uploaded:{" "}
-                                    {selectedUser.verificationDocuments?.identityProof?.uploadedAt
-                                      ? new Date(
-                                          selectedUser.verificationDocuments.identityProof.uploadedAt
-                                        ).toLocaleDateString()
-                                      : "Not available"}
-                                  </p>
+                      {/* Only show individual verification documents for non-company users */}
+                      {selectedUser.userType !== "company" && (
+                        <div className="border-t pt-4 mt-4">
+                          <h4 className="font-medium mb-2">Verification Documents</h4>
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Identity Proof</label>
+                              <div className="bg-gray-50 p-4 rounded-lg">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div>
+                                    <p className="text-sm font-medium">
+                                      {selectedUser.verificationDocuments?.identityProof?.type || "Not provided"}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      Uploaded:{" "}
+                                      {selectedUser.verificationDocuments?.identityProof?.uploadedAt
+                                        ? new Date(
+                                            selectedUser.verificationDocuments.identityProof.uploadedAt
+                                          ).toLocaleDateString()
+                                        : "Not available"}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    {selectedUser.verificationDocuments?.identityProof?.documentUrl && (
+                                      <button
+                                        onClick={() =>
+                                          handleViewDocument(
+                                            selectedUser.verificationDocuments.identityProof.documentUrl
+                                          )
+                                        }
+                                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-primary hover:text-primary-dark bg-white border border-primary rounded-md hover:bg-primary/5 transition-colors"
+                                      >
+                                        <svg
+                                          className="w-4 h-4 mr-1.5"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                          />
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                          />
+                                        </svg>
+                                        View Document
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  {selectedUser.verificationDocuments?.identityProof?.documentUrl && (
-                                    <button
-                                      onClick={() =>
-                                        handleViewDocument(selectedUser.verificationDocuments.identityProof.documentUrl)
-                                      }
-                                      className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-primary hover:text-primary-dark bg-white border border-primary rounded-md hover:bg-primary/5 transition-colors"
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2">
+                                    <span
+                                      className={`px-2 py-1 text-xs rounded-full ${
+                                        selectedUser.verificationDocuments?.identityProof?.status === "approved"
+                                          ? "bg-green-100 text-green-800"
+                                          : selectedUser.verificationDocuments?.identityProof?.status === "rejected"
+                                          ? "bg-red-100 text-red-800"
+                                          : "bg-yellow-100 text-yellow-800"
+                                      }`}
                                     >
-                                      <svg
-                                        className="w-4 h-4 mr-1.5"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth="2"
-                                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                        />
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth="2"
-                                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                        />
-                                      </svg>
-                                      View Document
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-2">
-                                  <span
-                                    className={`px-2 py-1 text-xs rounded-full ${
-                                      selectedUser.verificationDocuments?.identityProof?.status === "approved"
-                                        ? "bg-green-100 text-green-800"
-                                        : selectedUser.verificationDocuments?.identityProof?.status === "rejected"
-                                        ? "bg-red-100 text-red-800"
-                                        : "bg-yellow-100 text-yellow-800"
-                                    }`}
-                                  >
-                                    {selectedUser.verificationDocuments?.identityProof?.status || "pending"}
-                                  </span>
-                                  {selectedUser.verificationDocuments?.identityProof?.rejectionReason && (
-                                    <span className="text-sm text-red-600">
-                                      {selectedUser.verificationDocuments.identityProof.rejectionReason}
+                                      {selectedUser.verificationDocuments?.identityProof?.status || "pending"}
                                     </span>
-                                  )}
-                                </div>
-                                {selectedUser.verificationDocuments?.identityProof?.status !== "approved" &&
-                                  selectedUser.verificationDocuments?.identityProof?.documentUrl &&
-                                  selectedUser.verificationDocuments?.identityProof?.type &&
-                                  rejectionState.activeDocumentType !== "identityProof" && (
-                                    <div className="flex items-center space-x-2">
-                                      <button
-                                        onClick={() =>
-                                          handleVerificationUpdate(selectedUser._id, "identityProof", "approved")
-                                        }
-                                        className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
-                                        title="Approve"
-                                      >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            d="M5 13l4 4L19 7"
-                                          />
-                                        </svg>
-                                      </button>
-                                      <button
-                                        onClick={() =>
-                                          handleVerificationUpdate(selectedUser._id, "identityProof", "rejected")
-                                        }
-                                        className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                                        title="Reject"
-                                      >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            d="M6 18L18 6M6 6l12 12"
-                                          />
-                                        </svg>
-                                      </button>
+                                    {selectedUser.verificationDocuments?.identityProof?.rejectionReason && (
+                                      <span className="text-sm text-red-600">
+                                        {selectedUser.verificationDocuments.identityProof.rejectionReason}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {selectedUser.verificationDocuments?.identityProof?.status !== "approved" &&
+                                    selectedUser.verificationDocuments?.identityProof?.documentUrl &&
+                                    selectedUser.verificationDocuments?.identityProof?.type &&
+                                    rejectionState.activeDocumentType !== "identityProof" && (
+                                      <div className="flex items-center space-x-2">
+                                        <button
+                                          onClick={() =>
+                                            handleVerificationUpdate(selectedUser._id, "identityProof", "approved")
+                                          }
+                                          className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                                          title="Approve"
+                                        >
+                                          <svg
+                                            className="w-5 h-5"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth="2"
+                                              d="M5 13l4 4L19 7"
+                                            />
+                                          </svg>
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            handleVerificationUpdate(selectedUser._id, "identityProof", "rejected")
+                                          }
+                                          className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                          title="Reject"
+                                        >
+                                          <svg
+                                            className="w-5 h-5"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth="2"
+                                              d="M6 18L18 6M6 6l12 12"
+                                            />
+                                          </svg>
+                                        </button>
+                                      </div>
+                                    )}
+                                  {(!selectedUser.verificationDocuments?.identityProof?.documentUrl ||
+                                    !selectedUser.verificationDocuments?.identityProof?.type) && (
+                                    <div className="text-sm text-gray-500 italic">
+                                      Document must be uploaded before approval/rejection
                                     </div>
                                   )}
-                                {(!selectedUser.verificationDocuments?.identityProof?.documentUrl ||
-                                  !selectedUser.verificationDocuments?.identityProof?.type) && (
-                                  <div className="text-sm text-gray-500 italic">
-                                    Document must be uploaded before approval/rejection
+                                </div>
+
+                                {/* Inline Rejection Reason Input for Identity Proof */}
+                                {rejectionState.activeDocumentType === "identityProof" && (
+                                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                                    <label className="block text-sm font-medium text-red-800 mb-2">
+                                      Why are you rejecting this identity proof?
+                                    </label>
+                                    <textarea
+                                      rows={3}
+                                      className="block w-full px-3 py-2 border border-red-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                                      placeholder="Please explain why this document is being rejected..."
+                                      value={rejectionState.reason}
+                                      onChange={(e) =>
+                                        setRejectionState((prev) => ({ ...prev, reason: e.target.value }))
+                                      }
+                                    />
+                                    <div className="mt-2 flex space-x-2">
+                                      <button
+                                        onClick={() => handleRejectionSubmit("identityProof")}
+                                        className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700"
+                                      >
+                                        Submit Rejection
+                                      </button>
+                                      <button
+                                        onClick={() => setRejectionState({ activeDocumentType: null, reason: "" })}
+                                        className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-400"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
                                   </div>
                                 )}
                               </div>
-
-                              {/* Inline Rejection Reason Input for Identity Proof */}
-                              {rejectionState.activeDocumentType === "identityProof" && (
-                                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
-                                  <label className="block text-sm font-medium text-red-800 mb-2">
-                                    Why are you rejecting this identity proof?
-                                  </label>
-                                  <textarea
-                                    rows={3}
-                                    className="block w-full px-3 py-2 border border-red-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
-                                    placeholder="Please explain why this document is being rejected..."
-                                    value={rejectionState.reason}
-                                    onChange={(e) => setRejectionState((prev) => ({ ...prev, reason: e.target.value }))}
-                                  />
-                                  <div className="mt-2 flex space-x-2">
-                                    <button
-                                      onClick={() => handleRejectionSubmit("identityProof")}
-                                      className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700"
-                                    >
-                                      Submit Rejection
-                                    </button>
-                                    <button
-                                      onClick={() => setRejectionState({ activeDocumentType: null, reason: "" })}
-                                      className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-400"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
                             </div>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Address Proof</label>
-                            <div className="bg-gray-50 p-4 rounded-lg">
-                              <div className="flex items-center justify-between mb-3">
-                                <div>
-                                  <p className="text-sm font-medium">
-                                    {selectedUser.verificationDocuments?.addressProof?.type || "Not provided"}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    Uploaded:{" "}
-                                    {selectedUser.verificationDocuments?.addressProof?.uploadedAt
-                                      ? new Date(
-                                          selectedUser.verificationDocuments.addressProof.uploadedAt
-                                        ).toLocaleDateString()
-                                      : "Not available"}
-                                  </p>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Address Proof</label>
+                              <div className="bg-gray-50 p-4 rounded-lg">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div>
+                                    <p className="text-sm font-medium">
+                                      {selectedUser.verificationDocuments?.addressProof?.type || "Not provided"}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      Uploaded:{" "}
+                                      {selectedUser.verificationDocuments?.addressProof?.uploadedAt
+                                        ? new Date(
+                                            selectedUser.verificationDocuments.addressProof.uploadedAt
+                                          ).toLocaleDateString()
+                                        : "Not available"}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    {selectedUser.verificationDocuments?.addressProof?.documentUrl && (
+                                      <button
+                                        onClick={() =>
+                                          handleViewDocument(
+                                            selectedUser.verificationDocuments.addressProof.documentUrl
+                                          )
+                                        }
+                                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-primary hover:text-primary-dark bg-white border border-primary rounded-md hover:bg-primary/5 transition-colors"
+                                      >
+                                        <svg
+                                          className="w-4 h-4 mr-1.5"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                          />
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2"
+                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                          />
+                                        </svg>
+                                        View Document
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  {selectedUser.verificationDocuments?.addressProof?.documentUrl && (
-                                    <button
-                                      onClick={() =>
-                                        handleViewDocument(selectedUser.verificationDocuments.addressProof.documentUrl)
-                                      }
-                                      className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-primary hover:text-primary-dark bg-white border border-primary rounded-md hover:bg-primary/5 transition-colors"
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2">
+                                    <span
+                                      className={`px-2 py-1 text-xs rounded-full ${
+                                        selectedUser.verificationDocuments?.addressProof?.status === "approved"
+                                          ? "bg-green-100 text-green-800"
+                                          : selectedUser.verificationDocuments?.addressProof?.status === "rejected"
+                                          ? "bg-red-100 text-red-800"
+                                          : "bg-yellow-100 text-yellow-800"
+                                      }`}
                                     >
-                                      <svg
-                                        className="w-4 h-4 mr-1.5"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth="2"
-                                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                        />
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth="2"
-                                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                        />
-                                      </svg>
-                                      View Document
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-2">
-                                  <span
-                                    className={`px-2 py-1 text-xs rounded-full ${
-                                      selectedUser.verificationDocuments?.addressProof?.status === "approved"
-                                        ? "bg-green-100 text-green-800"
-                                        : selectedUser.verificationDocuments?.addressProof?.status === "rejected"
-                                        ? "bg-red-100 text-red-800"
-                                        : "bg-yellow-100 text-yellow-800"
-                                    }`}
-                                  >
-                                    {selectedUser.verificationDocuments?.addressProof?.status || "pending"}
-                                  </span>
-                                  {selectedUser.verificationDocuments?.addressProof?.rejectionReason && (
-                                    <span className="text-sm text-red-600">
-                                      {selectedUser.verificationDocuments.addressProof.rejectionReason}
+                                      {selectedUser.verificationDocuments?.addressProof?.status || "pending"}
                                     </span>
-                                  )}
-                                </div>
-                                {selectedUser.verificationDocuments?.addressProof?.status !== "approved" &&
-                                  selectedUser.verificationDocuments?.addressProof?.documentUrl &&
-                                  selectedUser.verificationDocuments?.addressProof?.type &&
-                                  rejectionState.activeDocumentType !== "addressProof" && (
-                                    <div className="flex items-center space-x-2">
-                                      <button
-                                        onClick={() =>
-                                          handleVerificationUpdate(selectedUser._id, "addressProof", "approved")
-                                        }
-                                        className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
-                                        title="Approve"
-                                      >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            d="M5 13l4 4L19 7"
-                                          />
-                                        </svg>
-                                      </button>
-                                      <button
-                                        onClick={() =>
-                                          handleVerificationUpdate(selectedUser._id, "addressProof", "rejected")
-                                        }
-                                        className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                                        title="Reject"
-                                      >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            d="M6 18L18 6M6 6l12 12"
-                                          />
-                                        </svg>
-                                      </button>
+                                    {selectedUser.verificationDocuments?.addressProof?.rejectionReason && (
+                                      <span className="text-sm text-red-600">
+                                        {selectedUser.verificationDocuments.addressProof.rejectionReason}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {selectedUser.verificationDocuments?.addressProof?.status !== "approved" &&
+                                    selectedUser.verificationDocuments?.addressProof?.documentUrl &&
+                                    selectedUser.verificationDocuments?.addressProof?.type &&
+                                    rejectionState.activeDocumentType !== "addressProof" && (
+                                      <div className="flex items-center space-x-2">
+                                        <button
+                                          onClick={() =>
+                                            handleVerificationUpdate(selectedUser._id, "addressProof", "approved")
+                                          }
+                                          className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                                          title="Approve"
+                                        >
+                                          <svg
+                                            className="w-5 h-5"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth="2"
+                                              d="M5 13l4 4L19 7"
+                                            />
+                                          </svg>
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            handleVerificationUpdate(selectedUser._id, "addressProof", "rejected")
+                                          }
+                                          className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                          title="Reject"
+                                        >
+                                          <svg
+                                            className="w-5 h-5"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth="2"
+                                              d="M6 18L18 6M6 6l12 12"
+                                            />
+                                          </svg>
+                                        </button>
+                                      </div>
+                                    )}
+                                  {(!selectedUser.verificationDocuments?.addressProof?.documentUrl ||
+                                    !selectedUser.verificationDocuments?.addressProof?.type) && (
+                                    <div className="text-sm text-gray-500 italic">
+                                      Document must be uploaded before approval/rejection
                                     </div>
                                   )}
-                                {(!selectedUser.verificationDocuments?.addressProof?.documentUrl ||
-                                  !selectedUser.verificationDocuments?.addressProof?.type) && (
-                                  <div className="text-sm text-gray-500 italic">
-                                    Document must be uploaded before approval/rejection
+                                </div>
+
+                                {/* Inline Rejection Reason Input for Address Proof */}
+                                {rejectionState.activeDocumentType === "addressProof" && (
+                                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                                    <label className="block text-sm font-medium text-red-800 mb-2">
+                                      Why are you rejecting this address proof?
+                                    </label>
+                                    <textarea
+                                      rows={3}
+                                      className="block w-full px-3 py-2 border border-red-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                                      placeholder="Please explain why this document is being rejected..."
+                                      value={rejectionState.reason}
+                                      onChange={(e) =>
+                                        setRejectionState((prev) => ({ ...prev, reason: e.target.value }))
+                                      }
+                                    />
+                                    <div className="mt-2 flex space-x-2">
+                                      <button
+                                        onClick={() => handleRejectionSubmit("addressProof")}
+                                        className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700"
+                                      >
+                                        Submit Rejection
+                                      </button>
+                                      <button
+                                        onClick={() => setRejectionState({ activeDocumentType: null, reason: "" })}
+                                        className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-400"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
                                   </div>
                                 )}
                               </div>
-
-                              {/* Inline Rejection Reason Input for Address Proof */}
-                              {rejectionState.activeDocumentType === "addressProof" && (
-                                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
-                                  <label className="block text-sm font-medium text-red-800 mb-2">
-                                    Why are you rejecting this address proof?
-                                  </label>
-                                  <textarea
-                                    rows={3}
-                                    className="block w-full px-3 py-2 border border-red-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
-                                    placeholder="Please explain why this document is being rejected..."
-                                    value={rejectionState.reason}
-                                    onChange={(e) => setRejectionState((prev) => ({ ...prev, reason: e.target.value }))}
-                                  />
-                                  <div className="mt-2 flex space-x-2">
-                                    <button
-                                      onClick={() => handleRejectionSubmit("addressProof")}
-                                      className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700"
-                                    >
-                                      Submit Rejection
-                                    </button>
-                                    <button
-                                      onClick={() => setRejectionState({ activeDocumentType: null, reason: "" })}
-                                      className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-400"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
                             </div>
                           </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* <div className="border-t pt-4 mt-4">
                         <h4 className="font-medium mb-2">Actions</h4>

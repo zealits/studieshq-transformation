@@ -216,7 +216,7 @@ const PaymentMethodsManager = () => {
     setSelectedMethod(method);
     setCurrentStep("consumer");
 
-    toast.info("Edit your details and resubmit to update verification.");
+    toast("Edit your details and resubmit to update verification.");
   };
 
   const formatPaymentMethodDisplay = (method) => {

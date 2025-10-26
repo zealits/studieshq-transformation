@@ -122,6 +122,17 @@ export const changePassword = createAsyncThunk(
   }
 );
 
+export const getMe = createAsyncThunk("auth/getMe", async (_, { rejectWithValue }) => {
+  try {
+    const response = await api.get("/api/auth/me");
+    return response.data;
+  } catch (error) {
+    return rejectWithValue({
+      message: error.response?.data?.error || "Failed to fetch user data",
+    });
+  }
+});
+
 export const logout = createAsyncThunk("auth/logout", async () => {
   // Remove token from localStorage
   localStorage.removeItem("token");
@@ -243,6 +254,20 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload?.message;
         state.changePasswordSuccess = false;
+      })
+      // Get Me
+      .addCase(getMe.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(getMe.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload.data.user;
+        state.error = null;
+      })
+      .addCase(getMe.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload?.message;
       })
       // Logout
       .addCase(logout.fulfilled, (state) => {

@@ -433,7 +433,7 @@ const ProfilePage = () => {
 
         // Show message about background parsing
         if (!response.data.data.parsedData) {
-          toast.info("Resume is being parsed in the background. Parsed data will appear shortly.");
+          toast("Resume is being parsed in the background. Parsed data will appear shortly.");
 
           // Poll for parsed data updates every 5 seconds for up to 2 minutes
           let pollCount = 0;

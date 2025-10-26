@@ -221,6 +221,12 @@ exports.getProjects = async (req, res) => {
       query.freelancer = req.user.id;
     } else if (req.user.role === "admin") {
       // Admin can see all projects
+    } else if (req.user.role === "freelancer_company") {
+      // Company users acting as freelancers can see projects assigned to them
+      query.freelancer = req.user.id;
+    } else if (req.user.role === "project_sponsor_company") {
+      // Company users acting as clients can see projects they created
+      query.client = req.user.id;
     } else {
       return res.status(403).json({ success: false, message: "Unauthorized role" });
     }
@@ -404,8 +410,8 @@ exports.updateProject = async (req, res) => {
       }
     });
 
-    // If user is client or admin, they can update client-only fields
-    if (req.user.role === "client" || req.user.role === "admin") {
+    // If user is client, project sponsor company, or admin, they can update client-only fields
+    if (req.user.role === "client" || req.user.role === "project_sponsor_company" || req.user.role === "admin") {
       clientOnlyFields.forEach((field) => {
         if (req.body[field] !== undefined) {
           project[field] = req.body[field];

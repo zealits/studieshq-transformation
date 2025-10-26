@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { logout } from "../redux/slices/authSlice";
+import { logout, getMe } from "../redux/slices/authSlice";
 import { fetchMyProfile } from "../redux/slices/profileSlice";
 import NotificationBadge from "../components/common/NotificationBadge";
 
@@ -17,6 +17,8 @@ const DashboardLayout = ({ role }) => {
   // Fetch profile data when component mounts
   useEffect(() => {
     dispatch(fetchMyProfile());
+    // Also fetch fresh user data to ensure we have the latest company information
+    dispatch(getMe());
   }, [dispatch]);
 
   // Close sidebar when route changes on mobile
@@ -45,10 +47,12 @@ const DashboardLayout = ({ role }) => {
         user.company?.companySize &&
         user.company.companySize.trim().length > 0
       );
+  
 
+   
       const hasVerificationDocs = !!(
-        profileData?.data?.profile?.verificationDocuments?.addressProof?.documentUrl &&
-        profileData?.data?.profile?.verificationDocuments?.identityProof?.documentUrl
+        user?.company?.documents?.find((doc) => doc.type === "business_license" && doc.url) &&
+        user?.company?.documents?.find((doc) => doc.type === "tax_certificate" && doc.url)
       );
 
       const isVerified = isProfileComplete && hasVerificationDocs;

@@ -394,3 +394,152 @@ exports.updateVerificationStatus = async (req, res) => {
     res.status(500).json({ success: false, error: "Server error" });
   }
 };
+
+/**
+ * @desc    Update company document verification status (Admin only)
+ * @route   PUT /api/company/:id/documents/:documentType/verify
+ * @access  Private (Admin)
+ */
+exports.updateCompanyDocumentVerification = async (req, res) => {
+  try {
+    const { id, documentType } = req.params;
+    const { status, rejectionReason } = req.body;
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: "Company not found" });
+    }
+
+    if (user.userType !== "company") {
+      return res.status(400).json({
+        success: false,
+        error: "User is not a company",
+      });
+    }
+
+    // Find the document by type
+    const documentIndex = user.company.documents.findIndex((doc) => doc.type === documentType);
+
+    if (documentIndex === -1) {
+      return res.status(404).json({ success: false, error: "Document not found" });
+    }
+
+    // Update the document status
+    user.company.documents[documentIndex].status = status;
+    user.company.documents[documentIndex].verifiedAt = status === "approved" ? new Date() : null;
+    user.company.documents[documentIndex].rejectionReason = status === "rejected" ? rejectionReason : null;
+
+    // Check if all documents are approved and update overall verification status
+    // Filter out documents with missing or invalid types
+    const validDocuments = user.company.documents.filter((doc) => doc.type && doc.type.trim() !== "");
+    const allDocumentsApproved = validDocuments.every((doc) => doc.status === "approved");
+    const hasRejectedDocuments = validDocuments.some((doc) => doc.status === "rejected");
+
+    console.log(`Company ${id} verification check:`, {
+      totalDocuments: user.company.documents.length,
+      validDocuments: validDocuments.length,
+      allApproved: allDocumentsApproved,
+      hasRejected: hasRejectedDocuments,
+      documentStatuses: validDocuments.map((doc) => ({ type: doc.type, status: doc.status })),
+    });
+
+    if (allDocumentsApproved && validDocuments.length > 0) {
+      user.company.verificationStatus = "verified";
+      user.isVerified = true;
+    } else if (hasRejectedDocuments) {
+      user.company.verificationStatus = "rejected";
+      user.isVerified = false;
+    } else {
+      // If some documents are still pending, keep verification as pending
+      user.company.verificationStatus = "pending";
+      user.isVerified = false;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        document: user.company.documents[documentIndex],
+        verificationStatus: user.company.verificationStatus,
+        isVerified: user.isVerified,
+      },
+      message: `Document ${status} successfully`,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+/**
+ * @desc    Clean up invalid company documents and update verification status (Admin only)
+ * @route   PUT /api/company/:id/cleanup-documents
+ * @access  Private (Admin)
+ */
+exports.cleanupCompanyDocuments = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: "Company not found" });
+    }
+
+    if (user.userType !== "company") {
+      return res.status(400).json({
+        success: false,
+        error: "User is not a company",
+      });
+    }
+
+    // Remove documents with missing or invalid types
+    const originalCount = user.company.documents.length;
+    user.company.documents = user.company.documents.filter((doc) => doc.type && doc.type.trim() !== "");
+    const removedCount = originalCount - user.company.documents.length;
+
+    // Recalculate verification status based on remaining valid documents
+    const validDocuments = user.company.documents;
+    const allDocumentsApproved = validDocuments.every((doc) => doc.status === "approved");
+    const hasRejectedDocuments = validDocuments.some((doc) => doc.status === "rejected");
+
+    console.log(`Company ${id} cleanup:`, {
+      originalDocuments: originalCount,
+      removedDocuments: removedCount,
+      remainingDocuments: validDocuments.length,
+      allApproved: allDocumentsApproved,
+      hasRejected: hasRejectedDocuments,
+      documentStatuses: validDocuments.map((doc) => ({ type: doc.type, status: doc.status })),
+    });
+
+    if (allDocumentsApproved && validDocuments.length > 0) {
+      user.company.verificationStatus = "verified";
+      user.isVerified = true;
+    } else if (hasRejectedDocuments) {
+      user.company.verificationStatus = "rejected";
+      user.isVerified = false;
+    } else {
+      user.company.verificationStatus = "pending";
+      user.isVerified = false;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        removedDocuments: removedCount,
+        remainingDocuments: validDocuments.length,
+        verificationStatus: user.company.verificationStatus,
+        isVerified: user.isVerified,
+        documents: validDocuments,
+      },
+      message: `Cleaned up ${removedCount} invalid documents. Verification status updated.`,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};

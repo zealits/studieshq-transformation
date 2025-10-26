@@ -82,4 +82,24 @@ router.put(
   companyController.updateVerificationStatus
 );
 
+/**
+ * @route   PUT /api/company/:id/documents/:documentType/verify
+ * @desc    Update company document verification status (Admin only)
+ * @access  Private (Admin)
+ */
+router.put(
+  "/:id/documents/:documentType/verify",
+  auth,
+  admin,
+  [check("status", "Status is required").isIn(["pending", "approved", "rejected"])],
+  companyController.updateCompanyDocumentVerification
+);
+
+/**
+ * @route   PUT /api/company/:id/cleanup-documents
+ * @desc    Clean up invalid company documents and update verification status (Admin only)
+ * @access  Private (Admin)
+ */
+router.put("/:id/cleanup-documents", auth, admin, companyController.cleanupCompanyDocuments);
+
 module.exports = router;

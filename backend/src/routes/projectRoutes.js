@@ -14,7 +14,7 @@ router.post(
   "/",
   [
     auth,
-    checkRole(["client", "admin"]),
+    checkRole(["client", "admin", "project_sponsor_company"]),
     [
       check("title", "Title is required").not().isEmpty(),
       check("description", "Description is required").not().isEmpty(),
@@ -69,13 +69,7 @@ router.put(
 // @access  Private (Admin only)
 router.put(
   "/:id/reassign-freelancer",
-  [
-    auth,
-    checkRole(["admin"]),
-    [
-      check("newFreelancerId", "New freelancer ID is required").not().isEmpty(),
-    ],
-  ],
+  [auth, checkRole(["admin"]), [check("newFreelancerId", "New freelancer ID is required").not().isEmpty()]],
   projectController.reassignProjectFreelancer
 );
 

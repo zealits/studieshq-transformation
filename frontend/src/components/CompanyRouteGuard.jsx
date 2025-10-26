@@ -21,14 +21,11 @@ const CompanyRouteGuard = ({ children, userType = "company" }) => {
     user.company.companySize.trim().length > 0
   );
 
-  // Check if verification documents are uploaded
-  const hasVerificationDocs = !!(
-    profileData?.data?.profile?.verificationDocuments?.addressProof?.documentUrl &&
-    profileData?.data?.profile?.verificationDocuments?.identityProof?.documentUrl
-  );
+  // For company users, check company verification status instead of individual documents
+  const isVerified = isProfileComplete && user.company?.address?.verificationStatus === "verified";
 
   // If profile is not complete or not verified, show locked page
-  if (!isProfileComplete || !hasVerificationDocs) {
+  if (!isVerified) {
     return <ProfileNotVerified userType={userType} />;
   }
 
