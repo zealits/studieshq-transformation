@@ -22,7 +22,7 @@ const CompanyRouteGuard = ({ children, userType = "company" }) => {
   );
 
   // For company users, check company verification status instead of individual documents
-  const isVerified = isProfileComplete && user.company?.address?.verificationStatus === "verified";
+  const isVerified = isProfileComplete && user.company?.verificationStatus === "verified";
 
   // If profile is not complete or not verified, show locked page
   if (!isVerified) {

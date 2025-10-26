@@ -7,6 +7,11 @@ import NotificationBadge from "../components/common/NotificationBadge";
 
 const DashboardLayout = ({ role }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({
+    work: true,
+    team: true,
+    account: true,
+  });
   const { user } = useSelector((state) => state.auth);
   const { data: profileData } = useSelector((state) => state.profile);
   const { totalUnreadCount } = useSelector((state) => state.chat);
@@ -35,8 +40,15 @@ const DashboardLayout = ({ role }) => {
     navigate("/");
   };
 
-  const getNavLinks = () => {
-    // Handle company users
+  const toggleSection = (section) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
+
+  const getNavSections = () => {
+    // Handle company users - use collapsible sections
     if (user?.userType === "company") {
       // Check if company profile is complete and verified
       const isProfileComplete = !!(
@@ -48,53 +60,110 @@ const DashboardLayout = ({ role }) => {
         user.company.companySize.trim().length > 0
       );
 
-      const hasVerificationDocs = !!(
-        user?.company?.documents?.find((doc) => doc.type === "business_license" && doc.url) &&
-        user?.company?.documents?.find((doc) => doc.type === "tax_certificate" && doc.url)
-      );
-
-      const isVerified = isProfileComplete && hasVerificationDocs;
+      // For company users, check company verification status instead of individual documents
+      const isVerified = isProfileComplete && user.company?.verificationStatus === "verified";
 
       if (user?.companyType === "freelancer_company") {
         return [
-          { path: "/company/freelancer", label: "Dashboard", icon: "home" },
-          { path: "/company/freelancer/find-jobs", label: "Find Projects", icon: "search", locked: !isVerified },
-          { path: "/company/freelancer/invitations", label: "Invitations", icon: "mail", locked: !isVerified },
-          { path: "/company/freelancer/projects", label: "My Projects", icon: "folder", locked: !isVerified },
           {
-            path: "/company/freelancer/messages",
-            label: "Messages",
-            icon: "chat",
-            showUnreadBadge: true,
-            locked: !isVerified,
+            id: "work",
+            title: "Work & Projects",
+            icon: "briefcase",
+            links: [
+              { path: "/company/freelancer", label: "Dashboard", icon: "home" },
+              { path: "/company/freelancer/find-jobs", label: "Find Projects", icon: "search", locked: !isVerified },
+              { path: "/company/freelancer/invitations", label: "Invitations", icon: "mail", locked: !isVerified },
+              { path: "/company/freelancer/projects", label: "My Projects", icon: "folder", locked: !isVerified },
+              { path: "/company/freelancer/payments", label: "Payments", icon: "dollar", locked: !isVerified },
+            ],
           },
-          { path: "/company/freelancer/payments", label: "Payments", icon: "dollar", locked: !isVerified },
-          { path: "/company/freelancer/profile", label: "Company Profile", icon: "user" },
-          { path: "/company/freelancer/support", label: "Support", icon: "help", locked: !isVerified },
-          { path: "/company/freelancer/settings", label: "Settings", icon: "settings", locked: !isVerified },
+          {
+            id: "team",
+            title: "Team Management",
+            icon: "users",
+            links: [
+              {
+                path: "/company/freelancer/team-management",
+                label: "Team Management",
+                icon: "users",
+                locked: !isVerified,
+              },
+              {
+                path: "/company/freelancer/invite-freelancers",
+                label: "Invite Freelancers",
+                icon: "user-add",
+                locked: !isVerified,
+              },
+            ],
+          },
+          {
+            id: "communication",
+            title: "Communication",
+            icon: "chat",
+            links: [
+              {
+                path: "/company/freelancer/messages",
+                label: "Messages",
+                icon: "chat",
+                showUnreadBadge: true,
+                locked: !isVerified,
+              },
+            ],
+          },
+          {
+            id: "account",
+            title: "Account & Settings",
+            icon: "user",
+            links: [
+              { path: "/company/freelancer/profile", label: "Company Profile", icon: "user" },
+              { path: "/company/freelancer/support", label: "Support", icon: "help", locked: !isVerified },
+              { path: "/company/freelancer/settings", label: "Settings", icon: "settings", locked: !isVerified },
+            ],
+          },
         ];
       } else if (user?.companyType === "project_sponsor_company") {
         return [
-          { path: "/company/client", label: "Dashboard", icon: "home" },
-          { path: "/company/client/jobs", label: "Project listing", icon: "briefcase", locked: !isVerified },
-          { path: "/company/client/freelancers", label: "Find Freelancers", icon: "search", locked: !isVerified },
-          { path: "/company/client/projects", label: "Ongoing Work", icon: "folder", locked: !isVerified },
           {
-            path: "/company/client/messages",
-            label: "Messages",
-            icon: "chat",
-            showUnreadBadge: true,
-            locked: !isVerified,
+            id: "work",
+            title: "Work & Projects",
+            icon: "briefcase",
+            links: [
+              { path: "/company/client", label: "Dashboard", icon: "home" },
+              { path: "/company/client/jobs", label: "Project listing", icon: "briefcase", locked: !isVerified },
+              { path: "/company/client/freelancers", label: "Find Freelancers", icon: "search", locked: !isVerified },
+              { path: "/company/client/projects", label: "Ongoing Work", icon: "folder", locked: !isVerified },
+              { path: "/company/client/payments", label: "Payments", icon: "dollar", locked: !isVerified },
+            ],
           },
-          { path: "/company/client/payments", label: "Payments", icon: "dollar", locked: !isVerified },
-          { path: "/company/client/profile", label: "Company Profile", icon: "user" },
-          { path: "/company/client/support", label: "Support", icon: "help", locked: !isVerified },
-          { path: "/company/client/settings", label: "Settings", icon: "settings", locked: !isVerified },
+          {
+            id: "communication",
+            title: "Communication",
+            icon: "chat",
+            links: [
+              {
+                path: "/company/client/messages",
+                label: "Messages",
+                icon: "chat",
+                showUnreadBadge: true,
+                locked: !isVerified,
+              },
+            ],
+          },
+          {
+            id: "account",
+            title: "Account & Settings",
+            icon: "user",
+            links: [
+              { path: "/company/client/profile", label: "Company Profile", icon: "user" },
+              { path: "/company/client/support", label: "Support", icon: "help", locked: !isVerified },
+              { path: "/company/client/settings", label: "Settings", icon: "settings", locked: !isVerified },
+            ],
+          },
         ];
       }
     }
 
-    // Handle individual users
+    // Handle individual users - return flat list without sections
     switch (role) {
       case "freelancer":
         // Check if individual freelancer profile is complete
@@ -394,6 +463,23 @@ const DashboardLayout = ({ role }) => {
             />
           </svg>
         );
+      case "users":
+        return (
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+            />
+          </svg>
+        );
       case "lock":
         return (
           <svg
@@ -468,64 +554,140 @@ const DashboardLayout = ({ role }) => {
 
         {/* Navigation */}
         <nav className="mt-4 px-3 overflow-y-auto flex-grow" style={{ maxHeight: "calc(100vh - 13rem)" }}>
-          <div className="mb-3 px-3">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Main Menu</h3>
-          </div>
-          <ul className="space-y-1">
-            {getNavLinks().map((link) => {
-              // Check if current path matches exactly or is a sub-path
-              const isActive = (() => {
-                // Exact match
-                if (location.pathname === link.path) return true;
-
-                // For company users, check if path starts with the link path
-                if (user?.userType === "company") {
-                  return (
-                    location.pathname.startsWith(link.path) &&
-                    link.path !== "/company/freelancer" &&
-                    link.path !== "/company/client"
-                  );
-                }
-
-                // For individual users, check if path starts with the link path but not the base role path
-                return location.pathname.startsWith(link.path) && link.path !== `/${role}`;
-              })();
-
-              const isLocked = link.locked || false;
-
-              return (
-                <li key={link.path}>
-                  {isLocked ? (
-                    <div
-                      className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 cursor-not-allowed"
-                      title="Complete profile verification to unlock"
-                    >
-                      <div className="flex items-center">
-                        <span className="mr-3 text-gray-300">{renderIcon(link.icon)}</span>
-                        <span>{link.label}</span>
-                      </div>
-                      <span className="text-gray-300">{renderIcon("lock")}</span>
+          {user?.userType === "company" ? (
+            // Company users - collapsible sections
+            <div className="space-y-2">
+              {getNavSections().map((section) => (
+                <div key={section.id} className="mb-4">
+                  {/* Section Header */}
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-700 transition-colors"
+                  >
+                    <div className="flex items-center">
+                      <span className="mr-2 text-gray-400">{renderIcon(section.icon)}</span>
+                      <span>{section.title}</span>
                     </div>
-                  ) : (
-                    <Link
-                      to={link.path}
-                      className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                        isActive ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
-                      }`}
+                    <svg
+                      className={`w-4 h-4 transition-transform ${expandedSections[section.id] ? "rotate-180" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <div className="flex items-center">
-                        <span className={`mr-3 ${isActive ? "text-white" : "text-gray-500"}`}>
-                          {renderIcon(link.icon)}
-                        </span>
-                        <span>{link.label}</span>
-                      </div>
-                      {link.showUnreadBadge && totalUnreadCount > 0 && <NotificationBadge size="xs" />}
-                    </Link>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Section Links */}
+                  {expandedSections[section.id] && (
+                    <ul className="mt-2 space-y-1">
+                      {section.links.map((link) => {
+                        // Check if current path matches exactly or is a sub-path
+                        const isActive = (() => {
+                          // Exact match
+                          if (location.pathname === link.path) return true;
+
+                          // For company users, check if path starts with the link path
+                          return (
+                            location.pathname.startsWith(link.path) &&
+                            link.path !== "/company/freelancer" &&
+                            link.path !== "/company/client"
+                          );
+                        })();
+
+                        const isLocked = link.locked || false;
+
+                        return (
+                          <li key={link.path}>
+                            {isLocked ? (
+                              <div
+                                className="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-gray-400 cursor-not-allowed"
+                                title="Complete profile verification to unlock"
+                              >
+                                <div className="flex items-center">
+                                  <span className="mr-3 text-gray-300">{renderIcon(link.icon)}</span>
+                                  <span>{link.label}</span>
+                                </div>
+                                <span className="text-gray-300">{renderIcon("lock")}</span>
+                              </div>
+                            ) : (
+                              <Link
+                                to={link.path}
+                                className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                  isActive ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
+                                }`}
+                              >
+                                <div className="flex items-center">
+                                  <span className={`mr-3 ${isActive ? "text-white" : "text-gray-500"}`}>
+                                    {renderIcon(link.icon)}
+                                  </span>
+                                  <span>{link.label}</span>
+                                </div>
+                                {link.showUnreadBadge && totalUnreadCount > 0 && <NotificationBadge size="xs" />}
+                              </Link>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
                   )}
-                </li>
-              );
-            })}
-          </ul>
+                </div>
+              ))}
+            </div>
+          ) : (
+            // Individual users - flat list
+            <div>
+              <div className="mb-3 px-3">
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Main Menu</h3>
+              </div>
+              <ul className="space-y-1">
+                {getNavSections().map((link) => {
+                  // Check if current path matches exactly or is a sub-path
+                  const isActive = (() => {
+                    // Exact match
+                    if (location.pathname === link.path) return true;
+
+                    // For individual users, check if path starts with the link path but not the base role path
+                    return location.pathname.startsWith(link.path) && link.path !== `/${role}`;
+                  })();
+
+                  const isLocked = link.locked || false;
+
+                  return (
+                    <li key={link.path}>
+                      {isLocked ? (
+                        <div
+                          className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 cursor-not-allowed"
+                          title="Complete profile verification to unlock"
+                        >
+                          <div className="flex items-center">
+                            <span className="mr-3 text-gray-300">{renderIcon(link.icon)}</span>
+                            <span>{link.label}</span>
+                          </div>
+                          <span className="text-gray-300">{renderIcon("lock")}</span>
+                        </div>
+                      ) : (
+                        <Link
+                          to={link.path}
+                          className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                            isActive ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
+                          }`}
+                        >
+                          <div className="flex items-center">
+                            <span className={`mr-3 ${isActive ? "text-white" : "text-gray-500"}`}>
+                              {renderIcon(link.icon)}
+                            </span>
+                            <span>{link.label}</span>
+                          </div>
+                          {link.showUnreadBadge && totalUnreadCount > 0 && <NotificationBadge size="xs" />}
+                        </Link>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </nav>
 
         {/* Footer actions */}

@@ -12,12 +12,12 @@ const FreelancerInvitationSchema = new Schema(
     },
     firstName: {
       type: String,
-      required: true,
+      required: false, // Made optional for invitation-only workflows
       trim: true,
     },
     lastName: {
       type: String,
-      required: true,
+      required: false, // Made optional for invitation-only workflows
       trim: true,
     },
     status: {
@@ -68,7 +68,15 @@ FreelancerInvitationSchema.index({ invitedBy: 1 });
 
 // Virtual for full name
 FreelancerInvitationSchema.virtual("fullName").get(function () {
-  return `${this.firstName} ${this.lastName}`;
+  if (this.firstName && this.lastName) {
+    return `${this.firstName} ${this.lastName}`;
+  } else if (this.firstName) {
+    return this.firstName;
+  } else if (this.lastName) {
+    return this.lastName;
+  } else {
+    return this.email; // Fallback to email if no names provided
+  }
 });
 
 // Create FreelancerInvitation model

@@ -16,6 +16,12 @@ api.interceptors.request.use(
     if (token) {
       config.headers["x-auth-token"] = token;
     }
+
+    // Don't set Content-Type for FormData (let browser set it automatically)
+    if (config.data instanceof FormData) {
+      delete config.headers["Content-Type"];
+    }
+
     return config;
   },
   (error) => Promise.reject(error)

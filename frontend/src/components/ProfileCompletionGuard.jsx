@@ -60,7 +60,7 @@ const ProfileCompletionGuard = ({ children }) => {
         );
 
         // For company users, check company verification status instead of individual documents
-        const isVerified = isProfileComplete && user.company?.address?.verificationStatus === "verified";
+        const isVerified = isProfileComplete && user.company?.verificationStatus === "verified";
 
         // For company users, restrict access to only dashboard and profile pages until profile is complete AND verified
         if (!isVerified) {

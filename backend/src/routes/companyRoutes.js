@@ -1,9 +1,28 @@
 const express = require("express");
 const router = express.Router();
 const { check } = require("express-validator");
+const multer = require("multer");
 const companyController = require("../controllers/companyController");
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (
+      file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      file.mimetype === "application/vnd.ms-excel"
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only Excel files are allowed"), false);
+    }
+  },
+});
 
 /**
  * @route   GET /api/company/profile
@@ -101,5 +120,59 @@ router.put(
  * @access  Private (Admin)
  */
 router.put("/:id/cleanup-documents", auth, admin, companyController.cleanupCompanyDocuments);
+
+// Team Management Routes
+/**
+ * @route   GET /api/company/team-members
+ * @desc    Get all team members for the company
+ * @access  Private (Company)
+ */
+router.get("/team-members", auth, companyController.getTeamMembers);
+
+/**
+ * @route   DELETE /api/company/team-members/:memberId
+ * @desc    Remove a team member from the company
+ * @access  Private (Company)
+ */
+router.delete("/team-members/:memberId", auth, companyController.removeTeamMember);
+
+/**
+ * @route   PUT /api/company/team-members/:memberId/role
+ * @desc    Update team member role
+ * @access  Private (Company)
+ */
+router.put(
+  "/team-members/:memberId/role",
+  auth,
+  [check("role", "Role is required").isIn(["member", "manager", "admin"])],
+  companyController.updateTeamMemberRole
+);
+
+// Freelancer Invitation Routes
+/**
+ * @route   GET /api/company/freelancer-invitations
+ * @desc    Get all freelancer invitations for the company
+ * @access  Private (Company)
+ */
+router.get("/freelancer-invitations", auth, companyController.getFreelancerInvitations);
+
+/**
+ * @route   GET /api/company/freelancer-invitations/template/:type
+ * @desc    Download Excel template for freelancer invitations/addition
+ * @access  Private (Company)
+ */
+router.get("/freelancer-invitations/template/:type", auth, companyController.downloadFreelancerTemplate);
+
+/**
+ * @route   POST /api/company/freelancer-invitations/upload
+ * @desc    Upload Excel file for freelancer invitations or direct addition
+ * @access  Private (Company)
+ */
+router.post(
+  "/freelancer-invitations/upload",
+  auth,
+  upload.single("file"),
+  companyController.uploadFreelancerInvitations
+);
 
 module.exports = router;

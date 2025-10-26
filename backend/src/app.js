@@ -36,7 +36,7 @@ app.use(express.json());
 
 // Apply fileUpload middleware only to non-upload routes
 app.use((req, res, next) => {
-  if (req.path.startsWith("/api/upload/")) {
+  if (req.path.startsWith("/api/upload/") || req.path.includes("/freelancer-invitations/upload")) {
     // Skip fileUpload middleware for upload routes (use multer instead)
     next();
   } else {

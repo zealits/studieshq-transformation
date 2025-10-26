@@ -65,6 +65,8 @@ import FreelancerProfileView from "./components/client/FreelancerProfileView";
 import FreelancerCompanyDashboard from "./pages/company/FreelancerCompanyDashboard";
 import ProjectSponsorCompanyDashboard from "./pages/company/ProjectSponsorCompanyDashboard";
 import CompanyProfilePage from "./pages/company/CompanyProfilePage";
+import TeamManagementPage from "./pages/company/TeamManagementPage";
+import InviteFreelancersPage from "./pages/company/InviteFreelancersPage";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/DashboardPage";
@@ -282,6 +284,22 @@ function App() {
             }
           />
           <Route path="profile" element={<CompanyProfilePage />} />
+          <Route
+            path="team-management"
+            element={
+              <CompanyRouteGuard>
+                <TeamManagementPage />
+              </CompanyRouteGuard>
+            }
+          />
+          <Route
+            path="invite-freelancers"
+            element={
+              <CompanyRouteGuard>
+                <InviteFreelancersPage />
+              </CompanyRouteGuard>
+            }
+          />
           <Route
             path="support"
             element={

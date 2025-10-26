@@ -405,9 +405,7 @@ const UserManagementPage = () => {
     // For company users, check company verification status
     // For individual users, check profile.isVerified
     const isDocumentVerified =
-      user.userType === "company"
-        ? user.company?.address?.verificationStatus === "verified"
-        : user.profile?.isVerified || false;
+      user.userType === "company" ? user.company?.verificationStatus === "verified" : user.profile?.isVerified || false;
 
     if (isDocumentVerified) {
       return (

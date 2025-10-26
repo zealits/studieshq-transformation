@@ -1283,3 +1283,130 @@ exports.sendFreelancerCredentials = async (email, firstName, lastName, temporary
 
   return await transporter.sendMail(mailOptions);
 };
+
+/**
+ * Send company freelancer invitation email
+ * @param {Object} company - Company user object
+ * @param {string} email - Freelancer's email
+ * @param {string} invitationLink - Invitation registration link
+ * @returns {Promise} - Nodemailer info object
+ */
+exports.sendCompanyFreelancerInvitation = async (company, email, invitationLink) => {
+  const content = `
+    <p>Hello,</p>
+    <p>You have been invited by <strong>${
+      company.company.businessName
+    }</strong> to join their team on StudiesHQ as a freelancer.</p>
+    
+    <div style="background-color: #f0f9ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0ea5e9;">
+      <h3 style="margin: 0 0 10px 0; color: #0c4a6e;">About ${company.company.businessName}:</h3>
+      <p style="margin: 5px 0; color: #0c4a6e;"><strong>Industry:</strong> ${
+        company.company.industry || "Not specified"
+      }</p>
+      <p style="margin: 5px 0; color: #0c4a6e;"><strong>Company Size:</strong> ${
+        company.company.companySize || "Not specified"
+      }</p>
+      ${
+        company.company.description
+          ? `<p style="margin: 5px 0; color: #0c4a6e;"><strong>Description:</strong> ${company.company.description}</p>`
+          : ""
+      }
+    </div>
+    
+    <div style="background-color: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+      <h3 style="margin: 0 0 10px 0; color: #059669;">What This Means:</h3>
+      <ul style="margin: 10px 0; padding-left: 20px;">
+        <li>You'll be part of ${company.company.businessName}'s freelancer team</li>
+        <li>You'll be automatically verified as a company freelancer</li>
+        <li>You can work on projects assigned by the company</li>
+        <li>You'll have access to company-specific resources and support</li>
+      </ul>
+    </div>
+    
+    <p>Click the button below to accept this invitation and create your account:</p>
+    <p><strong>Note:</strong> This invitation link will expire in 7 days.</p>
+    <p>If you have any questions, please contact ${company.company.businessName} or our support team.</p>
+    <p>Best regards,<br>The StudiesHQ Team</p>
+  `;
+
+  const mailOptions = {
+    from: `"StudiesHQ" <${process.env.SMPT_MAIL}>`,
+    to: email,
+    subject: `Invitation to Join ${company.company.businessName} on StudiesHQ`,
+    html: getEmailTemplate(
+      `Join ${company.company.businessName} on StudiesHQ`,
+      content,
+      "Accept Invitation",
+      invitationLink
+    ),
+  };
+
+  return await transporter.sendMail(mailOptions);
+};
+
+/**
+ * Send company freelancer credentials email
+ * @param {Object} company - Company user object
+ * @param {Object} user - New freelancer user object
+ * @param {string} temporaryPassword - Temporary password
+ * @returns {Promise} - Nodemailer info object
+ */
+exports.sendCompanyFreelancerCredentials = async (company, user, temporaryPassword) => {
+  const loginUrl = `${process.env.FRONTEND_URL}/login`;
+
+  const content = `
+    <p>Hello ${user.name},</p>
+    <p>Welcome to StudiesHQ! Your account has been created by <strong>${
+      company.company.businessName
+    }</strong> and you are now part of their freelancer team.</p>
+    
+    <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+      <h3 style="margin: 0 0 10px 0; color: #92400e;">Your Login Credentials:</h3>
+      <p style="margin: 5px 0; color: #92400e;"><strong>Email:</strong> ${user.email}</p>
+      <p style="margin: 5px 0; color: #92400e;"><strong>Temporary Password:</strong> <code style="background-color: #fbbf24; padding: 2px 6px; border-radius: 3px;">${temporaryPassword}</code></p>
+    </div>
+    
+    <div style="background-color: #fef2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
+      <h3 style="margin: 0 0 10px 0; color: #991b1b;">⚠️ Important - First Login Instructions:</h3>
+      <ol style="margin: 10px 0; padding-left: 20px; color: #991b1b;">
+        <li>Login with your email and temporary password</li>
+        <li>You will be prompted to change your password immediately</li>
+        <li>After changing your password, review and update your profile</li>
+        <li>You'll be automatically verified as a company freelancer</li>
+      </ol>
+    </div>
+    
+    <div style="background-color: #f0f9ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0ea5e9;">
+      <h3 style="margin: 0 0 10px 0; color: #0c4a6e;">About Your Company Team:</h3>
+      <p style="margin: 5px 0; color: #0c4a6e;"><strong>Company:</strong> ${company.company.businessName}</p>
+      <p style="margin: 5px 0; color: #0c4a6e;"><strong>Industry:</strong> ${
+        company.company.industry || "Not specified"
+      }</p>
+      <p style="margin: 5px 0; color: #0c4a6e;"><strong>Your Role:</strong> Team Member</p>
+    </div>
+    
+    <div style="background-color: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+      <h3 style="margin: 0 0 10px 0; color: #059669;">What You Can Do:</h3>
+      <ul style="margin: 10px 0; padding-left: 20px;">
+        <li>Work on projects assigned by ${company.company.businessName}</li>
+        <li>Access company-specific resources and support</li>
+        <li>Collaborate with other team members</li>
+        <li>Manage your projects and communicate with clients</li>
+        <li>Receive secure payments through our escrow system</li>
+      </ul>
+    </div>
+    
+    <p><strong>Please keep this email secure and change your password upon first login.</strong></p>
+    <p>If you have any questions, feel free to reach out to ${company.company.businessName} or our support team.</p>
+    <p>Best regards,<br>The StudiesHQ Team</p>
+  `;
+
+  const mailOptions = {
+    from: `"StudiesHQ" <${process.env.SMPT_MAIL}>`,
+    to: user.email,
+    subject: `Welcome to ${company.company.businessName} Team on StudiesHQ`,
+    html: getEmailTemplate(`Welcome to ${company.company.businessName} Team!`, content, "Login Now", loginUrl),
+  };
+
+  return await transporter.sendMail(mailOptions);
+};

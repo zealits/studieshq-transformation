@@ -331,6 +331,28 @@ const UserSchema = new Schema(
         type: String,
       },
     },
+    // Company freelancer fields
+    companyFreelancer: {
+      companyId: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+      companyName: {
+        type: String,
+      },
+      role: {
+        type: String,
+        enum: ["member", "manager", "admin"],
+        default: "member",
+      },
+      joinedAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+    companyFreelancerName: {
+      type: String,
+    },
     createdAt: {
       type: Date,
       default: Date.now,

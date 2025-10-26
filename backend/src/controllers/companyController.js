@@ -1,6 +1,11 @@
 const { validationResult } = require("express-validator");
 const User = require("../models/User");
 const Profile = require("../models/Profile");
+const FreelancerInvitation = require("../models/FreelancerInvitation");
+const multer = require("multer");
+const XLSX = require("xlsx");
+const crypto = require("crypto");
+const emailService = require("../services/emailService");
 
 /**
  * @desc    Get company profile
@@ -537,6 +542,541 @@ exports.cleanupCompanyDocuments = async (req, res) => {
         documents: validDocuments,
       },
       message: `Cleaned up ${removedCount} invalid documents. Verification status updated.`,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+// Team Management Methods
+
+/**
+ * @desc    Get all team members for the company
+ * @route   GET /api/company/team-members
+ * @access  Private (Company)
+ */
+exports.getTeamMembers = async (req, res) => {
+  try {
+    const company = await User.findById(req.user.id);
+
+    if (!company || company.userType !== "company") {
+      return res.status(400).json({
+        success: false,
+        error: "This endpoint is only available for company users",
+      });
+    }
+
+    // Find all freelancers who belong to this company
+    const teamMembers = await User.find({
+      userType: "freelancer",
+      "companyFreelancer.companyId": company._id,
+    }).select("-password");
+
+    // Get additional stats
+    const stats = {
+      totalMembers: teamMembers.length,
+      activeMembers: teamMembers.filter((member) => member.status === "active").length,
+      pendingMembers: teamMembers.filter((member) => member.status === "pending").length,
+      totalProjects: 0, // This would need to be calculated from projects
+      totalRevenue: 0, // This would need to be calculated from payments
+    };
+
+    res.status(200).json({
+      success: true,
+      data: {
+        teamMembers,
+        stats,
+      },
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+/**
+ * @desc    Remove a team member from the company
+ * @route   DELETE /api/company/team-members/:memberId
+ * @access  Private (Company)
+ */
+exports.removeTeamMember = async (req, res) => {
+  try {
+    const company = await User.findById(req.user.id);
+
+    if (!company || company.userType !== "company") {
+      return res.status(400).json({
+        success: false,
+        error: "This endpoint is only available for company users",
+      });
+    }
+
+    const member = await User.findById(req.params.memberId);
+
+    if (!member || member.userType !== "freelancer") {
+      return res.status(404).json({
+        success: false,
+        error: "Team member not found",
+      });
+    }
+
+    // Check if the member belongs to this company
+    if (!member.companyFreelancer || member.companyFreelancer.companyId.toString() !== company._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        error: "This member does not belong to your company",
+      });
+    }
+
+    // Remove company association
+    member.companyFreelancer = undefined;
+    member.companyFreelancerName = undefined;
+    await member.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Team member removed successfully",
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+/**
+ * @desc    Update team member role
+ * @route   PUT /api/company/team-members/:memberId/role
+ * @access  Private (Company)
+ */
+exports.updateTeamMemberRole = async (req, res) => {
+  try {
+    const company = await User.findById(req.user.id);
+
+    if (!company || company.userType !== "company") {
+      return res.status(400).json({
+        success: false,
+        error: "This endpoint is only available for company users",
+      });
+    }
+
+    const member = await User.findById(req.params.memberId);
+
+    if (!member || member.userType !== "freelancer") {
+      return res.status(404).json({
+        success: false,
+        error: "Team member not found",
+      });
+    }
+
+    // Check if the member belongs to this company
+    if (!member.companyFreelancer || member.companyFreelancer.companyId.toString() !== company._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        error: "This member does not belong to your company",
+      });
+    }
+
+    const { role } = req.body;
+
+    // Update the member's role in company context
+    if (!member.companyFreelancer) {
+      member.companyFreelancer = {};
+    }
+    member.companyFreelancer.role = role;
+
+    await member.save();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        member: {
+          id: member._id,
+          name: member.name,
+          email: member.email,
+          role: role,
+        },
+      },
+      message: "Team member role updated successfully",
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+// Freelancer Invitation Methods
+
+/**
+ * @desc    Get all freelancer invitations for the company
+ * @route   GET /api/company/freelancer-invitations
+ * @access  Private (Company)
+ */
+exports.getFreelancerInvitations = async (req, res) => {
+  try {
+    const company = await User.findById(req.user.id);
+
+    if (!company || company.userType !== "company") {
+      return res.status(400).json({
+        success: false,
+        error: "This endpoint is only available for company users",
+      });
+    }
+
+    const invitations = await FreelancerInvitation.find({
+      invitedBy: company._id,
+    }).sort({ createdAt: -1 });
+
+    // Calculate stats
+    const stats = {
+      total: invitations.length,
+      sent: invitations.filter((inv) => inv.status === "sent").length,
+      registered: invitations.filter((inv) => inv.status === "registered").length,
+      pending: invitations.filter((inv) => inv.status === "pending").length,
+      failed: invitations.filter((inv) => inv.status === "failed").length,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: {
+        invitations,
+        stats,
+      },
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+/**
+ * @desc    Download Excel template for freelancer invitations/addition
+ * @route   GET /api/company/freelancer-invitations/template/:type
+ * @access  Private (Company)
+ */
+exports.downloadFreelancerTemplate = async (req, res) => {
+  try {
+    const company = await User.findById(req.user.id);
+
+    if (!company || company.userType !== "company") {
+      return res.status(400).json({
+        success: false,
+        error: "This endpoint is only available for company users",
+      });
+    }
+
+    const { type } = req.params;
+
+    let headers, sampleData;
+
+    if (type === "invitation") {
+      headers = ["Email", "First Name", "Last Name"];
+      sampleData = [
+        ["john.doe@example.com", "John", "Doe"],
+        ["jane.smith@example.com", "Jane", "Smith"],
+      ];
+    } else if (type === "addition") {
+      headers = ["Email", "First Name", "Last Name", "Current Address", "Skills Set"];
+      sampleData = [
+        ["john.doe@example.com", "John", "Doe", "123 Main St, City, State", "React, Node.js, JavaScript"],
+        ["jane.smith@example.com", "Jane", "Smith", "456 Oak Ave, City, State", "Python, Django, PostgreSQL"],
+      ];
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid template type",
+      });
+    }
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleData]);
+
+    // Set column widths
+    const colWidths = headers.map(() => ({ wch: 20 }));
+    ws["!cols"] = colWidths;
+
+    XLSX.utils.book_append_sheet(wb, ws, "Freelancer Data");
+
+    // Generate buffer
+    const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="freelancer_${type}_template.xlsx"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+/**
+ * @desc    Upload Excel file for freelancer invitations or direct addition
+ * @route   POST /api/company/freelancer-invitations/upload
+ * @access  Private (Company)
+ */
+exports.uploadFreelancerInvitations = async (req, res) => {
+  try {
+    const company = await User.findById(req.user.id);
+
+    if (!company || company.userType !== "company") {
+      return res.status(400).json({
+        success: false,
+        error: "This endpoint is only available for company users",
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: "Excel file is required",
+      });
+    }
+
+    const { type } = req.body;
+
+    if (!type || !["invitation", "addition"].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        error: "Type must be either 'invitation' or 'addition'",
+      });
+    }
+
+    // Parse Excel file
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+    if (data.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: "Excel file must contain at least one data row",
+      });
+    }
+
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const results = {
+      totalProcessed: rows.length,
+      successful: 0,
+      failed: 0,
+      successfulUsers: [],
+      errors: [],
+    };
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+
+      try {
+        if (type === "invitation") {
+          // Handle invitation system
+          const email = row[0];
+          const firstName = row[1] || "";
+          const lastName = row[2] || "";
+
+          if (!email || !email.includes("@")) {
+            results.errors.push({
+              email: email || "Unknown",
+              error: "Invalid email address",
+            });
+            results.failed++;
+            continue;
+          }
+
+          // Check if user already exists
+          const existingUser = await User.findOne({ email: email.toLowerCase() });
+          if (existingUser) {
+            results.errors.push({
+              email: email,
+              error: "User already exists",
+            });
+            results.failed++;
+            continue;
+          }
+
+          // Check if invitation already exists
+          const existingInvitation = await FreelancerInvitation.findOne({
+            email: email.toLowerCase(),
+            invitedBy: company._id,
+          });
+
+          if (existingInvitation) {
+            results.errors.push({
+              email: email,
+              error: "Invitation already sent",
+            });
+            results.failed++;
+            continue;
+          }
+
+          // Create invitation
+          const invitationToken = crypto.randomBytes(32).toString("hex");
+          const invitation = new FreelancerInvitation({
+            email: email.toLowerCase(),
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            invitedBy: company._id,
+            invitationToken,
+            invitationTokenExpire: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+            metadata: {
+              batchId: `batch_${Date.now()}`,
+              source: "company_invitation",
+              companyName: company.company.businessName,
+            },
+          });
+
+          await invitation.save();
+
+          // Send invitation email
+          try {
+            const invitationLink = `${
+              process.env.FRONTEND_URL
+            }/register?token=${invitationToken}&company=${encodeURIComponent(company.company.businessName)}`;
+            await emailService.sendCompanyFreelancerInvitation(company, email, invitationLink);
+
+            invitation.status = "sent";
+            invitation.sentAt = new Date();
+            await invitation.save();
+
+            results.successfulUsers.push({
+              email: email,
+              name: firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || email,
+            });
+            results.successful++;
+          } catch (emailError) {
+            console.error("Email sending failed:", emailError);
+            invitation.status = "failed";
+            invitation.errorMessage = emailError.message;
+            await invitation.save();
+
+            results.errors.push({
+              email: email,
+              error: "Failed to send email",
+            });
+            results.failed++;
+          }
+        } else if (type === "addition") {
+          // Handle direct addition system
+          const [email, firstName, lastName, currentAddress, skillsSet] = row;
+
+          if (!email || !email.includes("@")) {
+            results.errors.push({
+              email: email || "Unknown",
+              error: "Invalid email address",
+            });
+            results.failed++;
+            continue;
+          }
+
+          if (!firstName || !lastName) {
+            results.errors.push({
+              email: email,
+              error: "First name and last name are required",
+            });
+            results.failed++;
+            continue;
+          }
+
+          // Check if user already exists
+          const existingUser = await User.findOne({ email: email.toLowerCase() });
+          if (existingUser) {
+            results.errors.push({
+              email: email,
+              error: "User already exists",
+            });
+            results.failed++;
+            continue;
+          }
+
+          // Generate temporary password
+          const temporaryPassword = crypto.randomBytes(8).toString("hex");
+
+          // Create user
+          const user = new User({
+            name: `${firstName} ${lastName}`,
+            email: email.toLowerCase(),
+            password: temporaryPassword, // This will be hashed by the pre-save middleware
+            role: "freelancer",
+            userType: "freelancer",
+            isVerified: true, // Company freelancers are automatically verified
+            companyFreelancer: {
+              companyId: company._id,
+              companyName: company.company.businessName,
+              role: "member",
+              joinedAt: new Date(),
+            },
+            companyFreelancerName: company.company.businessName,
+            requirePasswordChange: true, // Force password change on first login
+          });
+
+          await user.save();
+
+          // Create profile
+          const profile = new Profile({
+            user: user._id,
+            bio: "",
+            skills: skillsSet ? skillsSet.split(",").map((skill) => skill.trim()) : [],
+            location: currentAddress || "",
+            isVerified: true,
+          });
+
+          await profile.save();
+
+          // Create invitation record for tracking
+          const invitation = new FreelancerInvitation({
+            email: email.toLowerCase(),
+            firstName,
+            lastName,
+            invitedBy: company._id,
+            status: "registered",
+            registeredUser: user._id,
+            registeredAt: new Date(),
+            sentAt: new Date(),
+            temporaryPassword,
+            metadata: {
+              batchId: `batch_${Date.now()}`,
+              source: "company_addition",
+              companyName: company.company.businessName,
+            },
+          });
+
+          await invitation.save();
+
+          // Send login credentials email
+          try {
+            await emailService.sendCompanyFreelancerCredentials(company, user, temporaryPassword);
+
+            results.successfulUsers.push({
+              email: email,
+              name: `${firstName} ${lastName}`,
+              temporaryPassword,
+            });
+            results.successful++;
+          } catch (emailError) {
+            console.error("Email sending failed:", emailError);
+
+            results.errors.push({
+              email: email,
+              error: "Account created but failed to send credentials email",
+            });
+            results.failed++;
+          }
+        }
+      } catch (rowError) {
+        console.error(`Error processing row ${i + 1}:`, rowError);
+        results.errors.push({
+          email: row[0] || "Unknown",
+          error: rowError.message,
+        });
+        results.failed++;
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: results,
+      message: `${type === "invitation" ? "Invitations processed" : "Accounts created"} successfully`,
     });
   } catch (err) {
     console.error(err.message);
