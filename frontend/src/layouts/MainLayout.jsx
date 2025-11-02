@@ -42,13 +42,13 @@ const MainLayout = () => {
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="container-custom py-4 flex justify-between items-center">
-          <Link to="/" className="flex items-center">
+          <a href="https://www.studieshq.com/" className="flex items-center">
             <img
               src="https://res.cloudinary.com/dzmn9lnk5/image/upload/v1762091880/agile/logos/studieshqwithagilelabs_dt6jbb_c_crop_w_2000_h_700_zfnepb.png"
               alt="StudiesHQ Logo"
               className="h-12"
             />
-          </Link>
+          </a>
 
           <nav className="hidden md:flex space-x-8">
             <a href="https://www.studieshq.com/" className="text-gray-600 hover:text-[#3884b8] transition-colors">
