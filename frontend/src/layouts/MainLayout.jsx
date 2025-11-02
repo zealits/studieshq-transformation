@@ -44,28 +44,28 @@ const MainLayout = () => {
         <div className="container-custom py-4 flex justify-between items-center">
           <Link to="/" className="flex items-center">
             <img
-              src="https://res.cloudinary.com/dzmn9lnk5/image/upload/v1720717646/agile/logos/STUDIES-HQ_qkotcf.png"
+              src="https://res.cloudinary.com/dzmn9lnk5/image/upload/v1762091880/agile/logos/studieshqwithagilelabs_dt6jbb_c_crop_w_2000_h_700_zfnepb.png"
               alt="StudiesHQ Logo"
               className="h-12"
             />
           </Link>
 
           <nav className="hidden md:flex space-x-8">
-            <Link to="/" className="text-gray-600 hover:text-[#3884b8] transition-colors">
+            <a href="https://www.studieshq.com/" className="text-gray-600 hover:text-[#3884b8] transition-colors">
               Home
-            </Link>
-            <Link to="/about" className="text-gray-600 hover:text-[#3884b8] transition-colors">
+            </a>
+            <a href="https://www.studieshq.com/" className="text-gray-600 hover:text-[#3884b8] transition-colors">
               About
-            </Link>
-            <Link to="/contact" className="text-gray-600 hover:text-[#3884b8] transition-colors">
+            </a>
+            <a href="https://www.studieshq.com/" className="text-gray-600 hover:text-[#3884b8] transition-colors">
               Contact Us
-            </Link>
-            <Link to="client/freelancers" className="text-gray-600 hover:text-[#3884b8] transition-colors">
+            </a>
+            <a href="https://www.studieshq.com/" className="text-gray-600 hover:text-[#3884b8] transition-colors">
               Find Freelancers
-            </Link>
-            <Link to="freelancer/find-jobs" className="text-gray-600 hover:text-[#3884b8] transition-colors">
+            </a>
+            <a href="https://www.studieshq.com/" className="text-gray-600 hover:text-[#3884b8] transition-colors">
               Find Projects
-            </Link>
+            </a>
           </nav>
 
           <div className="flex items-center gap-4">
@@ -86,14 +86,21 @@ const MainLayout = () => {
               </>
             ) : (
               <>
-                <Link to="/login" className="text-[#3884b8] hover:text-[#0d81c8] transition-colors">
+                <Link
+                  to="/login"
+                  className="px-4 py-2 bg-white border border-[#FF017C] text-[#FF017C] rounded-full hover:bg-[#FF017C] hover:text-white transition-colors"
+                  style={{ borderColor: "#FF017C", color: "#FF017C" }}
+                >
                   Login
                 </Link>
                 <Link
                   to="/register"
-                  className="px-4 py-2 bg-[#3884b8] text-white rounded-md hover:bg-[#0d81c8] transition-colors"
+                  className="px-4 py-2 text-white rounded-full transition-colors"
+                  style={{
+                    background: "linear-gradient(to right, #FF017C, #D67BFF)",
+                  }}
                 >
-                  Join Free
+                  Sign Up
                 </Link>
               </>
             )}
