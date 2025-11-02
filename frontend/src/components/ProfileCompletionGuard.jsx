@@ -73,24 +73,26 @@ const ProfileCompletionGuard = ({ children }) => {
           }
         }
       } else if (user.role === "freelancer") {
-        // For individual freelancers, check if they have basic profile info
-        isProfileComplete = !!(
-          profile.bio &&
-          profile.bio.trim().length > 0 &&
-          profile.skills &&
-          profile.skills.length > 0 &&
-          profile.location &&
-          profile.location.trim().length > 0
-        );
+        // Check if freelancer is part of a company
+        if (user.companyFreelancer && user.companyFreelancer.companyId) {
+          // Company freelancers are auto-verified and don't need profile completion
+          isProfileComplete = true;
+        } else {
+          // For individual freelancers, check if they have basic profile info
+          isProfileComplete = !!(
+            
+            profile.skills &&
+            profile.skills.length > 0 &&
+            profile.location &&
+            profile.location.trim().length > 0
+          );
+        }
       } else if (user.role === "client") {
         // For individual clients, check if they have company info
         isProfileComplete = !!(
-          profile.companyName &&
-          profile.companyName.trim().length > 0 &&
-          profile.industry &&
-          profile.industry.trim().length > 0 &&
-          profile.companySize &&
-          profile.companySize.trim().length > 0
+          profile.company &&
+          profile.company.trim().length > 0 
+       
         );
       }
 
@@ -103,7 +105,7 @@ const ProfileCompletionGuard = ({ children }) => {
           });
           toastShownRef.current = true;
         }
-        navigate(`/${user.role}/profile`);
+        // navigate(`/${user.role}/profile`);
         return;
       }
 
@@ -114,7 +116,13 @@ const ProfileCompletionGuard = ({ children }) => {
       );
 
       // If no verification documents, show a gentle reminder but don't force redirect
-      if (!hasVerificationDocs && !location.pathname.includes("/profile") && user.userType !== "company") {
+      // Skip this check for company freelancers as they are auto-verified
+      if (
+        !hasVerificationDocs &&
+        !location.pathname.includes("/profile") &&
+        user.userType !== "company" &&
+        !(user.companyFreelancer && user.companyFreelancer.companyId)
+      ) {
         if (!toastShownRef.current) {
           toast.info("Complete your profile verification to unlock all features", {
             autoClose: 10000,

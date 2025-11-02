@@ -129,4 +129,27 @@ router.put(
  */
 router.get("/check-verification/:email", authController.checkVerificationStatus);
 
+/**
+ * @route   GET /api/auth/validate-invitation/:token
+ * @desc    Validate invitation token and get invitation details
+ * @access  Public
+ */
+router.get("/validate-invitation/:token", authController.validateInvitation);
+
+/**
+ * @route   POST /api/auth/register-invitation
+ * @desc    Register user through invitation
+ * @access  Public
+ */
+router.post(
+  "/register-invitation",
+  [
+    check("name", "Name is required").not().isEmpty(),
+    check("email", "Please include a valid email").isEmail(),
+    check("password", "Please enter a password with 6 or more characters").isLength({ min: 6 }),
+    check("invitationToken", "Invitation token is required").not().isEmpty(),
+  ],
+  authController.registerInvitation
+);
+
 module.exports = router;

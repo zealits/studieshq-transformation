@@ -18,7 +18,12 @@ const UserTypeRedirect = () => {
       } else {
         // Individual users
         if (user.role === "freelancer") {
-          navigate("/freelancer", { replace: true });
+          // Check if freelancer is part of a company
+          if (user.companyFreelancer && user.companyFreelancer.companyId) {
+            navigate("/company-freelancer", { replace: true });
+          } else {
+            navigate("/freelancer", { replace: true });
+          }
         } else if (user.role === "client") {
           navigate("/client", { replace: true });
         } else if (user.role === "admin") {

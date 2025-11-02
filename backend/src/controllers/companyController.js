@@ -5,6 +5,7 @@ const FreelancerInvitation = require("../models/FreelancerInvitation");
 const multer = require("multer");
 const XLSX = require("xlsx");
 const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 const emailService = require("../services/emailService");
 
 /**
@@ -569,7 +570,7 @@ exports.getTeamMembers = async (req, res) => {
 
     // Find all freelancers who belong to this company
     const teamMembers = await User.find({
-      userType: "freelancer",
+      role: "freelancer",
       "companyFreelancer.companyId": company._id,
     }).select("-password");
 
@@ -613,7 +614,7 @@ exports.removeTeamMember = async (req, res) => {
 
     const member = await User.findById(req.params.memberId);
 
-    if (!member || member.userType !== "freelancer") {
+    if (!member || member.role !== "freelancer") {
       return res.status(404).json({
         success: false,
         error: "Team member not found",
@@ -661,7 +662,7 @@ exports.updateTeamMemberRole = async (req, res) => {
 
     const member = await User.findById(req.params.memberId);
 
-    if (!member || member.userType !== "freelancer") {
+    if (!member || member.role !== "freelancer") {
       return res.status(404).json({
         success: false,
         error: "Team member not found",
@@ -930,9 +931,7 @@ exports.uploadFreelancerInvitations = async (req, res) => {
 
           // Send invitation email
           try {
-            const invitationLink = `${
-              process.env.FRONTEND_URL
-            }/register?token=${invitationToken}&company=${encodeURIComponent(company.company.businessName)}`;
+            const invitationLink = `${process.env.FRONTEND_URL}/register-invitation?token=${invitationToken}`;
             await emailService.sendCompanyFreelancerInvitation(company, email, invitationLink);
 
             invitation.status = "sent";
@@ -992,13 +991,17 @@ exports.uploadFreelancerInvitations = async (req, res) => {
           // Generate temporary password
           const temporaryPassword = crypto.randomBytes(8).toString("hex");
 
+          // Hash the password
+          const salt = await bcrypt.genSalt(10);
+          const hashedPassword = await bcrypt.hash(temporaryPassword, salt);
+
           // Create user
           const user = new User({
             name: `${firstName} ${lastName}`,
             email: email.toLowerCase(),
-            password: temporaryPassword, // This will be hashed by the pre-save middleware
+            password: hashedPassword,
             role: "freelancer",
-            userType: "freelancer",
+            userType: "individual",
             isVerified: true, // Company freelancers are automatically verified
             companyFreelancer: {
               companyId: company._id,
@@ -1008,6 +1011,7 @@ exports.uploadFreelancerInvitations = async (req, res) => {
             },
             companyFreelancerName: company.company.businessName,
             requirePasswordChange: true, // Force password change on first login
+            temporaryPassword: temporaryPassword, // Store plain text for email
           });
 
           await user.save();

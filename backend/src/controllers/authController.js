@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const { validationResult } = require("express-validator");
 const User = require("../models/User");
 const Profile = require("../models/Profile");
+const FreelancerInvitation = require("../models/FreelancerInvitation");
 const config = require("../config/config");
 const { sendEmail } = require("../utils/email");
 const crypto = require("crypto");
@@ -198,6 +199,201 @@ exports.verifyEmail = async (req, res) => {
 };
 
 /**
+ * @desc    Validate invitation token and get invitation details
+ * @route   GET /api/auth/validate-invitation/:token
+ * @access  Public
+ */
+exports.validateInvitation = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    // Find invitation with matching token
+    const invitation = await FreelancerInvitation.findOne({
+      invitationToken: token,
+      invitationTokenExpire: { $gt: Date.now() },
+      status: "sent",
+    }).populate("invitedBy", "name company.businessName");
+
+    if (!invitation) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid or expired invitation token",
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: invitation.email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        error: "User with this email already exists",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        invitation: {
+          email: invitation.email,
+          firstName: invitation.firstName,
+          lastName: invitation.lastName,
+          companyName: invitation.invitedBy?.company?.businessName || "Unknown Company",
+          invitedBy: invitation.invitedBy?.name || "Unknown",
+        },
+      },
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+/**
+ * @desc    Register user through invitation
+ * @route   POST /api/auth/register-invitation
+ * @access  Public
+ */
+exports.registerInvitation = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
+
+  const { name, email, password, invitationToken } = req.body;
+
+  try {
+    // Validate invitation token
+    const invitation = await FreelancerInvitation.findOne({
+      invitationToken,
+      invitationTokenExpire: { $gt: Date.now() },
+      status: "sent",
+    }).populate("invitedBy");
+
+    if (!invitation) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid or expired invitation token",
+      });
+    }
+
+    // Verify email matches invitation
+    if (invitation.email.toLowerCase() !== email.toLowerCase()) {
+      return res.status(400).json({
+        success: false,
+        error: "Email does not match invitation",
+      });
+    }
+
+    // Check if user already exists
+    let user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({
+        success: false,
+        error: "User already exists",
+      });
+    }
+
+    // Create new user with company freelancer association
+    const userData = {
+      name,
+      email,
+      password,
+      userType: "individual",
+      role: "freelancer",
+      isVerified: true, // Auto-verify invited users
+      isActive: true,
+      status: "active",
+      companyFreelancer: {
+        companyId: invitation.invitedBy._id,
+        companyName: invitation.invitedBy.company?.businessName || "Unknown Company",
+        role: "member",
+        joinedAt: new Date(),
+      },
+      // Auto-verify verification documents for company freelancers
+      verificationDocuments: {
+        identityProof: {
+          status: "verified",
+          uploadDate: new Date(),
+        },
+        addressProof: {
+          status: "verified",
+          uploadDate: new Date(),
+        },
+      },
+    };
+
+    user = new User(userData);
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(password, salt);
+
+    await user.save();
+
+    // Create profile
+    const profileData = {
+      user: user._id,
+      bio: "",
+      location: "",
+      skills: [],
+      social: {},
+      hourlyRate: 0,
+      availability: "As Needed",
+      education: [],
+      experience: [],
+    };
+
+    const profile = new Profile(profileData);
+    await profile.save();
+
+    // Update invitation status
+    invitation.status = "registered";
+    invitation.registeredUser = user._id;
+    invitation.registeredAt = new Date();
+    await invitation.save();
+
+    // Send welcome email
+    try {
+      await emailService.sendWelcomeEmail(user.email, user.name);
+    } catch (err) {
+      console.error("Error sending welcome email:", err);
+    }
+
+    // Generate JWT
+    const payload = {
+      user: {
+        id: user._id,
+        role: user.role,
+        userType: user.userType,
+        companyType: user.companyType,
+      },
+    };
+
+    jwt.sign(payload, config.jwtSecret, { expiresIn: "7d" }, (err, token) => {
+      if (err) throw err;
+      res.status(201).json({
+        success: true,
+        token,
+        data: {
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            userType: user.userType,
+            isVerified: user.isVerified,
+          },
+          message: "Registration successful! Welcome to the team.",
+        },
+      });
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+/**
  * @desc    Login user
  * @route   POST /api/auth/login
  * @access  Public
@@ -264,6 +460,7 @@ exports.login = async (req, res) => {
             firstLogin: user.firstLogin,
             temporaryPassword: user.temporaryPassword,
             company: user.company || null,
+            companyFreelancer: user.companyFreelancer || null,
           },
         },
       });

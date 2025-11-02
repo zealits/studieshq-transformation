@@ -167,14 +167,15 @@ const DashboardLayout = ({ role }) => {
     switch (role) {
       case "freelancer":
         // Check if individual freelancer profile is complete
-        const freelancerProfileComplete = !!(
-          profileData?.data?.profile?.bio &&
-          profileData.data.profile.bio.trim().length > 0 &&
-          profileData?.data?.profile?.skills &&
-          profileData.data.profile.skills.length > 0 &&
-          profileData?.data?.profile?.location &&
-          profileData.data.profile.location.trim().length > 0
-        );
+        const freelancerProfileComplete = true;
+        // const freelancerProfileComplete = !!(
+        //   profileData?.data?.profile?.bio &&
+        //   profileData.data.profile.bio.trim().length > 0 &&
+        //   profileData?.data?.profile?.skills &&
+        //   profileData.data.profile.skills.length > 0 &&
+        //   profileData?.data?.profile?.location &&
+        //   profileData.data.profile.location.trim().length > 0
+        // );
 
         return [
           { path: "/freelancer", label: "Dashboard", icon: "home", locked: !freelancerProfileComplete },
@@ -196,13 +197,11 @@ const DashboardLayout = ({ role }) => {
       case "client":
         // Check if individual client profile is complete
         const clientProfileComplete = !!(
-          profileData?.data?.profile?.companyName &&
-          profileData.data.profile.companyName.trim().length > 0 &&
-          profileData?.data?.profile?.industry &&
-          profileData.data.profile.industry.trim().length > 0 &&
-          profileData?.data?.profile?.companySize &&
-          profileData.data.profile.companySize.trim().length > 0
+          profileData?.data?.profile?.company &&
+          profileData.data.profile.company.trim().length > 0
+         
         );
+        
 
         return [
           { path: "/client", label: "Dashboard", icon: "home" },

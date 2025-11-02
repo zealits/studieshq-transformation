@@ -67,7 +67,14 @@ const LoginPage = () => {
           // Individual users go to their role-specific profile
           switch (userRole) {
             case "freelancer":
-              navigate("/freelancer/profile");
+              console.log(user.companyFreelancer);
+
+              // Check if freelancer is part of a company
+              if (user.companyFreelancer && user.companyFreelancer.companyId) {
+                navigate("/company-freelancer");
+              } else {
+                navigate("/freelancer/profile");
+              }
               break;
             case "client":
               navigate("/client/profile");
@@ -88,7 +95,12 @@ const LoginPage = () => {
       } else {
         switch (userRole) {
           case "freelancer":
-            navigate("/freelancer");
+            // Check if freelancer is part of a company
+            if (user.companyFreelancer && user.companyFreelancer.companyId) {
+              navigate("/company-freelancer");
+            } else {
+              navigate("/freelancer");
+            }
             break;
           case "client":
             navigate("/client");

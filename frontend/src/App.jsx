@@ -13,6 +13,7 @@ import NotificationToast from "./components/common/NotificationToast";
 import ProfileCompletionGuard from "./components/ProfileCompletionGuard";
 import UserTypeRedirect from "./components/UserTypeRedirect";
 import CompanyRouteGuard from "./components/CompanyRouteGuard";
+import CompanyFreelancerRedirect from "./components/CompanyFreelancerRedirect";
 
 // Hooks
 import { useSocket } from "./hooks/useSocket";
@@ -26,6 +27,7 @@ import AboutPage from "./pages/AboutPage";
 import ContactUsPage from "./pages/ContactUsPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import InvitationRegisterPage from "./pages/InvitationRegisterPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import NotFoundPage from "./pages/NotFoundPage";
@@ -38,6 +40,7 @@ import AdminRegisterPage from "./pages/admin/AdminRegisterPage";
 
 // Freelancer Pages
 import FreelancerDashboard from "./pages/freelancer/DashboardPage";
+import CompanyFreelancerDashboard from "./pages/freelancer/CompanyFreelancerDashboard";
 import FreelancerFindJobs from "./pages/freelancer/FindJobsPage";
 import FreelancerProjects from "./pages/freelancer/ProjectsPage";
 import FreelancerMessages from "./pages/freelancer/MessagesPage";
@@ -143,6 +146,7 @@ function App() {
           <Route path="contact" element={<ContactUsPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
+          <Route path="register-invitation" element={<InvitationRegisterPage />} />
           <Route path="forgot-password" element={<ForgotPasswordPage />} />
           <Route path="reset-password" element={<ResetPasswordPage />} />
           <Route path="verify-email" element={<EmailVerificationPage />} />
@@ -186,6 +190,30 @@ function App() {
           }
         >
           <Route index element={<FreelancerDashboard />} />
+          <Route path="find-jobs" element={<FreelancerFindJobs />} />
+          <Route path="invitations" element={<FreelancerInvitations />} />
+          <Route path="projects" element={<FreelancerProjects />} />
+          <Route path="messages" element={<FreelancerMessages />} />
+          <Route path="payments" element={<FreelancerPayments />} />
+          <Route path="profile" element={<FreelancerProfile />} />
+          <Route path="support" element={<SupportPage />} />
+          <Route path="support/submit" element={<SubmitTicket />} />
+          <Route path="support/tickets/:id" element={<TicketDetails />} />
+          <Route path="settings" element={<FreelancerSettings />} />
+        </Route>
+
+        {/* Company Freelancer Routes */}
+        <Route
+          path="/company-freelancer"
+          element={
+            <ProtectedRoute allowedRoles={["freelancer"]}>
+              <CompanyFreelancerRedirect>
+                <DashboardLayout role="company-freelancer" />
+              </CompanyFreelancerRedirect>
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<CompanyFreelancerDashboard />} />
           <Route path="find-jobs" element={<FreelancerFindJobs />} />
           <Route path="invitations" element={<FreelancerInvitations />} />
           <Route path="projects" element={<FreelancerProjects />} />
