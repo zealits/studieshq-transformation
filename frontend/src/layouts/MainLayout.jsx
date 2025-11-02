@@ -89,7 +89,7 @@ const MainLayout = () => {
                 <Link
                   to="/login"
                   className="px-4 py-2 bg-white border border-[#FF017C] text-[#FF017C] rounded-full hover:bg-[#FF017C] hover:text-white transition-colors"
-                  style={{ borderColor: "#FF017C", color: "#FF017C" }}
+                  style={{ borderColor: "#FF017C" }}
                 >
                   Login
                 </Link>
