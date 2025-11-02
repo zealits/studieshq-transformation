@@ -238,6 +238,14 @@ const FreelancersPage = () => {
                 <div className="ml-4 md:hidden">
                   <h2 className="text-xl font-semibold">{freelancer.user.name}</h2>
                   <p className="text-gray-600">{freelancer.title}</p>
+                  {(freelancer.user.companyFreelancer?.companyName || freelancer.user.companyFreelancerName) && (
+                    <p className="text-sm text-primary font-medium mt-1">
+                      <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      {freelancer.user.companyFreelancer?.companyName || freelancer.user.companyFreelancerName}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -246,6 +254,14 @@ const FreelancersPage = () => {
                   <div className="hidden md:block">
                     <h2 className="text-xl font-semibold">{freelancer.user.name}</h2>
                     <p className="text-gray-600">{freelancer.title}</p>
+                    {(freelancer.user.companyFreelancer?.companyName || freelancer.user.companyFreelancerName) && (
+                      <p className="text-sm text-primary font-medium mt-1">
+                        <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        {freelancer.user.companyFreelancer?.companyName || freelancer.user.companyFreelancerName}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center mt-2 md:mt-0">
                     <div className="text-primary font-semibold">

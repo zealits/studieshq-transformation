@@ -2,6 +2,9 @@ const { validationResult } = require("express-validator");
 const User = require("../models/User");
 const Profile = require("../models/Profile");
 const FreelancerInvitation = require("../models/FreelancerInvitation");
+const Proposal = require("../models/Proposal");
+const { Project } = require("../models/Project");
+const { Transaction } = require("../models/Payment");
 const multer = require("multer");
 const XLSX = require("xlsx");
 const crypto = require("crypto");
@@ -574,19 +577,92 @@ exports.getTeamMembers = async (req, res) => {
       "companyFreelancer.companyId": company._id,
     }).select("-password");
 
+    const teamMemberIds = teamMembers.map((member) => member._id);
+
+    // Calculate revenue and project counts for each team member
+    // Revenue: Sum of netAmount from milestone transactions where:
+    // - Transaction user is the company (payments go to company wallet)
+    // - Transaction recipient or metadata.freelancerId is the team member
+    // - Type is "milestone" and status is "completed"
+    const companyTransactions = await Transaction.find({
+      user: company._id,
+      type: "milestone",
+      status: "completed",
+      $or: [
+        { recipient: { $in: teamMemberIds } },
+        { "metadata.freelancerId": { $in: teamMemberIds.map((id) => id.toString()) } },
+      ],
+    });
+
+    // Calculate project counts for each freelancer
+    const projectsByFreelancer = await Project.aggregate([
+      {
+        $match: {
+          freelancer: { $in: teamMemberIds },
+        },
+      },
+      {
+        $group: {
+          _id: "$freelancer",
+          projectCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Create a map of freelancer ID to project count
+    const projectCountMap = {};
+    projectsByFreelancer.forEach((item) => {
+      projectCountMap[item._id.toString()] = item.projectCount;
+    });
+
+    // Calculate revenue for each team member
+    const teamMembersWithStats = teamMembers.map((member) => {
+      // Find transactions where this freelancer generated revenue
+      // Transactions go to company wallet, but recipient or metadata.freelancerId identifies the freelancer
+      const memberIdStr = member._id.toString();
+      const memberRevenue = companyTransactions.reduce((total, tx) => {
+        // Check if transaction recipient matches the member
+        const recipientMatch =
+          tx.recipient && (tx.recipient.toString() === memberIdStr || tx.recipient._id?.toString() === memberIdStr);
+        // Check if transaction metadata freelancerId matches the member
+        const metadataMatch =
+          tx.metadata &&
+          tx.metadata.freelancerId &&
+          (tx.metadata.freelancerId.toString() === memberIdStr ||
+            (typeof tx.metadata.freelancerId === "string" && tx.metadata.freelancerId === memberIdStr));
+
+        const isMemberTransaction = recipientMatch || metadataMatch;
+        return isMemberTransaction ? total + (tx.netAmount || 0) : total;
+      }, 0);
+
+      return {
+        ...member.toObject(),
+        totalRevenue: Math.round(memberRevenue * 100) / 100, // Round to 2 decimal places
+        projectCount: projectCountMap[memberIdStr] || 0,
+      };
+    });
+
+    // Calculate total revenue (sum of all team member revenues)
+    const totalRevenue = Math.round(
+      teamMembersWithStats.reduce((sum, member) => sum + (member.totalRevenue || 0), 0) * 100
+    ) / 100;
+
+    // Calculate total projects (sum of all team member projects)
+    const totalProjects = teamMembersWithStats.reduce((sum, member) => sum + (member.projectCount || 0), 0);
+
     // Get additional stats
     const stats = {
       totalMembers: teamMembers.length,
       activeMembers: teamMembers.filter((member) => member.status === "active").length,
       pendingMembers: teamMembers.filter((member) => member.status === "pending").length,
-      totalProjects: 0, // This would need to be calculated from projects
-      totalRevenue: 0, // This would need to be calculated from payments
+      totalProjects,
+      totalRevenue,
     };
 
     res.status(200).json({
       success: true,
       data: {
-        teamMembers,
+        teamMembers: teamMembersWithStats,
         stats,
       },
     });
@@ -701,6 +777,88 @@ exports.updateTeamMemberRole = async (req, res) => {
     });
   } catch (err) {
     console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+/**
+ * @desc    Get freelancer's applied projects (proposals) and ongoing projects
+ * @route   GET /api/company/team-members/:memberId/projects
+ * @access  Private (Company)
+ */
+exports.getFreelancerProjects = async (req, res) => {
+  try {
+    const company = await User.findById(req.user.id);
+
+    if (!company || company.userType !== "company") {
+      return res.status(400).json({
+        success: false,
+        error: "This endpoint is only available for company users",
+      });
+    }
+
+    const member = await User.findById(req.params.memberId);
+
+    if (!member || member.role !== "freelancer") {
+      return res.status(404).json({
+        success: false,
+        error: "Team member not found",
+      });
+    }
+
+    // Check if the member belongs to this company
+    if (!member.companyFreelancer || member.companyFreelancer.companyId.toString() !== company._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        error: "This member does not belong to your company",
+      });
+    }
+
+    // Get all proposals (applied projects) for this freelancer
+    const proposals = await Proposal.find({ freelancer: member._id })
+      .populate({
+        path: "job",
+        select: "title description budget deadline status client category skills",
+        populate: {
+          path: "client",
+          select: "name avatar email",
+        },
+      })
+      .sort({ createdAt: -1 });
+
+    // Get all ongoing projects (status: in_progress) for this freelancer
+    const ongoingProjects = await Project.find({
+      freelancer: member._id,
+      status: "in_progress",
+    })
+      .populate("client", "name avatar email")
+      .select("-__v")
+      .sort({ createdAt: -1 });
+
+    // Get all completed projects for this freelancer
+    const completedProjects = await Project.find({
+      freelancer: member._id,
+      status: "completed",
+    })
+      .populate("client", "name avatar email")
+      .select("-__v")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        appliedProjects: proposals.map((proposal) => ({
+          id: proposal._id,
+          proposalStatus: proposal.status,
+          appliedDate: proposal.createdAt,
+          job: proposal.job,
+        })),
+        ongoingProjects,
+        completedProjects,
+      },
+    });
+  } catch (err) {
+    console.error("Error in getFreelancerProjects:", err.message);
     res.status(500).json({ success: false, error: "Server error" });
   }
 };

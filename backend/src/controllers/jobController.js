@@ -574,7 +574,7 @@ exports.submitProposal = async (req, res) => {
     const { coverLetter, bidPrice, estimatedDuration } = req.body;
 
     // Get freelancer profile information
-    const freelancerProfile = await Profile.findOne({ user: req.user.id }).populate("user", "name avatar");
+    const freelancerProfile = await Profile.findOne({ user: req.user.id }).populate("user", "name avatar companyFreelancer companyFreelancerName");
 
     if (!freelancerProfile) {
       return res.status(400).json({
@@ -604,6 +604,7 @@ exports.submitProposal = async (req, res) => {
         ? freelancerProfile.experience.map((exp) => `${exp.title} at ${exp.company}`).join(", ")
         : "",
       hourlyRate: freelancerProfile.hourlyRate || { min: 0, max: 0 },
+      companyName: freelancerProfile.user.companyFreelancer?.companyName || freelancerProfile.user.companyFreelancerName || null,
     };
 
     // Create new proposal
@@ -670,7 +671,7 @@ exports.getProposals = async (req, res) => {
 
     // Get proposals for this job
     const proposals = await Proposal.find({ job: job._id })
-      .populate("freelancer", "name avatar")
+      .populate("freelancer", "name avatar companyFreelancer companyFreelancerName")
       .sort({ createdAt: -1 });
 
     res.json({
@@ -1396,7 +1397,7 @@ exports.respondToInvitation = async (req, res) => {
     // If accepted, create a proposal automatically
     if (response === "accepted") {
       const job = await Job.findById(invitation.job);
-      const freelancerProfile = await Profile.findOne({ user: req.user.id });
+      const freelancerProfile = await Profile.findOne({ user: req.user.id }).populate("user", "name avatar companyFreelancer companyFreelancerName");
 
       if (job && freelancerProfile) {
         // Create profile snapshot
@@ -1409,6 +1410,7 @@ exports.respondToInvitation = async (req, res) => {
             ? freelancerProfile.experience.map((exp) => `${exp.title} at ${exp.company}`).join(", ")
             : "",
           hourlyRate: freelancerProfile.hourlyRate || { min: 0, max: 0 },
+          companyName: freelancerProfile.user?.companyFreelancer?.companyName || freelancerProfile.user?.companyFreelancerName || null,
         };
 
         // Create proposal

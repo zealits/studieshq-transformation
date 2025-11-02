@@ -18,6 +18,8 @@ exports.getCurrentProfile = async (req, res) => {
       "resume",
       "parsedResumeData",
       "resumeParsedAt",
+      "companyFreelancer",
+      "companyFreelancerName",
     ]);
 
     if (!profile) {
@@ -242,6 +244,8 @@ exports.getAllFreelancers = async (req, res) => {
       "avatar",
       "role",
       "resume",
+      "companyFreelancer",
+      "companyFreelancerName",
     ]);
 
     res.json({ success: true, data: { freelancers: freelancerProfiles } });
@@ -264,6 +268,8 @@ exports.getProfileByUserId = async (req, res) => {
       "avatar",
       "role",
       "resume",
+      "companyFreelancer",
+      "companyFreelancerName",
     ]);
 
     if (!profile) {

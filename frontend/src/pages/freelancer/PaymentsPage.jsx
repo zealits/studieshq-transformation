@@ -41,11 +41,20 @@ const PaymentsPage = () => {
     try {
       console.log("🖥️ FREELANCER PAYMENTS PAGE: === LOADING PAYMENT DATA ===");
       console.log("🖥️ FREELANCER PAYMENTS PAGE: User ID:", user?.id);
+      console.log("🖥️ FREELANCER PAYMENTS PAGE: User Type:", user?.userType);
+      console.log("🖥️ FREELANCER PAYMENTS PAGE: User Role:", user?.role);
 
       setLoading(true);
 
+      // Check if user is a company owner - if so, use company endpoint
+      const isCompanyOwner = user?.userType === "company" && user?.role === "freelancer_company";
+      
       // Load both escrow data and payment methods
-      const [escrowResponse] = await Promise.all([escrowService.getFreelancerEscrowData(), loadPaymentMethods()]);
+      const escrowPromise = isCompanyOwner
+        ? escrowService.getCompanyEscrowData()
+        : escrowService.getFreelancerEscrowData();
+      
+      const [escrowResponse] = await Promise.all([escrowPromise, loadPaymentMethods()]);
 
       console.log("🖥️ FREELANCER PAYMENTS PAGE: ✅ Data loaded successfully:", escrowResponse.data);
       setEscrowData(escrowResponse.data);
@@ -103,13 +112,19 @@ const PaymentsPage = () => {
   //   return () => clearInterval(interval);
   // }, [user, loading]);
 
+  // Helper to get the correct escrow data service based on user type
+  const getEscrowDataService = () => {
+    const isCompanyOwner = user?.userType === "company" && user?.role === "freelancer_company";
+    return isCompanyOwner ? escrowService.getCompanyEscrowData() : escrowService.getFreelancerEscrowData();
+  };
+
   const handleWithdraw = async (amount) => {
     try {
       // Implement withdrawal logic here
       toast.success("Withdrawal request submitted successfully");
       setShowWithdrawModal(false);
       // Reload data after withdrawal
-      const response = await escrowService.getFreelancerEscrowData();
+      const response = await getEscrowDataService();
       setEscrowData(response.data);
     } catch (error) {
       toast.error("Failed to process withdrawal");
@@ -119,7 +134,7 @@ const PaymentsPage = () => {
   const handleGiftCardWithdrawal = async (withdrawalData) => {
     try {
       // Reload data after successful gift card withdrawal
-      const response = await escrowService.getFreelancerEscrowData();
+      const response = await getEscrowDataService();
       setEscrowData(response.data);
     } catch (error) {
       console.error("Error reloading data after gift card withdrawal:", error);
@@ -129,7 +144,7 @@ const PaymentsPage = () => {
   const handlePayPalWithdrawal = async (withdrawalData) => {
     try {
       // Reload data after successful PayPal withdrawal
-      const response = await escrowService.getFreelancerEscrowData();
+      const response = await getEscrowDataService();
       setEscrowData(response.data);
     } catch (error) {
       console.error("Error reloading data after PayPal withdrawal:", error);
@@ -139,7 +154,7 @@ const PaymentsPage = () => {
   const handleXeWithdrawal = async (withdrawalData) => {
     try {
       // Reload data after successful XE withdrawal
-      const response = await escrowService.getFreelancerEscrowData();
+      const response = await getEscrowDataService();
       setEscrowData(response.data);
     } catch (error) {
       console.error("Error reloading data after XE withdrawal:", error);

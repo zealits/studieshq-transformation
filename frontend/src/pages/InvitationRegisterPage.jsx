@@ -97,7 +97,7 @@ const InvitationRegisterPage = () => {
         // Store token and redirect
         localStorage.setItem("token", response.data.token);
         toast.success("Registration successful! Welcome to the team.");
-        navigate("/company-freelancer/dashboard");
+        navigate("/freelancer/profile");
       }
     } catch (error) {
       console.error("Registration error:", error);

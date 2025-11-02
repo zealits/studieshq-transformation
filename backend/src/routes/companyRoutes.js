@@ -148,6 +148,13 @@ router.put(
   companyController.updateTeamMemberRole
 );
 
+/**
+ * @route   GET /api/company/team-members/:memberId/projects
+ * @desc    Get freelancer's applied projects (proposals) and ongoing projects
+ * @access  Private (Company)
+ */
+router.get("/team-members/:memberId/projects", auth, companyController.getFreelancerProjects);
+
 // Freelancer Invitation Routes
 /**
  * @route   GET /api/company/freelancer-invitations

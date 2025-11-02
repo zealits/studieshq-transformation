@@ -56,6 +56,11 @@ router.get("/freelancer/data", [auth, checkRole(["freelancer"])], escrowControll
 // @access  Private (Client only)
 router.get("/client/data", [auth, checkRole(["client"])], escrowController.getClientEscrowData);
 
+// @route   GET /api/escrow/company/data
+// @desc    Get company's escrow and payment data (aggregated from all team members)
+// @access  Private (Company owner only)
+router.get("/company/data", [auth, checkRole(["freelancer_company"])], escrowController.getCompanyEscrowData);
+
 // @route   GET /api/escrow/admin/all
 // @desc    Get all escrow data for admin dashboard
 // @access  Private (Admin only)

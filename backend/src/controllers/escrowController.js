@@ -498,27 +498,55 @@ exports.releaseMilestonePayment = async (req, res) => {
         .json({ success: false, message: "Milestone must be completed and approved before payment release" });
     }
 
-    // Update freelancer wallet
-    let freelancerWallet = await Wallet.findOne({ user: escrowToUse.freelancer }).session(session);
-    const oldBalance = freelancerWallet ? freelancerWallet.balance : 0;
-    const oldEarned = freelancerWallet ? freelancerWallet.totalEarned : 0;
+    // Check if freelancer is a company freelancer - if so, route payment to company wallet
+    const freelancerUser = await User.findById(escrowToUse.freelancer).session(session);
+    let walletOwnerId = escrowToUse.freelancer; // Default to freelancer
+    let isCompanyFreelancer = false;
+    let companyOwnerId = null;
 
-    if (!freelancerWallet) {
-      freelancerWallet = new Wallet({ user: escrowToUse.freelancer });
-      console.log(`💳 Created new wallet for freelancer ${escrowToUse.freelancer}`);
+    if (freelancerUser && freelancerUser.companyFreelancer && freelancerUser.companyFreelancer.companyId) {
+      isCompanyFreelancer = true;
+      companyOwnerId = freelancerUser.companyFreelancer.companyId;
+      walletOwnerId = companyOwnerId;
+      console.log(`🏢 COMPANY FREELANCER DETECTED:`);
+      console.log(`  ├─ Freelancer ID: ${escrowToUse.freelancer}`);
+      console.log(`  ├─ Company Owner ID: ${companyOwnerId}`);
+      console.log(`  └─ Payment will go to company wallet`);
+    } else {
+      console.log(`👤 INDIVIDUAL FREELANCER: Payment goes to freelancer wallet`);
     }
 
-    freelancerWallet.balance += escrowMilestone.freelancerReceives;
-    freelancerWallet.totalEarned += escrowMilestone.freelancerReceives;
-    freelancerWallet.totalWithdrawn = freelancerWallet.totalWithdrawn || 0; // Ensure field exists
-    await freelancerWallet.save({ session });
+    // Update wallet (either company wallet for company freelancers, or individual freelancer wallet)
+    let targetWallet = await Wallet.findOne({ user: walletOwnerId }).session(session);
+    const oldBalance = targetWallet ? targetWallet.balance : 0;
+    const oldEarned = targetWallet ? targetWallet.totalEarned : 0;
 
-    console.log(`💰 FREELANCER WALLET UPDATED:`);
-    console.log(`  ├─ Balance: $${oldBalance} + $${escrowMilestone.freelancerReceives} = $${freelancerWallet.balance}`);
-    console.log(
-      `  ├─ Total Earned: $${oldEarned} + $${escrowMilestone.freelancerReceives} = $${freelancerWallet.totalEarned}`
-    );
-    console.log(`  └─ Platform Fee Deducted: $${escrowMilestone.platformFee}`);
+    if (!targetWallet) {
+      targetWallet = new Wallet({ user: walletOwnerId });
+      console.log(`💳 Created new wallet for ${isCompanyFreelancer ? "company" : "freelancer"} ${walletOwnerId}`);
+    }
+
+    targetWallet.balance += escrowMilestone.freelancerReceives;
+    targetWallet.totalEarned += escrowMilestone.freelancerReceives;
+    targetWallet.totalWithdrawn = targetWallet.totalWithdrawn || 0; // Ensure field exists
+    await targetWallet.save({ session });
+
+    if (isCompanyFreelancer) {
+      console.log(`💰 COMPANY WALLET UPDATED:`);
+      console.log(`  ├─ Company Owner ID: ${walletOwnerId}`);
+      console.log(`  ├─ Balance: $${oldBalance} + $${escrowMilestone.freelancerReceives} = $${targetWallet.balance}`);
+      console.log(
+        `  ├─ Total Earned: $${oldEarned} + $${escrowMilestone.freelancerReceives} = $${targetWallet.totalEarned}`
+      );
+      console.log(`  └─ Platform Fee Deducted: $${escrowMilestone.platformFee}`);
+    } else {
+      console.log(`💰 FREELANCER WALLET UPDATED:`);
+      console.log(`  ├─ Balance: $${oldBalance} + $${escrowMilestone.freelancerReceives} = $${targetWallet.balance}`);
+      console.log(
+        `  ├─ Total Earned: $${oldEarned} + $${escrowMilestone.freelancerReceives} = $${targetWallet.totalEarned}`
+      );
+      console.log(`  └─ Platform Fee Deducted: $${escrowMilestone.platformFee}`);
+    }
 
     // Calculate base work value (what the work is worth before platform fees)
     const baseWorkValue = escrowMilestone.freelancerReceives + escrowMilestone.platformFee;
@@ -532,9 +560,11 @@ exports.releaseMilestonePayment = async (req, res) => {
     console.log(`  └─ Client Pays Total: $${escrowMilestone.amount}`);
 
     // Create transaction record for freelancer payment
+    // For company freelancers, transaction user is the company owner (so it shows in company payment history)
+    // but recipient is still the freelancer who did the work
     const freelancerTransaction = new Transaction({
       transactionId: `MIL-${uuidv4().substring(0, 8)}`,
-      user: escrowToUse.freelancer,
+      user: walletOwnerId, // Company owner if company freelancer, otherwise freelancer
       amount: baseWorkValue, // Show base work value, not total charged to client
       fee: escrowMilestone.platformFee,
       netAmount: escrowMilestone.freelancerReceives,
@@ -542,13 +572,16 @@ exports.releaseMilestonePayment = async (req, res) => {
       status: "completed",
       project: projectId,
       milestone: milestoneId,
-      recipient: escrowToUse.freelancer,
+      recipient: escrowToUse.freelancer, // Always the freelancer who did the work
       relatedUser: escrowToUse.client,
       description: `Milestone payment: ${projectMilestone.title}`,
       metadata: {
         escrowId: escrowToUse.escrowId,
         milestoneTitle: projectMilestone.title,
         percentage: projectMilestone.percentage,
+        isCompanyFreelancer: isCompanyFreelancer,
+        freelancerId: escrowToUse.freelancer,
+        companyOwnerId: isCompanyFreelancer ? companyOwnerId : null,
       },
     });
 
@@ -1096,6 +1129,145 @@ exports.getClientEscrowData = async (req, res) => {
 };
 
 /**
+ * Get company escrow data for company freelancer dashboard
+ * Aggregates escrow data from all team members
+ */
+exports.getCompanyEscrowData = async (req, res) => {
+  try {
+    const companyId = req.user.id;
+
+    // Verify user is a company owner
+    const companyOwner = await User.findById(companyId);
+    if (!companyOwner || companyOwner.userType !== "company" || companyOwner.role !== "freelancer_company") {
+      return res.status(403).json({
+        success: false,
+        message: "This endpoint is only available for company owners",
+      });
+    }
+
+    console.log(`🏢 COMPANY ESCROW DATA REQUEST for company: ${companyId}`);
+
+    // Get company wallet
+    const wallet = await Wallet.findOne({ user: companyId });
+    const availableBalance = wallet ? wallet.balance : 0;
+    const totalEarned = wallet ? wallet.totalEarned : 0;
+
+    // Find all team members (freelancers belonging to this company)
+    const teamMembers = await User.find({
+      role: "freelancer",
+      "companyFreelancer.companyId": companyId,
+    }).select("_id name email");
+
+    const teamMemberIds = teamMembers.map((member) => member._id);
+    console.log(`👥 Found ${teamMemberIds.length} team members for company`);
+
+    // Get all escrows for team members (including completed ones for total earned calculation)
+    const allEscrows = await Escrow.find({
+      freelancer: { $in: teamMemberIds },
+    })
+      .populate("project", "title status")
+      .populate("freelancer", "name email");
+
+    // Get active escrows for team members
+    const activeEscrows = allEscrows.filter(
+      (escrow) => escrow.status === "active" || escrow.status === "partially_released"
+    );
+
+    // Calculate total in escrow (what company will receive for pending milestones from team members)
+    const inEscrow = activeEscrows.reduce((total, escrow) => {
+      const pendingMilestones = escrow.milestones.filter((m) => m.status === "pending");
+      const unreleased = pendingMilestones.reduce((sum, m) => sum + (m.freelancerReceives || 0), 0);
+      return total + unreleased;
+    }, 0);
+
+    // Get completed transactions for platform fees calculation (for company wallet)
+    const completedTransactions = await Transaction.find({
+      user: companyId, // Transactions for company wallet
+      type: { $in: ["milestone", "platform_fee"] },
+      status: "completed",
+    });
+
+    const platformFeesPaid = completedTransactions.reduce((total, tx) => total + (tx.fee || 0), 0);
+
+    // Count pending milestones (only from active escrows)
+    const pendingMilestones = activeEscrows.reduce((count, escrow) => {
+      const pending = escrow.milestones.filter((m) => m.status === "pending").length;
+      return count + pending;
+    }, 0);
+
+    console.log(`💼 COMPANY PAYMENT SUMMARY:`);
+    console.log(`  ├─ Available Balance: $${availableBalance}`);
+    console.log(`  ├─ Total Earned: $${totalEarned}`);
+    console.log(`  ├─ In Escrow: $${inEscrow}`);
+    console.log(`  ├─ Platform Fees Paid: $${platformFeesPaid}`);
+    console.log(`  ├─ Pending Milestones: ${pendingMilestones}`);
+    console.log(`  └─ Active Escrows: ${activeEscrows.length}`);
+
+    // Get recent transactions (for company wallet)
+    const recentTransactions = await Transaction.find({
+      user: companyId, // Transactions for company wallet
+      status: { $in: ["completed", "pending"] },
+    })
+      .populate("project", "title")
+      .populate("recipient", "name") // The freelancer who did the work
+      .populate("relatedUser", "name")
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    // Map active escrows with team member info
+    const activeEscrowsData = activeEscrows.map((escrow) => {
+      const freelancerMember = teamMembers.find(
+        (member) => member._id.toString() === escrow.freelancer._id.toString()
+      );
+      return {
+        escrowId: escrow.escrowId,
+        projectTitle: escrow.project?.title || "Unknown Project",
+        freelancerName: freelancerMember?.name || escrow.freelancer?.name || "Unknown Freelancer",
+        freelancerId: escrow.freelancer._id,
+        totalAmount: escrow.amountToFreelancer || escrow.totalAmount,
+        releasedAmount: escrow.milestones
+          .filter((m) => m.status === "released")
+          .reduce((sum, m) => sum + (m.freelancerReceives || 0), 0),
+        pendingAmount: escrow.milestones
+          .filter((m) => m.status === "pending")
+          .reduce((sum, m) => sum + (m.freelancerReceives || 0), 0),
+        status: escrow.status,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        availableBalance,
+        totalEarned,
+        inEscrow,
+        platformFeesPaid,
+        pendingMilestones,
+        activeEscrows: activeEscrowsData,
+        recentTransactions: recentTransactions.map((tx) => ({
+          id: tx._id,
+          transactionId: tx.transactionId,
+          amount: tx.amount,
+          netAmount: tx.netAmount,
+          fee: tx.fee,
+          type: tx.type,
+          status: tx.status,
+          description: tx.description,
+          date: tx.createdAt,
+          projectTitle: tx.project?.title,
+          freelancerName: tx.recipient?.name, // The freelancer who did the work
+          relatedUser: tx.relatedUser?.name,
+        })),
+        teamMemberCount: teamMemberIds.length,
+      },
+    });
+  } catch (error) {
+    console.error("Error getting company escrow data:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
  * Get all escrow data for admin dashboard
  */
 exports.getAllEscrowData = async (req, res) => {
@@ -1407,6 +1579,7 @@ module.exports = {
   getPlatformRevenue: exports.getPlatformRevenue,
   getFreelancerEscrowData: exports.getFreelancerEscrowData,
   getClientEscrowData: exports.getClientEscrowData,
+  getCompanyEscrowData: exports.getCompanyEscrowData,
   getAllEscrowData: exports.getAllEscrowData,
   debugEscrowData: exports.debugEscrowData,
   testExcessRefund: exports.testExcessRefund,

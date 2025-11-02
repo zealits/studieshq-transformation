@@ -79,6 +79,19 @@ const escrowService = {
     }
   },
 
+  // Get company's escrow and payment data (aggregated from all team members)
+  getCompanyEscrowData: async () => {
+    try {
+      console.log("🌐 COMPANY ESCROW DATA: Making API request...");
+      const response = await axios.get("/api/escrow/company/data");
+      console.log("🌐 COMPANY ESCROW DATA: Response received:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("🌐 COMPANY ESCROW DATA: Error:", error);
+      throw error.response?.data || error;
+    }
+  },
+
   // Get all escrow data for admin dashboard
   getAllEscrowData: async (filters = {}) => {
     try {
