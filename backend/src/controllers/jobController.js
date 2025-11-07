@@ -382,7 +382,6 @@ exports.getJob = async (req, res) => {
       data: { job: responseJob },
     });
   } catch (err) {
-
     if (err.kind === "ObjectId") {
       return res.status(404).json({
         success: false,
@@ -481,7 +480,6 @@ exports.updateJob = async (req, res) => {
       data: { job },
     });
   } catch (err) {
-
     if (err.kind === "ObjectId") {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
@@ -523,7 +521,6 @@ exports.deleteJob = async (req, res) => {
       data: {},
     });
   } catch (err) {
-
     if (err.kind === "ObjectId") {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
@@ -574,7 +571,10 @@ exports.submitProposal = async (req, res) => {
     const { coverLetter, bidPrice, estimatedDuration } = req.body;
 
     // Get freelancer profile information
-    const freelancerProfile = await Profile.findOne({ user: req.user.id }).populate("user", "name avatar companyFreelancer companyFreelancerName");
+    const freelancerProfile = await Profile.findOne({ user: req.user.id }).populate(
+      "user",
+      "name avatar companyFreelancer companyFreelancerName"
+    );
 
     if (!freelancerProfile) {
       return res.status(400).json({
@@ -604,7 +604,8 @@ exports.submitProposal = async (req, res) => {
         ? freelancerProfile.experience.map((exp) => `${exp.title} at ${exp.company}`).join(", ")
         : "",
       hourlyRate: freelancerProfile.hourlyRate || { min: 0, max: 0 },
-      companyName: freelancerProfile.user.companyFreelancer?.companyName || freelancerProfile.user.companyFreelancerName || null,
+      companyName:
+        freelancerProfile.user.companyFreelancer?.companyName || freelancerProfile.user.companyFreelancerName || null,
     };
 
     // Create new proposal
@@ -642,7 +643,6 @@ exports.submitProposal = async (req, res) => {
       data: { proposal: newProposal },
     });
   } catch (err) {
-
     if (err.kind === "ObjectId") {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
@@ -680,7 +680,6 @@ exports.getProposals = async (req, res) => {
       data: { proposals },
     });
   } catch (err) {
-
     if (err.kind === "ObjectId") {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
@@ -784,7 +783,6 @@ exports.updateProposalStatus = async (req, res) => {
         await escrowController.createEscrow(escrowReq, escrowRes);
 
         if (escrowResult && escrowResult.success) {
-
           // Update project status to in_progress since escrow is now created
           project.status = "in_progress";
           project.escrowStatus = "escrowed";
@@ -857,7 +855,6 @@ exports.updateProposalStatus = async (req, res) => {
       data: { proposal },
     });
   } catch (err) {
-
     if (err.kind === "ObjectId") {
       return res.status(404).json({ success: false, message: "Job or proposal not found" });
     }
@@ -958,7 +955,6 @@ exports.publishJob = async (req, res) => {
       });
     }
   } catch (err) {
-
     if (err.kind === "ObjectId") {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
@@ -1179,7 +1175,7 @@ exports.inviteFreelancer = async (req, res) => {
     body: req.body,
     params: req.params,
     headers: req.headers,
-    user: req.user
+    user: req.user,
   });
 
   const errors = validationResult(req);
@@ -1201,7 +1197,7 @@ exports.inviteFreelancer = async (req, res) => {
       userRole: req.user?.role,
       jobClientId: job.client,
       jobId: job._id,
-      isOwner: isJobOwnerOrAdmin(req, job)
+      isOwner: isJobOwnerOrAdmin(req, job),
     });
 
     if (!isJobOwnerOrAdmin(req, job)) {
@@ -1224,7 +1220,7 @@ exports.inviteFreelancer = async (req, res) => {
     console.log("Freelancer validation:", {
       freelancerId,
       message,
-      freelancerIdType: typeof freelancerId
+      freelancerIdType: typeof freelancerId,
     });
 
     // Check if freelancer exists and has freelancer role
@@ -1232,7 +1228,7 @@ exports.inviteFreelancer = async (req, res) => {
     console.log("Freelancer found:", {
       exists: !!freelancer,
       role: freelancer?.role,
-      name: freelancer?.name
+      name: freelancer?.name,
     });
 
     if (!freelancer || freelancer.role !== "freelancer") {
@@ -1397,7 +1393,10 @@ exports.respondToInvitation = async (req, res) => {
     // If accepted, create a proposal automatically
     if (response === "accepted") {
       const job = await Job.findById(invitation.job);
-      const freelancerProfile = await Profile.findOne({ user: req.user.id }).populate("user", "name avatar companyFreelancer companyFreelancerName");
+      const freelancerProfile = await Profile.findOne({ user: req.user.id }).populate(
+        "user",
+        "name avatar companyFreelancer companyFreelancerName"
+      );
 
       if (job && freelancerProfile) {
         // Create profile snapshot
@@ -1410,7 +1409,10 @@ exports.respondToInvitation = async (req, res) => {
             ? freelancerProfile.experience.map((exp) => `${exp.title} at ${exp.company}`).join(", ")
             : "",
           hourlyRate: freelancerProfile.hourlyRate || { min: 0, max: 0 },
-          companyName: freelancerProfile.user?.companyFreelancer?.companyName || freelancerProfile.user?.companyFreelancerName || null,
+          companyName:
+            freelancerProfile.user?.companyFreelancer?.companyName ||
+            freelancerProfile.user?.companyFreelancerName ||
+            null,
         };
 
         // Create proposal

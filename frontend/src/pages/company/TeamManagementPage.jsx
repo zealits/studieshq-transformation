@@ -545,7 +545,7 @@ const TeamManagementPage = () => {
                     {/* Projects Section */}
                     <div className="mt-6 border-t pt-4">
                       <h4 className="text-md font-semibold text-gray-900 mb-4">Projects</h4>
-                      
+
                       {/* Tabs */}
                       <div className="border-b border-gray-200 mb-4">
                         <nav className="-mb-px flex space-x-8">
@@ -594,7 +594,10 @@ const TeamManagementPage = () => {
                             <div className="space-y-4">
                               {projectsData.appliedProjects && projectsData.appliedProjects.length > 0 ? (
                                 projectsData.appliedProjects.map((applied) => (
-                                  <div key={applied.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                                  <div
+                                    key={applied.id}
+                                    className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
+                                  >
                                     <div className="flex justify-between items-start mb-2">
                                       <div className="flex-1">
                                         <h5 className="font-semibold text-gray-900">
@@ -658,7 +661,8 @@ const TeamManagementPage = () => {
                                           project.status
                                         )}`}
                                       >
-                                        {project.status?.charAt(0).toUpperCase() + project.status?.slice(1) || "In Progress"}
+                                        {project.status?.charAt(0).toUpperCase() + project.status?.slice(1) ||
+                                          "In Progress"}
                                       </span>
                                     </div>
                                     <p className="text-sm text-gray-600 mb-2">
@@ -758,4 +762,3 @@ const TeamManagementPage = () => {
 };
 
 export default TeamManagementPage;
-
