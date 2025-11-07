@@ -319,6 +319,7 @@ const uploadResume = async (req, res) => {
     });
 
     // Parse the resume asynchronously in the background
+    /*
     setImmediate(async () => {
       try {
         console.log("Starting background resume parsing...");
@@ -352,6 +353,9 @@ const uploadResume = async (req, res) => {
         console.error("Background resume parsing error:", parseError.message);
       }
     });
+*/
+
+
   } catch (err) {
     console.error("Error in uploadResume:", err.message);
     res.status(500).json({ success: false, message: "Server error" });

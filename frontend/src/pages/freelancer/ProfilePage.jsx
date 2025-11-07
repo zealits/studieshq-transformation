@@ -50,8 +50,8 @@ const ProfilePage = () => {
       size: 0,
       uploadedAt: null,
     },
-    parsedResumeData: null,
-    resumeParsedAt: null,
+    // parsedResumeData: null,
+    // resumeParsedAt: null,
     verificationDocuments: {
       addressProof: {
         type: "",
@@ -120,8 +120,8 @@ const ProfilePage = () => {
           size: profile.user?.resume?.size || 0,
           uploadedAt: profile.user?.resume?.uploadedAt || null,
         },
-        parsedResumeData: profile.user?.parsedResumeData || null,
-        resumeParsedAt: profile.user?.resumeParsedAt || null,
+        // parsedResumeData: profile.user?.parsedResumeData || null,
+        // resumeParsedAt: profile.user?.resumeParsedAt || null,
         verificationDocuments: {
           addressProof: {
             type: profile.verificationDocuments?.addressProof?.type || "",
@@ -428,49 +428,49 @@ const ProfilePage = () => {
             size: response.data.data.resume.size,
             uploadedAt: response.data.data.resume.uploadedAt,
           },
-          parsedResumeData: response.data.data.parsedData,
+          // parsedResumeData: response.data.data.parsedData,
         }));
 
         // Show message about background parsing
-        if (!response.data.data.parsedData) {
-          toast("Resume is being parsed in the background. Parsed data will appear shortly.");
+        // if (!response.data.data.parsedData) {
+        //   toast("Resume is being parsed in the background. Parsed data will appear shortly.");
 
-          // Poll for parsed data updates every 5 seconds for up to 2 minutes
-          let pollCount = 0;
-          const maxPolls = 24; // 2 minutes / 5 seconds
+        //   // Poll for parsed data updates every 5 seconds for up to 2 minutes
+        //   let pollCount = 0;
+        //   const maxPolls = 24; // 2 minutes / 5 seconds
 
-          const pollForParsedData = setInterval(async () => {
-            pollCount++;
-            try {
-              const profileResponse = await dispatch(fetchMyProfile());
-              const profile = profileResponse.payload?.data?.profile;
+        //   const pollForParsedData = setInterval(async () => {
+        //     pollCount++;
+        //     try {
+        //       const profileResponse = await dispatch(fetchMyProfile());
+        //       const profile = profileResponse.payload?.data?.profile;
 
-              if (profile?.user?.parsedResumeData) {
-                clearInterval(pollForParsedData);
-                toast.success("Resume parsed successfully!");
-                console.log("Parsed resume data:", profile.user.parsedResumeData);
+        //       if (profile?.user?.parsedResumeData) {
+        //         clearInterval(pollForParsedData);
+        //         toast.success("Resume parsed successfully!");
+        //         console.log("Parsed resume data:", profile.user.parsedResumeData);
 
-                // Update form data with parsed data
-                setFormData((prev) => ({
-                  ...prev,
-                  parsedResumeData: profile.user.parsedResumeData,
-                  resumeParsedAt: profile.user.resumeParsedAt,
-                }));
-              } else if (pollCount >= maxPolls) {
-                clearInterval(pollForParsedData);
-                toast.warning("Resume parsing is taking longer than expected. Please refresh the page later.");
-              }
-            } catch (error) {
-              console.error("Error polling for parsed data:", error);
-              if (pollCount >= maxPolls) {
-                clearInterval(pollForParsedData);
-              }
-            }
-          }, 5000);
-        } else {
-          toast.success("Resume parsed successfully! Check console for details.");
-          console.log("Parsed resume data:", response.data.data.parsedData);
-        }
+        //         // Update form data with parsed data
+        //         setFormData((prev) => ({
+        //           ...prev,
+        //           parsedResumeData: profile.user.parsedResumeData,
+        //           resumeParsedAt: profile.user.resumeParsedAt,
+        //         }));
+        //       } else if (pollCount >= maxPolls) {
+        //         clearInterval(pollForParsedData);
+        //         toast.warning("Resume parsing is taking longer than expected. Please refresh the page later.");
+        //       }
+        //     } catch (error) {
+        //       console.error("Error polling for parsed data:", error);
+        //       if (pollCount >= maxPolls) {
+        //         clearInterval(pollForParsedData);
+        //       }
+        //     }
+        //   }, 5000);
+        // } else {
+        //   toast.success("Resume parsed successfully! Check console for details.");
+        //   console.log("Parsed resume data:", response.data.data.parsedData);
+        // }
 
         // Refresh profile data
         dispatch(fetchMyProfile());
@@ -497,8 +497,8 @@ const ProfilePage = () => {
             size: 0,
             uploadedAt: null,
           },
-          parsedResumeData: null,
-          resumeParsedAt: null,
+          // parsedResumeData: null,
+          // resumeParsedAt: null,
         }));
         // Refresh profile data
         dispatch(fetchMyProfile());
@@ -569,12 +569,20 @@ const ProfilePage = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-semibold">{formData.fullName}</h2>
-                {(data?.data?.profile?.user?.companyFreelancer?.companyName || data?.data?.profile?.user?.companyFreelancerName) && (
+                {(data?.data?.profile?.user?.companyFreelancer?.companyName ||
+                  data?.data?.profile?.user?.companyFreelancerName) && (
                   <p className="text-sm text-primary font-medium mt-2 flex items-center">
                     <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                      />
                     </svg>
-                    Company: {data.data.profile.user.companyFreelancer?.companyName || data.data.profile.user.companyFreelancerName}
+                    Company:{" "}
+                    {data.data.profile.user.companyFreelancer?.companyName ||
+                      data.data.profile.user.companyFreelancerName}
                   </p>
                 )}
                 <p className="text-gray-600 mb-1">{formData.location}</p>
@@ -629,8 +637,8 @@ const ProfilePage = () => {
               <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
                 <h3 className="text-lg font-semibold mb-4 text-red-600">Delete Resume</h3>
                 <p className="text-gray-600 mb-6">
-                  Are you sure you want to delete your resume? This action cannot be undone and will also remove all
-                  parsed resume data.
+                  Are you sure you want to delete your resume? This action cannot be undone.
+                  {/* and will also remove all parsed resume data. */}
                 </p>
                 <div className="flex justify-end gap-4">
                   <button
@@ -1051,7 +1059,7 @@ const ProfilePage = () => {
                   </div>
 
                   {/* Parsed Resume Data Section */}
-                  {formData.parsedResumeData && (
+                  {/* {formData.parsedResumeData && (
                     <div className="col-span-2 mt-6">
                       <h3 className="text-lg font-semibold mb-4">Parsed Resume Data</h3>
                       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -1163,7 +1171,7 @@ const ProfilePage = () => {
                         </div>
                       </div>
                     </div>
-                  )}
+                  )} */}
 
                   {/* Social Links Section */}
                   <div className="col-span-2 mt-6">
