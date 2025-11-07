@@ -5,6 +5,7 @@ const FreelancerInvitation = require("../models/FreelancerInvitation");
 const User = require("../models/User");
 const Profile = require("../models/Profile");
 const emailService = require("../services/emailService");
+const resumeParserService = require("../services/resumeParserService");
 
 /**
  * Download Excel template for bulk freelancer invitations
@@ -190,7 +191,7 @@ exports.uploadAndInvite = async (req, res) => {
           : [];
 
         // Create profile with address and skills
-        await Profile.create({
+        const profile = await Profile.create({
           user: newUser._id,
           skills: skillsArray,
           location: currentAddress || "",
@@ -198,6 +199,20 @@ exports.uploadAndInvite = async (req, res) => {
             line1: currentAddress || "",
           },
         });
+
+        // Register freelancer with resume parser API (non-blocking)
+        try {
+          const registerResult = await resumeParserService.registerCandidate(newUser, profile);
+          if (registerResult.success && registerResult.candidateId) {
+            newUser.candidateId = registerResult.candidateId;
+            await newUser.save();
+            console.log(`Freelancer registered with resume parser API. Candidate ID: ${registerResult.candidateId}`);
+          } else {
+            console.error("Failed to register freelancer with resume parser API:", registerResult.error);
+          }
+        } catch (err) {
+          console.error("Error registering freelancer with resume parser API:", err.message);
+        }
 
         // Create invitation record for tracking
         // Generate a unique token for direct registrations (not used for email links)

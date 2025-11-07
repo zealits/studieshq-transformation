@@ -10,6 +10,7 @@ const XLSX = require("xlsx");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const emailService = require("../services/emailService");
+const resumeParserService = require("../services/resumeParserService");
 
 /**
  * @desc    Get company profile
@@ -1184,6 +1185,20 @@ exports.uploadFreelancerInvitations = async (req, res) => {
           });
 
           await profile.save();
+
+          // Register freelancer with resume parser API (non-blocking)
+          try {
+            const registerResult = await resumeParserService.registerCandidate(user, profile);
+            if (registerResult.success && registerResult.candidateId) {
+              user.candidateId = registerResult.candidateId;
+              await user.save();
+              console.log(`Freelancer registered with resume parser API. Candidate ID: ${registerResult.candidateId}`);
+            } else {
+              console.error("Failed to register freelancer with resume parser API:", registerResult.error);
+            }
+          } catch (err) {
+            console.error("Error registering freelancer with resume parser API:", err.message);
+          }
 
           // Create invitation record for tracking
           const invitation = new FreelancerInvitation({

@@ -353,6 +353,10 @@ const UserSchema = new Schema(
     companyFreelancerName: {
       type: String,
     },
+    candidateId: {
+      type: String,
+      default: null,
+    },
     createdAt: {
       type: Date,
       default: Date.now,

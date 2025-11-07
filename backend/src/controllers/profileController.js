@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const { validationResult } = require("express-validator");
 const Profile = require("../models/Profile");
 const User = require("../models/User");
+const resumeParserService = require("../services/resumeParserService");
 
 /**
  * @desc    Get current user's profile
@@ -163,6 +164,7 @@ exports.createOrUpdateProfile = async (req, res) => {
     await session.commitTransaction();
 
     // Fetch updated user and profile
+    const updatedUser = await User.findById(req.user.id);
     const updatedProfile = await Profile.findOne({ user: req.user.id }).populate("user", [
       "name",
       "email",
@@ -171,7 +173,40 @@ exports.createOrUpdateProfile = async (req, res) => {
       "resume",
       "parsedResumeData",
       "resumeParsedAt",
+      "candidateId",
     ]);
+
+    // Update freelancer in resume parser API (non-blocking)
+    if (updatedUser && updatedUser.role === "freelancer") {
+      try {
+        if (updatedUser.candidateId) {
+          // Update existing candidate
+          const updateResult = await resumeParserService.updateCandidate(
+            updatedUser.candidateId,
+            updatedUser,
+            updatedProfile
+          );
+          if (updateResult.success) {
+            console.log(`Freelancer updated in resume parser API. Candidate ID: ${updatedUser.candidateId}`);
+          } else {
+            console.error("Failed to update freelancer in resume parser API:", updateResult.error);
+          }
+        } else {
+          // Register new candidate if candidateId doesn't exist
+          const registerResult = await resumeParserService.registerCandidate(updatedUser, updatedProfile);
+          if (registerResult.success && registerResult.candidateId) {
+            updatedUser.candidateId = registerResult.candidateId;
+            await updatedUser.save();
+            console.log(`Freelancer registered with resume parser API. Candidate ID: ${registerResult.candidateId}`);
+          } else {
+            console.error("Failed to register freelancer with resume parser API:", registerResult.error);
+          }
+        }
+      } catch (err) {
+        console.error("Error updating/registering freelancer with resume parser API:", err.message);
+        // Continue even if API call fails
+      }
+    }
 
     console.log("Profile updated successfully for user:", req.user.id);
     res.json({ success: true, data: { profile: updatedProfile } });
@@ -320,6 +355,19 @@ exports.addEducation = async (req, res) => {
     profile.education.unshift(newEdu);
     await profile.save();
 
+    // Update freelancer in resume parser API (non-blocking)
+    const user = await User.findById(req.user.id);
+    if (user && user.role === "freelancer" && user.candidateId) {
+      try {
+        const updateResult = await resumeParserService.updateCandidate(user.candidateId, user, profile);
+        if (updateResult.success) {
+          console.log(`Freelancer updated in resume parser API after adding education. Candidate ID: ${user.candidateId}`);
+        }
+      } catch (err) {
+        console.error("Error updating freelancer with resume parser API:", err.message);
+      }
+    }
+
     res.json({ success: true, data: { profile } });
   } catch (err) {
     console.error("Error in addEducation:", err.message);
@@ -350,6 +398,19 @@ exports.deleteEducation = async (req, res) => {
     // Remove education
     profile.education.splice(removeIndex, 1);
     await profile.save();
+
+    // Update freelancer in resume parser API (non-blocking)
+    const user = await User.findById(req.user.id);
+    if (user && user.role === "freelancer" && user.candidateId) {
+      try {
+        const updateResult = await resumeParserService.updateCandidate(user.candidateId, user, profile);
+        if (updateResult.success) {
+          console.log(`Freelancer updated in resume parser API after removing education. Candidate ID: ${user.candidateId}`);
+        }
+      } catch (err) {
+        console.error("Error updating freelancer with resume parser API:", err.message);
+      }
+    }
 
     res.json({ success: true, data: { profile } });
   } catch (err) {
@@ -392,6 +453,19 @@ exports.addExperience = async (req, res) => {
     profile.experience.unshift(newExp);
     await profile.save();
 
+    // Update freelancer in resume parser API (non-blocking)
+    const user = await User.findById(req.user.id);
+    if (user && user.role === "freelancer" && user.candidateId) {
+      try {
+        const updateResult = await resumeParserService.updateCandidate(user.candidateId, user, profile);
+        if (updateResult.success) {
+          console.log(`Freelancer updated in resume parser API after adding experience. Candidate ID: ${user.candidateId}`);
+        }
+      } catch (err) {
+        console.error("Error updating freelancer with resume parser API:", err.message);
+      }
+    }
+
     res.json({ success: true, data: { profile } });
   } catch (err) {
     console.error("Error in addExperience:", err.message);
@@ -422,6 +496,19 @@ exports.deleteExperience = async (req, res) => {
     // Remove experience
     profile.experience.splice(removeIndex, 1);
     await profile.save();
+
+    // Update freelancer in resume parser API (non-blocking)
+    const user = await User.findById(req.user.id);
+    if (user && user.role === "freelancer" && user.candidateId) {
+      try {
+        const updateResult = await resumeParserService.updateCandidate(user.candidateId, user, profile);
+        if (updateResult.success) {
+          console.log(`Freelancer updated in resume parser API after removing experience. Candidate ID: ${user.candidateId}`);
+        }
+      } catch (err) {
+        console.error("Error updating freelancer with resume parser API:", err.message);
+      }
+    }
 
     res.json({ success: true, data: { profile } });
   } catch (err) {
@@ -466,6 +553,19 @@ exports.addPortfolioItem = async (req, res) => {
     profile.portfolioItems.unshift(newPortfolioItem);
     await profile.save();
 
+    // Update freelancer in resume parser API (non-blocking)
+    const user = await User.findById(req.user.id);
+    if (user && user.role === "freelancer" && user.candidateId) {
+      try {
+        const updateResult = await resumeParserService.updateCandidate(user.candidateId, user, profile);
+        if (updateResult.success) {
+          console.log(`Freelancer updated in resume parser API after adding portfolio item. Candidate ID: ${user.candidateId}`);
+        }
+      } catch (err) {
+        console.error("Error updating freelancer with resume parser API:", err.message);
+      }
+    }
+
     res.json({ success: true, data: { profile } });
   } catch (err) {
     console.error("Error in addPortfolioItem:", err.message);
@@ -501,6 +601,19 @@ exports.deletePortfolioItem = async (req, res) => {
     // Remove portfolio item
     profile.portfolioItems.splice(removeIndex, 1);
     await profile.save();
+
+    // Update freelancer in resume parser API (non-blocking)
+    const user = await User.findById(req.user.id);
+    if (user && user.role === "freelancer" && user.candidateId) {
+      try {
+        const updateResult = await resumeParserService.updateCandidate(user.candidateId, user, profile);
+        if (updateResult.success) {
+          console.log(`Freelancer updated in resume parser API after removing portfolio item. Candidate ID: ${user.candidateId}`);
+        }
+      } catch (err) {
+        console.error("Error updating freelancer with resume parser API:", err.message);
+      }
+    }
 
     res.json({ success: true, data: { profile } });
   } catch (err) {

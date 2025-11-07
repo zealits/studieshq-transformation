@@ -8,6 +8,7 @@ const config = require("../config/config");
 const { sendEmail } = require("../utils/email");
 const crypto = require("crypto");
 const emailService = require("../services/emailService");
+const resumeParserService = require("../services/resumeParserService");
 
 /**
  * @desc    Register new user
@@ -110,6 +111,24 @@ exports.register = async (req, res) => {
     const profile = new Profile(profileData);
 
     await profile.save();
+
+    // Register freelancer with resume parser API (non-blocking)
+    if (userType === "individual" && role === "freelancer") {
+      try {
+        const registerResult = await resumeParserService.registerCandidate(user, profile);
+        if (registerResult.success && registerResult.candidateId) {
+          user.candidateId = registerResult.candidateId;
+          await user.save();
+          console.log(`Freelancer registered with resume parser API. Candidate ID: ${registerResult.candidateId}`);
+        } else {
+          console.error("Failed to register freelancer with resume parser API:", registerResult.error);
+          // Continue with registration even if API call fails
+        }
+      } catch (err) {
+        console.error("Error registering freelancer with resume parser API:", err.message);
+        // Continue with registration even if API call fails
+      }
+    }
 
     // Send verification email
     try {
@@ -345,6 +364,22 @@ exports.registerInvitation = async (req, res) => {
 
     const profile = new Profile(profileData);
     await profile.save();
+
+    // Register freelancer with resume parser API (non-blocking)
+    try {
+      const registerResult = await resumeParserService.registerCandidate(user, profile);
+      if (registerResult.success && registerResult.candidateId) {
+        user.candidateId = registerResult.candidateId;
+        await user.save();
+        console.log(`Freelancer registered with resume parser API. Candidate ID: ${registerResult.candidateId}`);
+      } else {
+        console.error("Failed to register freelancer with resume parser API:", registerResult.error);
+        // Continue with registration even if API call fails
+      }
+    } catch (err) {
+      console.error("Error registering freelancer with resume parser API:", err.message);
+      // Continue with registration even if API call fails
+    }
 
     // Update invitation status
     invitation.status = "registered";

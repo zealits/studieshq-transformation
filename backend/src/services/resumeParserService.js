@@ -149,6 +149,285 @@ class ResumeParserService {
   }
 
   /**
+   * Transform user and profile data to the API format
+   * @param {Object} user - User document
+   * @param {Object} profile - Profile document
+   */
+  transformUserDataToApiFormat(user, profile) {
+    // Format phone number
+    let phone = "";
+    if (profile?.phone) {
+      if (typeof profile.phone === "string") {
+        phone = profile.phone;
+      } else if (profile.phone.number) {
+        phone = `${profile.phone.countryCode || "+91"} ${profile.phone.number}`;
+      }
+    }
+
+    // Format social links
+    const social = {
+      github: profile?.social?.github || "",
+      linkedin: profile?.social?.linkedin || "",
+      portfolio: profile?.website || profile?.social?.portfolio || "",
+    };
+
+    // Format education
+    const education = [];
+    if (profile?.education && Array.isArray(profile.education)) {
+      profile.education.forEach((edu) => {
+        education.push({
+          name: edu.institution || "",
+          qualification: `${edu.degree || ""} ${edu.fieldOfStudy || ""}`.trim() || "",
+          category: this.getEducationCategory(edu.degree),
+          start: edu.from ? new Date(edu.from).getFullYear().toString() : "",
+          end: edu.current ? "Present" : edu.to ? new Date(edu.to).getFullYear().toString() : "",
+        });
+      });
+    }
+
+    // Format skills
+    const skills = profile?.skills && Array.isArray(profile.skills) ? profile.skills : [];
+
+    // Format projects (from portfolioItems)
+    const projects = [];
+    if (profile?.portfolioItems && Array.isArray(profile.portfolioItems)) {
+      profile.portfolioItems.forEach((item) => {
+        projects.push({
+          title: item.title || "",
+          description: item.description || "",
+          project_skills: this.extractSkillsFromText(item.description || ""),
+        });
+      });
+    }
+
+    // Format experience
+    const experience = [];
+    if (profile?.experience && Array.isArray(profile.experience)) {
+      profile.experience.forEach((exp) => {
+        experience.push({
+          company_name: exp.company || "",
+          designation: exp.title || "",
+          description: exp.description || "",
+          experiance_skills: this.extractSkillsFromText(exp.description || ""),
+          start: exp.from ? new Date(exp.from).getFullYear().toString() : "",
+          end: exp.current ? "Present" : exp.to ? new Date(exp.to).getFullYear().toString() : "",
+        });
+      });
+    }
+
+    // Calculate total experience years
+    let totalExperienceYears = 0;
+    if (profile?.experience && Array.isArray(profile.experience)) {
+      profile.experience.forEach((exp) => {
+        const startDate = exp.from ? new Date(exp.from) : null;
+        const endDate = exp.current ? new Date() : exp.to ? new Date(exp.to) : null;
+        if (startDate && endDate) {
+          const years = (endDate - startDate) / (1000 * 60 * 60 * 24 * 365.25);
+          totalExperienceYears += Math.max(0, years);
+        }
+      });
+    }
+    totalExperienceYears = Math.round(totalExperienceYears * 100) / 100; // Round to 2 decimal places
+
+    return {
+      name: user.name || "",
+      phone: phone,
+      mail: user.email || "",
+      social: social,
+      education: education,
+      skills: skills,
+      projects: projects,
+      experience: experience,
+      certifications: profile?.certificates
+        ? profile.certificates.map((cert) => cert.name || "").filter((name) => name)
+        : [],
+      achievements: [],
+      total_experience_years: totalExperienceYears,
+    };
+  }
+
+  /**
+   * Get education category from degree
+   */
+  getEducationCategory(degree) {
+    if (!degree) return "";
+    const degreeLower = degree.toLowerCase();
+    if (degreeLower.includes("phd") || degreeLower.includes("doctorate")) return "Doctorate";
+    if (degreeLower.includes("master") || degreeLower.includes("m.") || degreeLower.includes("ms")) return "Graduate";
+    if (
+      degreeLower.includes("bachelor") ||
+      degreeLower.includes("b.") ||
+      degreeLower.includes("be") ||
+      degreeLower.includes("btech")
+    )
+      return "Undergraduate";
+    if (degreeLower.includes("diploma") || degreeLower.includes("certificate")) return "Diploma";
+    return "Undergraduate";
+  }
+
+  /**
+   * Extract skills from text (simple keyword matching)
+   */
+  extractSkillsFromText(text) {
+    if (!text) return [];
+    // Common tech skills keywords
+    const skillKeywords = [
+      "Python",
+      "Java",
+      "JavaScript",
+      "React",
+      "Node.js",
+      "Django",
+      "Flask",
+      "FastAPI",
+      "Machine Learning",
+      "Deep Learning",
+      "NLP",
+      "Computer Vision",
+      "TensorFlow",
+      "PyTorch",
+      "Docker",
+      "AWS",
+      "Azure",
+      "MongoDB",
+      "PostgreSQL",
+      "MySQL",
+    ];
+    const foundSkills = [];
+    const textLower = text.toLowerCase();
+    skillKeywords.forEach((skill) => {
+      if (textLower.includes(skill.toLowerCase())) {
+        foundSkills.push(skill);
+      }
+    });
+    return foundSkills;
+  }
+
+  /**
+   * Register a candidate in the resume parser API
+   * @param {Object} user - User document
+   * @param {Object} profile - Profile document
+   */
+  async registerCandidate(user, profile) {
+    try {
+      console.log(`Registering candidate: ${user.name} (${user.email})`);
+
+      // Ensure we have a valid token
+      const token = await this.getValidToken();
+
+      // Transform user/profile data to API format
+      const candidateData = this.transformUserDataToApiFormat(user, profile);
+
+      console.log("Candidate data to register:", JSON.stringify(candidateData, null, 2));
+
+      // Make the API call to register candidate
+      // Use www.resumeparser.aiiventure.com for candidate registration
+      let registerApiUrl = this.apiUrl;
+      if (!registerApiUrl.includes("www.")) {
+        registerApiUrl = registerApiUrl.replace("resumeparser", "www.resumeparser");
+      }
+      const response = await axios.post(`${registerApiUrl}/register-json`, candidateData, {
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 30000,
+      });
+
+      console.log("Register candidate API response status:", response.status);
+      console.log("Register candidate API response data:", response.data);
+
+      if (response.data && response.data.success) {
+        console.log("Candidate registered successfully");
+        console.log("Candidate ID:", response.data.candidate_id);
+
+        return {
+          success: true,
+          candidateId: response.data.candidate_id,
+          vectorIds: response.data.vector_ids,
+          message: response.data.message,
+        };
+      } else {
+        console.error("API returned unsuccessful response:", response.data);
+        throw new Error(`Candidate registration failed: ${response.data?.message || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Candidate registration failed:");
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+
+      return {
+        success: false,
+        error: error.response?.data || error.message,
+      };
+    }
+  }
+
+  /**
+   * Update a candidate in the resume parser API
+   * @param {string} candidateId - The candidate ID from the API
+   * @param {Object} user - User document
+   * @param {Object} profile - Profile document
+   */
+  async updateCandidate(candidateId, user, profile) {
+    try {
+      console.log(`Updating candidate: ${candidateId} (${user.name})`);
+
+      // Ensure we have a valid token
+      const token = await this.getValidToken();
+
+      // Transform user/profile data to API format
+      const candidateData = this.transformUserDataToApiFormat(user, profile);
+
+      console.log("Candidate data to update:", JSON.stringify(candidateData, null, 2));
+
+      // Make the API call to update candidate
+      // Use www.resumeparser.aiiventure.com for candidate updates
+      let updateApiUrl = this.apiUrl;
+      if (!updateApiUrl.includes("www.")) {
+        updateApiUrl = updateApiUrl.replace("resumeparser", "www.resumeparser");
+      }
+      const response = await axios.put(`${updateApiUrl}/candidate/${candidateId}`, candidateData, {
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 30000,
+      });
+
+      console.log("Update candidate API response status:", response.status);
+      console.log("Update candidate API response data:", response.data);
+
+      if (response.data && response.data.success) {
+        console.log("Candidate updated successfully");
+
+        return {
+          success: true,
+          candidateId: response.data.candidate_id,
+          vectorIds: response.data.vector_ids,
+          message: response.data.message,
+        };
+      } else {
+        console.error("API returned unsuccessful response:", response.data);
+        throw new Error(`Candidate update failed: ${response.data?.message || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Candidate update failed:");
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+
+      return {
+        success: false,
+        error: error.response?.data || error.message,
+      };
+    }
+  }
+
+  /**
    * Test the API connection
    */
   async testConnection() {
