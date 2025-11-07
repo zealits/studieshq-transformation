@@ -42,116 +42,116 @@ const UserSchema = new Schema(
         default: Date.now,
       },
     },
-    parsedResumeData: {
-      name: {
-        type: String,
-      },
-      phone: {
-        type: String,
-      },
-      mail: {
-        type: String,
-      },
-      location: {
-        type: String,
-      },
-      social: {
-        github: {
-          type: String,
-        },
-        linkedin: {
-          type: String,
-        },
-        portfolio: {
-          type: String,
-        },
-      },
-      education: [
-        {
-          name: {
-            type: String,
-          },
-          qualification: {
-            type: String,
-          },
-          category: {
-            type: String,
-          },
-          start: {
-            type: String,
-          },
-          end: {
-            type: String,
-          },
-        },
-      ],
-      skills: [
-        {
-          type: String,
-        },
-      ],
-      projects: [
-        {
-          title: {
-            type: String,
-          },
-          description: {
-            type: String,
-          },
-          project_skills: [
-            {
-              type: String,
-            },
-          ],
-          project_link: {
-            type: String,
-          },
-        },
-      ],
-      experience: [
-        {
-          company_name: {
-            type: String,
-          },
-          designation: {
-            type: String,
-          },
-          description: {
-            type: String,
-          },
-          experiance_skills: [
-            {
-              type: String,
-            },
-          ],
-          location: {
-            type: String,
-          },
-          start: {
-            type: String,
-          },
-          end: {
-            type: String,
-          },
-        },
-      ],
-      certifications: [
-        {
-          type: String,
-        },
-      ],
-      achievements: [
-        {
-          type: String,
-        },
-      ],
-      total_experience_years: {
-        type: Number,
-      },
-    },
-    resumeParsedAt: {
-      type: Date,
-    },
+    // parsedResumeData: {
+    //   name: {
+    //     type: String,
+    //   },
+    //   phone: {
+    //     type: String,
+    //   },
+    //   mail: {
+    //     type: String,
+    //   },
+    //   location: {
+    //     type: String,
+    //   },
+    //   social: {
+    //     github: {
+    //       type: String,
+    //     },
+    //     linkedin: {
+    //       type: String,
+    //     },
+    //     portfolio: {
+    //       type: String,
+    //     },
+    //   },
+    //   education: [
+    //     {
+    //       name: {
+    //         type: String,
+    //       },
+    //       qualification: {
+    //         type: String,
+    //       },
+    //       category: {
+    //         type: String,
+    //       },
+    //       start: {
+    //         type: String,
+    //       },
+    //       end: {
+    //         type: String,
+    //       },
+    //     },
+    //   ],
+    //   skills: [
+    //     {
+    //       type: String,
+    //     },
+    //   ],
+    //   projects: [
+    //     {
+    //       title: {
+    //         type: String,
+    //       },
+    //       description: {
+    //         type: String,
+    //       },
+    //       project_skills: [
+    //         {
+    //           type: String,
+    //         },
+    //       ],
+    //       project_link: {
+    //         type: String,
+    //       },
+    //     },
+    //   ],
+    //   experience: [
+    //     {
+    //       company_name: {
+    //         type: String,
+    //       },
+    //       designation: {
+    //         type: String,
+    //       },
+    //       description: {
+    //         type: String,
+    //       },
+    //       experiance_skills: [
+    //         {
+    //           type: String,
+    //         },
+    //       ],
+    //       location: {
+    //         type: String,
+    //       },
+    //       start: {
+    //         type: String,
+    //       },
+    //       end: {
+    //         type: String,
+    //       },
+    //     },
+    //   ],
+    //   certifications: [
+    //     {
+    //       type: String,
+    //     },
+    //   ],
+    //   achievements: [
+    //     {
+    //       type: String,
+    //     },
+    //   ],
+    //   total_experience_years: {
+    //     type: Number,
+    //   },
+    // },
+    // resumeParsedAt: {
+    //   type: Date,
+    // },
     role: {
       type: String,
       enum: ["client", "freelancer", "admin", "freelancer_company", "project_sponsor_company"],

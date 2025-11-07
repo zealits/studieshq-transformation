@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchMyProfile, updateProfile } from "../../redux/slices/profileSlice";
 import { uploadProfileImage } from "../../redux/slices/uploadSlice";
@@ -17,6 +17,8 @@ const ProfilePage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [showImageConfirm, setShowImageConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [triggerFileInput, setTriggerFileInput] = useState(false);
+  const fileInputRef = useRef(null);
 
   // OTP verification states
   const [showOTPModal, setShowOTPModal] = useState(false);
@@ -162,6 +164,14 @@ const ProfilePage = () => {
   // State for active tab
   const [activeTab, setActiveTab] = useState("basic");
 
+  // Trigger file input when edit mode is enabled via avatar click
+  useEffect(() => {
+    if (triggerFileInput && isEditing && fileInputRef.current) {
+      fileInputRef.current.click();
+      setTriggerFileInput(false);
+    }
+  }, [triggerFileInput, isEditing]);
+
   // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -194,26 +204,15 @@ const ProfilePage = () => {
       return;
     }
 
-    // Handle hourly rate range
+    // Handle hourly rate range - no validation or rounding during typing, just update state
     if (name === "hourlyRate.min" || name === "hourlyRate.max") {
-      const rate = Math.round(Number(value) / 10) * 10; // Round to nearest multiple of 10
-      const isMin = name === "hourlyRate.min";
-
-      // Validate min/max relationship
-      if (isMin && rate > formData.hourlyRate.max) {
-        toast.error("Minimum rate cannot be greater than maximum rate");
-        return;
-      }
-      if (!isMin && rate < formData.hourlyRate.min) {
-        toast.error("Maximum rate cannot be less than minimum rate");
-        return;
-      }
+      const inputValue = value === "" ? 0 : Number(value);
 
       setFormData({
         ...formData,
         hourlyRate: {
           ...formData.hourlyRate,
-          [name.split(".")[1]]: rate,
+          [name.split(".")[1]]: inputValue,
         },
       });
       return;
@@ -260,8 +259,28 @@ const ProfilePage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Round hourly rates to multiples of 10 before validation and submission
+    const roundedMin =
+      formData.hourlyRate.min > 0 ? Math.round(formData.hourlyRate.min / 10) * 10 : formData.hourlyRate.min;
+    const roundedMax =
+      formData.hourlyRate.max > 0 ? Math.round(formData.hourlyRate.max / 10) * 10 : formData.hourlyRate.max;
+
+    // Validate hourly rate range before submission
+    if (roundedMin > 0 && roundedMax > 0 && roundedMin > roundedMax) {
+      toast.error("Minimum rate cannot be greater than maximum rate");
+      return;
+    }
+
+    // Show message if values were rounded
+    if (formData.hourlyRate.min > 0 && roundedMin !== formData.hourlyRate.min) {
+      toast.info(`Minimum rate rounded to ${roundedMin} (must be a multiple of 10)`);
+    }
+    if (formData.hourlyRate.max > 0 && roundedMax !== formData.hourlyRate.max) {
+      toast.info(`Maximum rate rounded to ${roundedMax} (must be a multiple of 10)`);
+    }
+
     try {
-      // Send the profile update with document files
+      // Send the profile update with document files (using rounded values)
       const result = await dispatch(
         updateProfile({
           fullName: formData.fullName,
@@ -269,7 +288,10 @@ const ProfilePage = () => {
           phone: formData.phone,
           bio: formData.bio,
           location: formData.location,
-          hourlyRate: formData.hourlyRate,
+          hourlyRate: {
+            min: roundedMin,
+            max: roundedMax,
+          },
           skills: formData.skills.length > 0 ? formData.skills : ["JavaScript"],
           education: formData.education,
           experience: formData.experience,
@@ -315,6 +337,11 @@ const ProfilePage = () => {
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    // Auto-enable edit mode if not already enabled (for avatar click in view mode)
+    if (!isEditing) {
+      setIsEditing(true);
+    }
 
     // Validate file type
     if (!file.type.startsWith("image/")) {
@@ -516,7 +543,13 @@ const ProfilePage = () => {
           <div className="bg-background-light p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row items-center justify-between">
             <div className="flex items-center">
               <div className="relative mb-4 md:mb-0 md:mr-6">
-                <div className="w-32 h-32 bg-gray-300 rounded-full flex items-center justify-center text-4xl text-gray-600 overflow-hidden">
+                <div
+                  className={`w-32 h-32 rounded-full flex items-center justify-center overflow-hidden relative group cursor-pointer transition-all ${
+                    !isEditing && !data?.data?.profile?.user?.avatar
+                      ? "bg-gray-100 border-2 border-dashed border-gray-400 hover:border-primary"
+                      : "bg-gray-300"
+                  }`}
+                >
                   {data?.data?.profile?.user?.avatar ? (
                     <img
                       src={data.data.profile.user.avatar}
@@ -524,13 +557,81 @@ const ProfilePage = () => {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    formData.fullName.charAt(0)
+                    <div className="flex flex-col items-center justify-center p-4">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-10 w-10 text-gray-400 mb-2"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      </svg>
+                      {!isEditing && (
+                        <span className="text-xs text-gray-600 font-medium text-center">
+                          Click to add
+                          <br />
+                          profile photo
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {/* Overlay on hover in view mode */}
+                  {!isEditing && (
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-full transition-all duration-200" />
+                  )}
+                  {/* Click handler for view mode */}
+                  {!isEditing && (
+                    <div
+                      className="absolute inset-0 cursor-pointer z-10"
+                      onClick={() => {
+                        setTriggerFileInput(true);
+                        setIsEditing(true);
+                      }}
+                      title="Click to add or change profile photo"
+                    />
                   )}
                 </div>
+                {/* Always visible camera icon badge outside avatar when avatar exists and in view mode */}
+                {!isEditing && data?.data?.profile?.user?.avatar && (
+                  <div className="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full shadow-lg z-20">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                  </div>
+                )}
                 {isEditing && (
                   <label
                     htmlFor="profile-image"
-                    className="absolute bottom-0 right-0 bg-blue-500 text-white p-2 rounded-full cursor-pointer hover:bg-blue-600"
+                    className="absolute bottom-0 right-0 bg-blue-500 text-white p-2 rounded-full cursor-pointer hover:bg-blue-600 shadow-lg z-10"
                     onClick={(e) => {
                       e.preventDefault();
                       setShowImageConfirm(true);
@@ -561,10 +662,11 @@ const ProfilePage = () => {
                 <input
                   type="file"
                   id="profile-image"
+                  ref={fileInputRef}
                   className="hidden"
                   accept="image/*"
                   onChange={handleImageUpload}
-                  disabled={uploadLoading || !isEditing}
+                  disabled={uploadLoading}
                 />
               </div>
               <div>
@@ -750,7 +852,7 @@ const ProfilePage = () => {
           <form onSubmit={handleSubmit}>
             {/* Basic Information Tab */}
             {activeTab === "basic" && (
-              <div className="bg-white p-6 rounded-lg shadow-md">
+              <div className="bg-white p-6 rounded-lg">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-gray-700 mb-2" htmlFor="fullName">
@@ -1247,7 +1349,7 @@ const ProfilePage = () => {
 
             {/* Skills Tab */}
             {activeTab === "skills" && (
-              <div className="bg-white p-6 rounded-lg shadow-md">
+              <div className="bg-white p-6 rounded-lg ">
                 <h3 className="text-lg font-semibold mb-4">Skills & Expertise</h3>
 
                 {isEditing ? (
@@ -1294,144 +1396,197 @@ const ProfilePage = () => {
 
             {/* Experience Tab */}
             {activeTab === "experience" && (
-              <div className="bg-white p-6 rounded-lg shadow-md">
+              <div className="bg-white p-6 rounded-lg">
                 <h3 className="text-lg font-semibold mb-4">Work Experience</h3>
 
-                {formData.experience.map((exp, index) => (
-                  <div key={index} className="mb-6 pb-6 border-b border-gray-200">
-                    {isEditing ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-gray-700 mb-2">Job Title</label>
-                          <input
-                            type="text"
-                            value={exp.title || ""}
-                            onChange={(e) => {
-                              const newExperience = JSON.parse(JSON.stringify(formData.experience));
-                              newExperience[index].title = e.target.value;
-                              setFormData({ ...formData, experience: newExperience });
-                            }}
-                            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-gray-700 mb-2">Company</label>
-                          <input
-                            type="text"
-                            value={exp.company || ""}
-                            onChange={(e) => {
-                              const newExperience = JSON.parse(JSON.stringify(formData.experience));
-                              newExperience[index].company = e.target.value;
-                              setFormData({ ...formData, experience: newExperience });
-                            }}
-                            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-gray-700 mb-2">Location</label>
-                          <input
-                            type="text"
-                            value={exp.location || ""}
-                            onChange={(e) => {
-                              const newExperience = JSON.parse(JSON.stringify(formData.experience));
-                              newExperience[index].location = e.target.value;
-                              setFormData({ ...formData, experience: newExperience });
-                            }}
-                            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-gray-700 mb-2">Start Date</label>
-                          <input
-                            type="date"
-                            value={exp.from ? new Date(exp.from).toISOString().split("T")[0] : ""}
-                            onChange={(e) => {
-                              const newExperience = JSON.parse(JSON.stringify(formData.experience));
-                              newExperience[index].from = e.target.value;
-                              setFormData({ ...formData, experience: newExperience });
-                            }}
-                            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-gray-700 mb-2">End Date</label>
-                          <input
-                            type="date"
-                            value={exp.to ? new Date(exp.to).toISOString().split("T")[0] : ""}
-                            onChange={(e) => {
-                              const newExperience = JSON.parse(JSON.stringify(formData.experience));
-                              newExperience[index].to = e.target.value;
-                              setFormData({ ...formData, experience: newExperience });
-                            }}
-                            disabled={exp.current}
-                            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                          />
-                        </div>
-
-                        <div className="flex items-center mt-2">
-                          <input
-                            type="checkbox"
-                            id={`current-job-${index}`}
-                            checked={exp.current || false}
-                            onChange={(e) => {
-                              const newExperience = JSON.parse(JSON.stringify(formData.experience));
-                              newExperience[index].current = e.target.checked;
-                              setFormData({ ...formData, experience: newExperience });
-                            }}
-                            className="mr-2"
-                          />
-                          <label htmlFor={`current-job-${index}`} className="text-gray-700">
-                            I currently work here
-                          </label>
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="block text-gray-700 mb-2">Description</label>
-                          <textarea
-                            value={exp.description || ""}
-                            onChange={(e) => {
-                              const newExperience = JSON.parse(JSON.stringify(formData.experience));
-                              newExperience[index].description = e.target.value;
-                              setFormData({ ...formData, experience: newExperience });
-                            }}
-                            rows="3"
-                            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                          />
-                        </div>
-
-                        <div className="mt-3 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newExperience = JSON.parse(JSON.stringify(formData.experience));
-                              newExperience.splice(index, 1);
-                              setFormData({ ...formData, experience: newExperience });
-                            }}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <h4 className="text-lg font-medium">{exp.title}</h4>
-                        <p className="text-gray-600">{exp.company}</p>
-                        <p className="text-gray-500">
-                          {new Date(exp.from).toLocaleDateString()} -{" "}
-                          {exp.current ? "Present" : new Date(exp.to).toLocaleDateString()}
-                        </p>
-                        <p className="mt-2">{exp.description}</p>
-                      </div>
-                    )}
+                {/* Empty State - Show when no experience and not editing */}
+                {!isEditing && formData.experience.length === 0 && (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
+                    <svg
+                      className="mx-auto h-16 w-16 text-gray-400 mb-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
+                    </svg>
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">No work experience added yet</h4>
+                    <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                      Showcase your professional experience to help clients understand your background and expertise.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditing(true);
+                        // Automatically add a new empty experience entry when entering edit mode
+                        const newExperience = JSON.parse(JSON.stringify(formData.experience || []));
+                        newExperience.push({
+                          title: "",
+                          company: "",
+                          location: "",
+                          from: "",
+                          to: "",
+                          current: false,
+                          description: "",
+                        });
+                        setFormData({
+                          ...formData,
+                          experience: newExperience,
+                        });
+                      }}
+                      className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                    >
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Work Experience
+                    </button>
                   </div>
-                ))}
+                )}
 
-                {isEditing && (
+                {/* Show existing experiences */}
+                {formData.experience.length > 0 &&
+                  formData.experience.map((exp, index) => (
+                    <div key={index} className="mb-6 pb-6 border-b border-gray-200">
+                      {isEditing ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-gray-700 mb-2">Job Title</label>
+                            <input
+                              type="text"
+                              value={exp.title || ""}
+                              onChange={(e) => {
+                                const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                                newExperience[index].title = e.target.value;
+                                setFormData({ ...formData, experience: newExperience });
+                              }}
+                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-gray-700 mb-2">Company</label>
+                            <input
+                              type="text"
+                              value={exp.company || ""}
+                              onChange={(e) => {
+                                const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                                newExperience[index].company = e.target.value;
+                                setFormData({ ...formData, experience: newExperience });
+                              }}
+                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-gray-700 mb-2">Location</label>
+                            <input
+                              type="text"
+                              value={exp.location || ""}
+                              onChange={(e) => {
+                                const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                                newExperience[index].location = e.target.value;
+                                setFormData({ ...formData, experience: newExperience });
+                              }}
+                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-gray-700 mb-2">Start Date</label>
+                            <input
+                              type="date"
+                              value={exp.from ? new Date(exp.from).toISOString().split("T")[0] : ""}
+                              onChange={(e) => {
+                                const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                                newExperience[index].from = e.target.value;
+                                setFormData({ ...formData, experience: newExperience });
+                              }}
+                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-gray-700 mb-2">End Date</label>
+                            <input
+                              type="date"
+                              value={exp.to ? new Date(exp.to).toISOString().split("T")[0] : ""}
+                              onChange={(e) => {
+                                const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                                newExperience[index].to = e.target.value;
+                                setFormData({ ...formData, experience: newExperience });
+                              }}
+                              disabled={exp.current}
+                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+
+                          <div className="flex items-center mt-2">
+                            <input
+                              type="checkbox"
+                              id={`current-job-${index}`}
+                              checked={exp.current || false}
+                              onChange={(e) => {
+                                const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                                newExperience[index].current = e.target.checked;
+                                setFormData({ ...formData, experience: newExperience });
+                              }}
+                              className="mr-2"
+                            />
+                            <label htmlFor={`current-job-${index}`} className="text-gray-700">
+                              I currently work here
+                            </label>
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-gray-700 mb-2">Description</label>
+                            <textarea
+                              value={exp.description || ""}
+                              onChange={(e) => {
+                                const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                                newExperience[index].description = e.target.value;
+                                setFormData({ ...formData, experience: newExperience });
+                              }}
+                              rows="3"
+                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newExperience = JSON.parse(JSON.stringify(formData.experience));
+                                newExperience.splice(index, 1);
+                                setFormData({ ...formData, experience: newExperience });
+                              }}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <h4 className="text-lg font-medium">{exp.title}</h4>
+                          <p className="text-gray-600">{exp.company}</p>
+                          <p className="text-gray-500">
+                            {new Date(exp.from).toLocaleDateString()} -{" "}
+                            {exp.current ? "Present" : new Date(exp.to).toLocaleDateString()}
+                          </p>
+                          <p className="mt-2">{exp.description}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                {/* Add button when editing and there are existing experiences */}
+                {isEditing && formData.experience.length > 0 && (
                   <div className="mt-4">
                     <button
                       type="button"
@@ -1457,115 +1612,400 @@ const ProfilePage = () => {
                     </button>
                   </div>
                 )}
+
+                {/* Education Section */}
+                <div className="mt-12">
+                  <h3 className="text-lg font-semibold mb-4">Education</h3>
+
+                  {/* Empty State - Show when no education and not editing */}
+                  {!isEditing && formData.education.length === 0 && (
+                    <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
+                      <svg
+                        className="mx-auto h-16 w-16 text-gray-400 mb-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M12 14l9-5-9-5-9 5 9 5z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"
+                        />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14v7m-4-4h8" />
+                      </svg>
+                      <h4 className="text-lg font-medium text-gray-900 mb-2">No education added yet</h4>
+                      <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                        Add your educational background to showcase your qualifications and academic achievements.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditing(true);
+                          // Automatically add a new empty education entry when entering edit mode
+                          const newEducation = JSON.parse(JSON.stringify(formData.education || []));
+                          newEducation.push({
+                            institution: "",
+                            degree: "",
+                            fieldOfStudy: "",
+                            from: "",
+                            to: "",
+                            current: false,
+                            description: "",
+                          });
+                          setFormData({
+                            ...formData,
+                            education: newEducation,
+                          });
+                        }}
+                        className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                      >
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Education
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Show existing education entries */}
+                  {formData.education.length > 0 &&
+                    formData.education.map((edu, index) => (
+                      <div key={index} className="mb-6 pb-6 border-b border-gray-200">
+                        {isEditing ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                              <label className="block text-gray-700 mb-2">Institution *</label>
+                              <input
+                                type="text"
+                                value={edu.institution || ""}
+                                onChange={(e) => {
+                                  const newEducation = JSON.parse(JSON.stringify(formData.education));
+                                  newEducation[index].institution = e.target.value;
+                                  setFormData({ ...formData, education: newEducation });
+                                }}
+                                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                                placeholder="University/School name"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-gray-700 mb-2">Degree *</label>
+                              <input
+                                type="text"
+                                value={edu.degree || ""}
+                                onChange={(e) => {
+                                  const newEducation = JSON.parse(JSON.stringify(formData.education));
+                                  newEducation[index].degree = e.target.value;
+                                  setFormData({ ...formData, education: newEducation });
+                                }}
+                                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                                placeholder="e.g., Bachelor's, Master's, PhD"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-gray-700 mb-2">Field of Study *</label>
+                              <input
+                                type="text"
+                                value={edu.fieldOfStudy || ""}
+                                onChange={(e) => {
+                                  const newEducation = JSON.parse(JSON.stringify(formData.education));
+                                  newEducation[index].fieldOfStudy = e.target.value;
+                                  setFormData({ ...formData, education: newEducation });
+                                }}
+                                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                                placeholder="e.g., Computer Science, Business Administration"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-gray-700 mb-2">Start Date *</label>
+                              <input
+                                type="date"
+                                value={edu.from ? new Date(edu.from).toISOString().split("T")[0] : ""}
+                                onChange={(e) => {
+                                  const newEducation = JSON.parse(JSON.stringify(formData.education));
+                                  newEducation[index].from = e.target.value;
+                                  setFormData({ ...formData, education: newEducation });
+                                }}
+                                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-gray-700 mb-2">End Date</label>
+                              <input
+                                type="date"
+                                value={edu.to ? new Date(edu.to).toISOString().split("T")[0] : ""}
+                                onChange={(e) => {
+                                  const newEducation = JSON.parse(JSON.stringify(formData.education));
+                                  newEducation[index].to = e.target.value;
+                                  setFormData({ ...formData, education: newEducation });
+                                }}
+                                disabled={edu.current}
+                                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                              />
+                            </div>
+
+                            <div className="flex items-center mt-2">
+                              <input
+                                type="checkbox"
+                                id={`current-education-${index}`}
+                                checked={edu.current || false}
+                                onChange={(e) => {
+                                  const newEducation = JSON.parse(JSON.stringify(formData.education));
+                                  newEducation[index].current = e.target.checked;
+                                  setFormData({ ...formData, education: newEducation });
+                                }}
+                                className="mr-2"
+                              />
+                              <label htmlFor={`current-education-${index}`} className="text-gray-700">
+                                I am currently studying here
+                              </label>
+                            </div>
+
+                            <div className="md:col-span-2">
+                              <label className="block text-gray-700 mb-2">Description</label>
+                              <textarea
+                                value={edu.description || ""}
+                                onChange={(e) => {
+                                  const newEducation = JSON.parse(JSON.stringify(formData.education));
+                                  newEducation[index].description = e.target.value;
+                                  setFormData({ ...formData, education: newEducation });
+                                }}
+                                rows="3"
+                                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                                placeholder="Additional details about your education (e.g., honors, achievements, relevant coursework)"
+                              />
+                            </div>
+
+                            <div className="mt-3 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newEducation = JSON.parse(JSON.stringify(formData.education));
+                                  newEducation.splice(index, 1);
+                                  setFormData({ ...formData, education: newEducation });
+                                }}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <h4 className="text-lg font-medium">
+                              {edu.degree && edu.fieldOfStudy
+                                ? `${edu.degree} in ${edu.fieldOfStudy}`
+                                : edu.degree || edu.fieldOfStudy || "Education"}
+                            </h4>
+                            {edu.institution && <p className="text-gray-600">{edu.institution}</p>}
+                            <p className="text-gray-500">
+                              {edu.from ? new Date(edu.from).toLocaleDateString() : ""}
+                              {edu.from && (edu.current || edu.to) ? " - " : ""}
+                              {edu.current ? "Present" : edu.to ? new Date(edu.to).toLocaleDateString() : ""}
+                            </p>
+                            {edu.description && <p className="mt-2">{edu.description}</p>}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                  {/* Add button when editing and there are existing education entries */}
+                  {isEditing && formData.education.length > 0 && (
+                    <div className="mt-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newEducation = JSON.parse(JSON.stringify(formData.education || []));
+                          newEducation.push({
+                            institution: "",
+                            degree: "",
+                            fieldOfStudy: "",
+                            from: "",
+                            to: "",
+                            current: false,
+                            description: "",
+                          });
+                          setFormData({
+                            ...formData,
+                            education: newEducation,
+                          });
+                        }}
+                        className="btn-outline"
+                      >
+                        + Add Education
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
             {/* Portfolio Tab */}
             {activeTab === "portfolio" && (
-              <div className="bg-white p-6 rounded-lg shadow-md">
+              <div className="bg-white p-6 rounded-lg">
                 <h3 className="text-lg font-semibold mb-4">Portfolio Items</h3>
 
-                {formData.portfolioItems.map((item, index) => (
-                  <div key={index} className="mb-6 pb-6 border-b border-gray-200">
-                    {isEditing ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-gray-700 mb-2">Project Title</label>
-                          <input
-                            type="text"
-                            value={item.title || ""}
-                            onChange={(e) => {
-                              const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems));
-                              newPortfolioItems[index].title = e.target.value;
-                              setFormData({ ...formData, portfolioItems: newPortfolioItems });
-                            }}
-                            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-gray-700 mb-2">Project URL</label>
-                          <input
-                            type="url"
-                            value={item.projectUrl || ""}
-                            onChange={(e) => {
-                              const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems));
-                              newPortfolioItems[index].projectUrl = e.target.value;
-                              setFormData({ ...formData, portfolioItems: newPortfolioItems });
-                            }}
-                            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-gray-700 mb-2">Image URL</label>
-                          <input
-                            type="url"
-                            value={item.imageUrl || ""}
-                            onChange={(e) => {
-                              const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems));
-                              newPortfolioItems[index].imageUrl = e.target.value;
-                              setFormData({ ...formData, portfolioItems: newPortfolioItems });
-                            }}
-                            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                          />
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="block text-gray-700 mb-2">Description</label>
-                          <textarea
-                            value={item.description || ""}
-                            onChange={(e) => {
-                              const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems));
-                              newPortfolioItems[index].description = e.target.value;
-                              setFormData({ ...formData, portfolioItems: newPortfolioItems });
-                            }}
-                            rows="3"
-                            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                          />
-                        </div>
-
-                        <div className="mt-3 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems));
-                              newPortfolioItems.splice(index, 1);
-                              setFormData({ ...formData, portfolioItems: newPortfolioItems });
-                            }}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <h4 className="text-lg font-medium">{item.title}</h4>
-                        {item.imageUrl && (
-                          <img
-                            src={item.imageUrl}
-                            alt={item.title}
-                            className="w-full h-48 object-cover rounded-lg mt-2"
-                          />
-                        )}
-                        <p className="mt-2">{item.description}</p>
-                        {item.projectUrl && (
-                          <a
-                            href={item.projectUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline mt-2 inline-block"
-                          >
-                            View Project
-                          </a>
-                        )}
-                      </div>
-                    )}
+                {/* Empty State - Show when no portfolio items and not editing */}
+                {!isEditing && formData.portfolioItems.length === 0 && (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
+                    <svg
+                      className="mx-auto h-16 w-16 text-gray-400 mb-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                      />
+                    </svg>
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">No portfolio items added yet</h4>
+                    <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                      Showcase your best work and projects to demonstrate your skills and attract potential clients.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditing(true);
+                        // Automatically add a new empty portfolio item when entering edit mode
+                        const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems || []));
+                        newPortfolioItems.push({
+                          title: "",
+                          description: "",
+                          imageUrl: "",
+                          projectUrl: "",
+                        });
+                        setFormData({
+                          ...formData,
+                          portfolioItems: newPortfolioItems,
+                        });
+                      }}
+                      className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                    >
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Portfolio Item
+                    </button>
                   </div>
-                ))}
+                )}
 
-                {isEditing && (
+                {/* Show existing portfolio items */}
+                {formData.portfolioItems.length > 0 &&
+                  formData.portfolioItems.map((item, index) => (
+                    <div key={index} className="mb-6 pb-6 border-b border-gray-200">
+                      {isEditing ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-gray-700 mb-2">Project Title</label>
+                            <input
+                              type="text"
+                              value={item.title || ""}
+                              onChange={(e) => {
+                                const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems));
+                                newPortfolioItems[index].title = e.target.value;
+                                setFormData({ ...formData, portfolioItems: newPortfolioItems });
+                              }}
+                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-gray-700 mb-2">Project URL</label>
+                            <input
+                              type="url"
+                              value={item.projectUrl || ""}
+                              onChange={(e) => {
+                                const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems));
+                                newPortfolioItems[index].projectUrl = e.target.value;
+                                setFormData({ ...formData, portfolioItems: newPortfolioItems });
+                              }}
+                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-gray-700 mb-2">Image URL</label>
+                            <input
+                              type="url"
+                              value={item.imageUrl || ""}
+                              onChange={(e) => {
+                                const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems));
+                                newPortfolioItems[index].imageUrl = e.target.value;
+                                setFormData({ ...formData, portfolioItems: newPortfolioItems });
+                              }}
+                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-gray-700 mb-2">Description</label>
+                            <textarea
+                              value={item.description || ""}
+                              onChange={(e) => {
+                                const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems));
+                                newPortfolioItems[index].description = e.target.value;
+                                setFormData({ ...formData, portfolioItems: newPortfolioItems });
+                              }}
+                              rows="3"
+                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                          </div>
+
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems));
+                                newPortfolioItems.splice(index, 1);
+                                setFormData({ ...formData, portfolioItems: newPortfolioItems });
+                              }}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <h4 className="text-lg font-medium">{item.title}</h4>
+                          {item.imageUrl && (
+                            <img
+                              src={item.imageUrl}
+                              alt={item.title}
+                              className="w-full h-48 object-cover rounded-lg mt-2"
+                            />
+                          )}
+                          <p className="mt-2">{item.description}</p>
+                          {item.projectUrl && (
+                            <a
+                              href={item.projectUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline mt-2 inline-block"
+                            >
+                              View Project
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                {/* Add button when editing and there are existing portfolio items */}
+                {isEditing && formData.portfolioItems.length > 0 && (
                   <div className="mt-4">
                     <button
                       type="button"
@@ -1593,7 +2033,7 @@ const ProfilePage = () => {
 
             {/* Verification Tab */}
             {activeTab === "verification" && (
-              <div className="bg-white p-6 rounded-lg shadow-md">
+              <div className="bg-white p-6 rounded-lg">
                 <h3 className="text-lg font-semibold mb-4">Verification Documents</h3>
                 <p className="text-gray-600 mb-6">
                   Please select document types and files. Only JPG, JPEG, and PNG files are allowed for verification
