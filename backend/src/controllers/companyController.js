@@ -886,6 +886,21 @@ exports.getFreelancerInvitations = async (req, res) => {
       invitedBy: company._id,
     }).sort({ createdAt: -1 });
 
+    // Add type field based on metadata.source
+    const invitationsWithType = invitations.map((invitation) => {
+      const invitationObj = invitation.toObject();
+      // Determine type based on metadata.source
+      if (invitationObj.metadata?.source === "company_invitation") {
+        invitationObj.type = "invitation";
+      } else if (invitationObj.metadata?.source === "company_addition") {
+        invitationObj.type = "addition";
+      } else {
+        // Default to "invitation" if source is not set (for backward compatibility)
+        invitationObj.type = "invitation";
+      }
+      return invitationObj;
+    });
+
     // Calculate stats
     const stats = {
       total: invitations.length,
@@ -898,7 +913,7 @@ exports.getFreelancerInvitations = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        invitations,
+        invitations: invitationsWithType,
         stats,
       },
     });
