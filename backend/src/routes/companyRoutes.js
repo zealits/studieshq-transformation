@@ -179,6 +179,16 @@ router.post(
   "/freelancer-invitations/upload",
   auth,
   upload.single("file"),
+  (err, req, res, next) => {
+    if (err) {
+      console.error("Multer error:", err);
+      return res.status(400).json({
+        success: false,
+        error: err.message || "File upload error",
+      });
+    }
+    next();
+  },
   companyController.uploadFreelancerInvitations
 );
 

@@ -13,6 +13,7 @@ const DashboardLayout = ({ role }) => {
     account: true,
   });
   const { user } = useSelector((state) => state.auth);
+  console.log(user);
   const { data: profileData } = useSelector((state) => state.profile);
   const { totalUnreadCount } = useSelector((state) => state.chat);
   const dispatch = useDispatch();
@@ -197,11 +198,8 @@ const DashboardLayout = ({ role }) => {
       case "client":
         // Check if individual client profile is complete
         const clientProfileComplete = !!(
-          profileData?.data?.profile?.company &&
-          profileData.data.profile.company.trim().length > 0
-         
+          profileData?.data?.profile?.company && profileData.data.profile.company.trim().length > 0
         );
-        
 
         return [
           { path: "/client", label: "Dashboard", icon: "home" },
@@ -544,10 +542,20 @@ const DashboardLayout = ({ role }) => {
           <h2 className="text-base font-semibold text-gray-800">{user?.name || "User"}</h2>
           <p className="text-sm text-gray-500 mt-1 capitalize">
             {user?.userType === "company"
-              ? user?.companyType === "freelancer_company"
-                ? "Freelancer Company"
-                : "Project Sponsor Company"
-              : role}
+              ? (() => {
+                  const companyName = user?.company?.businessName;
+                  const companyTypeLabel =
+                    user?.companyType === "freelancer_company" ? "Freelancer Company" : "Project Sponsor Company";
+                  return companyName ? `${companyTypeLabel} (${companyName})` : companyTypeLabel;
+                })()
+              : (() => {
+                  // Check if freelancer belongs to a company
+                  const companyName = user?.companyFreelancer?.companyName || user?.companyFreelancerName;
+                  if (role === "freelancer" && companyName) {
+                    return `Freelancer (${companyName})`;
+                  }
+                  return role;
+                })()}
           </p>
         </div>
 

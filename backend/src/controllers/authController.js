@@ -578,6 +578,8 @@ exports.getMe = async (req, res) => {
           temporaryPassword: user.temporaryPassword,
           createdAt: user.createdAt,
           company: user.company || null,
+          companyFreelancer: user.companyFreelancer || null,
+          companyFreelancerName: user.companyFreelancerName || null,
           profile: profile || {},
         },
       },

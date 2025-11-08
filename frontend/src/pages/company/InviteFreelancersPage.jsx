@@ -96,7 +96,8 @@ const InviteFreelancersPage = () => {
       if (fileInput) fileInput.value = "";
     } catch (error) {
       console.error("Error uploading file:", error);
-      toast.error(error.response?.data?.message || "Failed to upload file");
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || "Failed to upload file";
+      toast.error(errorMessage);
     } finally {
       setUploading(false);
     }
