@@ -116,6 +116,10 @@ const JobSchema = new Schema({
     total: { type: Number },
     transactionId: { type: String },
   },
+  project_id: {
+    type: String,
+    default: null,
+  },
 });
 
 // Update the updatedAt field before saving

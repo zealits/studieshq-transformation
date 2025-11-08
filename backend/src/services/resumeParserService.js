@@ -428,6 +428,92 @@ class ResumeParserService {
   }
 
   /**
+   * Register a project in the resume parser API
+   * @param {string} projectDescription - Project description
+   * @param {Array<string>} projectSkills - Array of project skills
+   * @param {string} projectHeading - Project heading/title
+   * @param {Date|string} applicationDeadline - Application deadline (Date object or ISO string)
+   */
+  async registerProject(projectDescription, projectSkills, projectHeading = null, applicationDeadline = null) {
+    try {
+      console.log(`Registering project with description: ${projectDescription.substring(0, 50)}...`);
+
+      // Ensure we have a valid token
+      const token = await this.getValidToken();
+
+      // Format deadline to ISO 8601 string if provided
+      let formattedDeadline = null;
+      if (applicationDeadline) {
+        if (applicationDeadline instanceof Date) {
+          formattedDeadline = applicationDeadline.toISOString();
+        } else if (typeof applicationDeadline === "string") {
+          // If it's already a string, try to parse and format it
+          const date = new Date(applicationDeadline);
+          if (!isNaN(date.getTime())) {
+            formattedDeadline = date.toISOString();
+          } else {
+            formattedDeadline = applicationDeadline; // Use as-is if parsing fails
+          }
+        }
+      }
+
+      // Prepare project data
+      const projectData = {
+        project_description: projectDescription,
+        project_skills: projectSkills || [],
+      };
+
+      // Add optional fields if provided
+      if (projectHeading) {
+        projectData.project_heading = projectHeading;
+      }
+      if (formattedDeadline) {
+        projectData.application_deadline = formattedDeadline;
+      }
+
+      console.log("Project data to register:", JSON.stringify(projectData, null, 2));
+
+      // Make the API call to register project
+      const response = await axios.post(`${this.apiUrl}/register-project`, projectData, {
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 30000,
+      });
+
+      console.log("Register project API response status:", response.status);
+      console.log("Register project API response data:", response.data);
+
+      if (response.data && response.data.success) {
+        console.log("Project registered successfully");
+        console.log("Project ID:", response.data.project_id);
+
+        return {
+          success: true,
+          projectId: response.data.project_id,
+          vectorIds: response.data.vector_ids,
+          message: response.data.message,
+        };
+      } else {
+        console.error("API returned unsuccessful response:", response.data);
+        throw new Error(`Project registration failed: ${response.data?.message || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Project registration failed:");
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+
+      return {
+        success: false,
+        error: error.response?.data || error.message,
+      };
+    }
+  }
+
+  /**
    * Test the API connection
    */
   async testConnection() {

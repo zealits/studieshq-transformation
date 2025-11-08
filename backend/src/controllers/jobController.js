@@ -7,6 +7,7 @@ const Profile = require("../models/Profile");
 const { Project } = require("../models/Project");
 const JobInvitation = require("../models/JobInvitation");
 const emailService = require("../services/emailService");
+const resumeParserService = require("../services/resumeParserService");
 
 /**
  * Helper function to check if the user is the owner of a job or an admin
@@ -113,6 +114,26 @@ exports.createJob = async (req, res) => {
     });
 
     await job.save();
+
+    // Register project with resume parser API
+    try {
+      const projectRegistrationResult = await resumeParserService.registerProject(
+        description,
+        skills,
+        title,
+        deadline
+      );
+      if (projectRegistrationResult.success && projectRegistrationResult.projectId) {
+        job.project_id = projectRegistrationResult.projectId;
+        await job.save();
+        console.log(`Project registered successfully with ID: ${projectRegistrationResult.projectId}`);
+      } else {
+        console.warn("Project registration failed, but job was created:", projectRegistrationResult.error);
+      }
+    } catch (projectRegError) {
+      // Don't fail job creation if project registration fails
+      console.error("Error registering project with resume parser API:", projectRegError);
+    }
 
     // If not a draft, require budget blocking
     if (status !== "draft") {
