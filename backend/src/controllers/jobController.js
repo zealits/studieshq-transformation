@@ -280,17 +280,69 @@ exports.getJobs = async (req, res) => {
     // Log the final query for debugging
     // console.log("Final query:", JSON.stringify(query));
 
+    // If user is a freelancer with candidateId, fetch relevant projects from API
+    let relevantProjectsMap = new Map(); // Map of project_id -> overall_score
+    let shouldSortByRelevance = false;
+
+    if (req.user && req.user.role === "freelancer") {
+      try {
+        // Get user with candidateId
+        const user = await User.findById(req.user.id).select("candidateId");
+        
+        if (user && user.candidateId) {
+          console.log(`Fetching relevant projects for freelancer with candidateId: ${user.candidateId}`);
+          
+          const relevantProjectsResult = await resumeParserService.getRelevantProjects(user.candidateId, 100);
+          
+          if (relevantProjectsResult.success && relevantProjectsResult.projects) {
+            // Create a map of project_id -> overall_score for quick lookup
+            relevantProjectsResult.projects.forEach((project) => {
+              relevantProjectsMap.set(project.project_id, {
+                overall_score: project.overall_score,
+                description_score: project.description_score,
+                skills_score: project.skills_score,
+              });
+            });
+            
+            shouldSortByRelevance = true;
+            console.log(`Found ${relevantProjectsMap.size} relevant projects from API`);
+          } else {
+            console.warn("Failed to fetch relevant projects:", relevantProjectsResult.error);
+          }
+        }
+      } catch (apiError) {
+        console.error("Error fetching relevant projects from API:", apiError);
+        // Continue with normal job fetching if API fails
+      }
+    }
+
+    // Build the base query for jobs - fetch all jobs matching the filters
+    // We'll sort by relevance later if we have API data
     const jobs = await Job.find(query)
       .populate("client", "name avatar email")
       .populate("client.profile")
       .select("-__v")
       .sort({ featured: -1, createdAt: -1 });
 
-    // Get proposal counts for each job
+    // Get proposal counts for each job and add relevance scores
     const jobsWithProposalCounts = await Promise.all(
       jobs.map(async (job) => {
         const proposalCount = await Proposal.countDocuments({ job: job._id });
         const jobObj = job.toObject();
+        
+        // Add relevance scores if available
+        if (shouldSortByRelevance && job.project_id && relevantProjectsMap.has(job.project_id)) {
+          const relevanceData = relevantProjectsMap.get(job.project_id);
+          jobObj.overall_score = relevanceData.overall_score;
+          jobObj.description_score = relevanceData.description_score;
+          jobObj.skills_score = relevanceData.skills_score;
+        } else {
+          // Set default scores for jobs not in the API response
+          jobObj.overall_score = 0;
+          jobObj.description_score = 0;
+          jobObj.skills_score = 0;
+        }
+        
         return {
           ...jobObj,
           proposals: [], // Initialize empty proposals array
@@ -298,6 +350,22 @@ exports.getJobs = async (req, res) => {
         };
       })
     );
+
+    // Sort by overall_score (descending) if we have relevance data, otherwise keep original sort
+    if (shouldSortByRelevance) {
+      jobsWithProposalCounts.sort((a, b) => {
+        // First sort by overall_score (descending)
+        if (b.overall_score !== a.overall_score) {
+          return b.overall_score - a.overall_score;
+        }
+        // Then by featured status
+        if (b.featured !== a.featured) {
+          return b.featured ? 1 : -1;
+        }
+        // Finally by creation date (newest first)
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+    }
 
     // Log the number of jobs found
     // console.log(`Found ${jobsWithProposalCounts.length} jobs matching the query`);

@@ -514,6 +514,63 @@ class ResumeParserService {
   }
 
   /**
+   * Get relevant projects for a candidate
+   * @param {string} candidateId - The candidate ID from the API
+   * @param {number} topK - Number of top projects to return (default: 100)
+   */
+  async getRelevantProjects(candidateId, topK = 100) {
+    try {
+      console.log(`Fetching relevant projects for candidate: ${candidateId} (top_k: ${topK})`);
+
+      // Ensure we have a valid token
+      const token = await this.getValidToken();
+
+      // Make the API call to get relevant projects
+      const response = await axios.get(`${this.apiUrl}/candidate/${candidateId}/relevant-projects`, {
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        params: {
+          top_k: topK,
+        },
+        timeout: 30000,
+      });
+
+      console.log("Get relevant projects API response status:", response.status);
+      console.log("Get relevant projects API response data:", response.data);
+
+      if (response.data && response.data.success) {
+        console.log("Relevant projects fetched successfully");
+        console.log(`Total projects matched: ${response.data.total_projects_matched}`);
+        console.log(`Valid projects: ${response.data.total_valid_projects}`);
+
+        return {
+          success: true,
+          candidateId: response.data.candidate_id,
+          candidateName: response.data.candidate_name,
+          totalProjectsMatched: response.data.total_projects_matched,
+          totalValidProjects: response.data.total_valid_projects,
+          projects: response.data.projects || [],
+        };
+      } else {
+        console.error("API returned unsuccessful response:", response.data);
+        throw new Error(`Failed to fetch relevant projects: ${response.data?.message || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Get relevant projects failed:");
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+
+      return {
+        success: false,
+        error: error.response?.data || error.message,
+      };
+    }
+  }
+
+  /**
    * Test the API connection
    */
   async testConnection() {
