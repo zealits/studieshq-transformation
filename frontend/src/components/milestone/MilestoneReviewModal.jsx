@@ -313,7 +313,7 @@ const MilestoneReviewModal = ({ milestone, projectId, onClose, onSuccess }) => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {reviewData.action === "request_revision" ? "Feedback for Revision *" : "Optional Feedback"}
+                  {reviewData.action === "request_revision" ? "Feedback for Revision *" : "Feedback on Original Work"}
                 </label>
                 <textarea
                   value={reviewData.feedback}
