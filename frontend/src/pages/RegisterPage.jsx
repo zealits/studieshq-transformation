@@ -230,7 +230,7 @@ const RegisterPage = () => {
                     onChange={handleChange}
                     className="mr-2"
                   />
-                  Project Sponsor Company
+                  Project Sponsor Organization
                 </label>
               </div>
             </div>

@@ -393,7 +393,7 @@ const UserManagementPage = () => {
         return <span className="px-2 py-1 text-xs rounded-full bg-indigo-100 text-indigo-800">Freelancer Company</span>;
       case "project_sponsor_company":
         return (
-          <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">Project Sponsor Company</span>
+          <span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">Project Sponsor Organization</span>
         );
       default:
         return <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">{role}</span>;

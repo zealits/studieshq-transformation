@@ -545,7 +545,7 @@ const DashboardLayout = ({ role }) => {
               ? (() => {
                   const companyName = user?.company?.businessName;
                   const companyTypeLabel =
-                    user?.companyType === "freelancer_company" ? "Freelancer Company" : "Project Sponsor Company";
+                    user?.companyType === "freelancer_company" ? "Freelancer Company" : "Project Sponsor Organization";
                   return companyName ? `${companyTypeLabel} (${companyName})` : companyTypeLabel;
                 })()
               : (() => {
@@ -740,7 +740,7 @@ const DashboardLayout = ({ role }) => {
                 {user?.userType === "company"
                   ? user?.companyType === "freelancer_company"
                     ? "Freelancer Company Dashboard"
-                    : "Project Sponsor Company Dashboard"
+                    : "Project Sponsor Organization Dashboard"
                   : `${role} Dashboard`}
               </h1>
             </div>

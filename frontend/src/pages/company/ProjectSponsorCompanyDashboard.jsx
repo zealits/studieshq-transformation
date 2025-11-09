@@ -100,7 +100,7 @@ const ProjectSponsorCompanyDashboard = () => {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold mb-2">
-              Welcome, {user?.company?.businessName || "Project Sponsor Company"}!
+              Welcome, {user?.company?.businessName || "Project Sponsor Organization"}!
             </h2>
             <p className="text-gray-600">
               Your company dashboard provides an overview of your sponsored projects, team performance, and business

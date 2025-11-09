@@ -748,7 +748,7 @@ const CompanyProfilePage = () => {
                 {user?.company?.businessName || formData.company.businessName || "Company Profile"}
               </h1>
               <p className="text-gray-600">
-                {user?.companyType === "freelancer_company" ? "Freelancer Company" : "Project Sponsor Company"}
+                {user?.companyType === "freelancer_company" ? "Freelancer Company" : "Project Sponsor Organization"}
               </p>
               <div className="flex items-center mt-2">
                 <span
