@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { fetchJobProposals, updateProposalStatus } from "../../redux/slices/jobsSlice";
 import Spinner from "../common/Spinner";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "react-hot-toast";
+import jobService from "../../services/jobService";
 
 const ProposalsList = ({ jobId, onClose }) => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { clientJobs, proposals, isLoading, error } = useSelector((state) => state.jobs);
   const [confirmingProposal, setConfirmingProposal] = useState(null);
 
@@ -27,6 +30,10 @@ const ProposalsList = ({ jobId, onClose }) => {
   const [loadingError, setLoadingError] = useState(null);
   const [updatingProposalId, setUpdatingProposalId] = useState(null);
   const [localProposals, setLocalProposals] = useState([]);
+  const [rankedProposals, setRankedProposals] = useState([]);
+  const [rankings, setRankings] = useState({});
+  const [loadingRanked, setLoadingRanked] = useState(false);
+  const [rankedError, setRankedError] = useState(null);
 
   useEffect(() => {
     // If we already have proposals in the selected job, use them
@@ -124,11 +131,56 @@ const ProposalsList = ({ jobId, onClose }) => {
     }
   };
 
+  // Fetch ranked candidates when "bestmatch" tab is selected
+  useEffect(() => {
+    if (selectedTab === "bestmatch" && jobId && selectedJob?.project_id) {
+      const fetchRankedCandidates = async () => {
+        setLoadingRanked(true);
+        setRankedError(null);
+        try {
+          const result = await jobService.getRankedCandidates(jobId);
+          if (result?.success && result?.data) {
+            setRankedProposals(result.data.matchedProposals || []);
+            setRankings(result.data.rankings || {});
+          } else {
+            setRankedError("Failed to load ranked candidates");
+            toast.error("Failed to load ranked candidates");
+          }
+        } catch (err) {
+          console.error("Failed to load ranked candidates:", err);
+          const errorMessage = err?.message || "Failed to load ranked candidates";
+          setRankedError(errorMessage);
+          toast.error(errorMessage);
+        } finally {
+          setLoadingRanked(false);
+        }
+      };
+
+      fetchRankedCandidates();
+    } else if (selectedTab === "bestmatch" && !selectedJob?.project_id) {
+      setRankedError("This job does not have a project ID. Ranked candidates are only available for jobs with registered projects.");
+      setRankedProposals([]);
+      setRankings({});
+    }
+  }, [selectedTab, jobId, selectedJob?.project_id]);
+
   // Filter proposals based on selected tab
-  const filteredProposals = localProposals.filter((proposal) => {
-    if (selectedTab === "all") return true;
-    return proposal.status === selectedTab;
-  });
+  const filteredProposals = selectedTab === "bestmatch" 
+    ? rankedProposals 
+    : localProposals.filter((proposal) => {
+        if (selectedTab === "all") return true;
+        return proposal.status === selectedTab;
+      });
+
+  // Handle viewing freelancer profile
+  const handleViewProfile = (proposal) => {
+    const freelancerId = proposal.freelancer?._id || proposal.freelancer;
+    if (freelancerId) {
+      navigate(`/client/freelancers/${freelancerId}`);
+    } else {
+      toast.error("Unable to load freelancer profile");
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
@@ -201,10 +253,68 @@ const ProposalsList = ({ jobId, onClose }) => {
           >
             Rejected
           </button>
+          <button
+            className={`pb-2 px-4 font-medium ${
+              selectedTab === "bestmatch"
+                ? "border-b-2 border-primary text-primary"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => setSelectedTab("bestmatch")}
+          >
+            Best Match
+          </button>
         </div>
 
         <div className="p-6">
-          {isLoading && localProposals.length === 0 && !loadingError ? (
+          {selectedTab === "bestmatch" && loadingRanked ? (
+            <div className="flex justify-center items-center py-12">
+              <Spinner size="large" />
+            </div>
+          ) : selectedTab === "bestmatch" && rankedError ? (
+            <div className="text-center py-12">
+              <svg
+                className="w-16 h-16 mx-auto text-red-300 mb-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                ></path>
+              </svg>
+              <p className="text-lg font-medium text-gray-800 mb-1">Error Loading Best Matches</p>
+              <p className="text-gray-600 mb-4">{rankedError}</p>
+              <button
+                onClick={() => setSelectedTab("bestmatch")}
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : selectedTab === "bestmatch" && filteredProposals.length === 0 ? (
+            <div className="text-center py-12">
+              <svg
+                className="w-16 h-16 mx-auto text-gray-300 mb-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                ></path>
+              </svg>
+              <p className="text-lg font-medium text-gray-800 mb-1">No matched candidates</p>
+              <p className="text-gray-600">No proposals match the ranked candidates for this job.</p>
+            </div>
+          ) : isLoading && localProposals.length === 0 && !loadingError ? (
             <div className="flex justify-center items-center py-12">
               <Spinner size="large" />
             </div>
@@ -357,8 +467,65 @@ const ProposalsList = ({ jobId, onClose }) => {
                         <p className="text-2xl font-bold text-primary">${proposal.bidPrice}</p>
                         <p className="text-sm text-gray-500">Bid Amount</p>
                       </div>
+                      {selectedTab === "bestmatch" && rankings[proposal._id] && (
+                        <div className="bg-primary-light rounded-lg p-3 inline-block mt-2">
+                          <p className="text-xl font-bold text-white">
+                            {Math.round(rankings[proposal._id].overallScore * 100)}%
+                          </p>
+                          <p className="text-xs text-white opacity-90">Match Score</p>
+                        </div>
+                      )}
                     </div>
                   </div>
+
+                  {selectedTab === "bestmatch" && rankings[proposal._id] && (
+                    <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-blue-900 mb-2">Match Details</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                          <p className="text-xs text-blue-700">Overall Score</p>
+                          <p className="text-sm font-bold text-blue-900">
+                            {Math.round(rankings[proposal._id].overallScore * 100)}%
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-blue-700">Professional</p>
+                          <p className="text-sm font-bold text-blue-900">
+                            {Math.round(rankings[proposal._id].professionalScore * 100)}%
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-blue-700">Project</p>
+                          <p className="text-sm font-bold text-blue-900">
+                            {Math.round(rankings[proposal._id].projectScore * 100)}%
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-blue-700">Skills</p>
+                          <p className="text-sm font-bold text-blue-900">
+                            {Math.round(rankings[proposal._id].skillsScore * 100)}%
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {rankings[proposal._id].seniorityLevel && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            {rankings[proposal._id].seniorityLevel}
+                          </span>
+                        )}
+                        {rankings[proposal._id].highestEducation && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            {rankings[proposal._id].highestEducation}
+                          </span>
+                        )}
+                        {rankings[proposal._id].hasLeadership && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            Leadership Experience
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-gray-50 p-3 rounded-lg">
@@ -455,10 +622,10 @@ const ProposalsList = ({ jobId, onClose }) => {
                         </button>
                       </>
                     )}
-                    <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50">
-                      Message Freelancer
-                    </button>
-                    <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50">
+                    <button 
+                      onClick={() => handleViewProfile(proposal)}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                    >
                       View Profile
                     </button>
                   </div>

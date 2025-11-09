@@ -71,7 +71,7 @@ const LoginPage = () => {
 
               // Check if freelancer is part of a company
               if (user.companyFreelancer && user.companyFreelancer.companyId) {
-                navigate("/company-freelancer");
+                navigate("/freelancer");
               } else {
                 navigate("/freelancer/profile");
               }
@@ -97,7 +97,7 @@ const LoginPage = () => {
           case "freelancer":
             // Check if freelancer is part of a company
             if (user.companyFreelancer && user.companyFreelancer.companyId) {
-              navigate("/company-freelancer");
+              navigate("/freelancer");
             } else {
               navigate("/freelancer");
             }

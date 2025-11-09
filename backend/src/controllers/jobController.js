@@ -778,6 +778,118 @@ exports.getProposals = async (req, res) => {
 };
 
 /**
+ * @desc    Get ranked candidates for a job
+ * @route   GET /api/jobs/:id/ranked-candidates
+ * @access  Private (Client only, must be job owner)
+ */
+exports.getRankedCandidates = async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+
+    if (!job) {
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
+
+    // Verify ownership using the helper function
+    if (!isJobOwnerOrAdmin(req, job)) {
+      return res.status(403).json({ success: false, message: "Not authorized to view ranked candidates for this job" });
+    }
+
+    // Check if job has a project_id
+    if (!job.project_id) {
+      return res.status(400).json({
+        success: false,
+        message: "This job does not have a project ID. Ranked candidates are only available for jobs with registered projects.",
+      });
+    }
+
+    // Get top_k from query params (default: 100)
+    const topK = parseInt(req.query.top_k) || 100;
+
+    // Get optional filters from query params
+    const filters = {
+      has_leadership: req.query.has_leadership || null,
+      highest_education: req.query.highest_education || null,
+      seniority_level: req.query.seniority_level || null,
+    };
+
+    // Call the resume parser service to get ranked candidates
+    const rankedCandidatesResult = await resumeParserService.getRankedCandidates(job.project_id, topK, filters);
+
+    if (!rankedCandidatesResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: rankedCandidatesResult.error?.message || "Failed to fetch ranked candidates",
+        error: rankedCandidatesResult.error,
+      });
+    }
+
+    // Get all proposals for this job with freelancer populated
+    const proposals = await Proposal.find({ job: job._id }).populate("freelancer", "name avatar candidateId");
+
+    // Create a map of candidate_id to ranked candidate data
+    const rankedCandidatesMap = new Map();
+    rankedCandidatesResult.rankedCandidates.forEach((candidate) => {
+      rankedCandidatesMap.set(candidate.candidate_id, candidate);
+    });
+
+    // Match proposals with ranked candidates using candidateId
+    const matchedProposals = proposals
+      .map((proposal) => {
+        const freelancerCandidateId = proposal.freelancer?.candidateId;
+        if (!freelancerCandidateId) {
+          return null; // Skip proposals where freelancer doesn't have a candidateId
+        }
+
+        const rankedCandidate = rankedCandidatesMap.get(freelancerCandidateId);
+        if (!rankedCandidate) {
+          return null; // Skip proposals where freelancer is not in ranked results
+        }
+
+        // Return proposal with ranking data
+        return {
+          proposal: proposal.toObject(),
+          ranking: {
+            overallScore: rankedCandidate.overall_score,
+            professionalScore: rankedCandidate.professional_score,
+            projectScore: rankedCandidate.project_score,
+            skillsScore: rankedCandidate.skills_score,
+            seniorityLevel: rankedCandidate.seniority_level,
+            highestEducation: rankedCandidate.highest_education,
+            hasLeadership: rankedCandidate.has_leadership,
+          },
+        };
+      })
+      .filter((item) => item !== null) // Remove null entries
+      .sort((a, b) => b.ranking.overallScore - a.ranking.overallScore); // Sort by overall score descending
+
+    res.json({
+      success: true,
+      data: {
+        projectId: rankedCandidatesResult.projectId,
+        projectDescription: rankedCandidatesResult.projectDescription,
+        requiredSkills: rankedCandidatesResult.requiredSkills,
+        filtersApplied: rankedCandidatesResult.filtersApplied,
+        topK: rankedCandidatesResult.topK,
+        resultsCount: rankedCandidatesResult.resultsCount,
+        matchedProposals: matchedProposals.map((item) => item.proposal),
+        rankings: matchedProposals.reduce((acc, item) => {
+          acc[item.proposal._id.toString()] = item.ranking;
+          return acc;
+        }, {}),
+      },
+    });
+  } catch (err) {
+    console.error("Error getting ranked candidates:", err);
+    if (err.kind === "ObjectId") {
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
+
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
  * @desc    Update proposal status (accept/reject)
  * @route   PUT /api/jobs/:id/proposals/:proposalId
  * @access  Private (Client only, must be job owner)

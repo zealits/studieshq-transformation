@@ -20,7 +20,7 @@ const UserTypeRedirect = () => {
         if (user.role === "freelancer") {
           // Check if freelancer is part of a company
           if (user.companyFreelancer && user.companyFreelancer.companyId) {
-            navigate("/company-freelancer", { replace: true });
+            navigate("/freelancer", { replace: true });
           } else {
             navigate("/freelancer", { replace: true });
           }

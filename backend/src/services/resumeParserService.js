@@ -571,6 +571,76 @@ class ResumeParserService {
   }
 
   /**
+   * Get ranked candidates for a project
+   * @param {string} projectId - The project ID from the API
+   * @param {number} topK - Number of top candidates to return (default: 100)
+   * @param {Object} filters - Optional filters (has_leadership, highest_education, seniority_level)
+   */
+  async getRankedCandidates(projectId, topK = 100, filters = {}) {
+    try {
+      console.log(`Fetching ranked candidates for project: ${projectId} (top_k: ${topK})`);
+
+      // Ensure we have a valid token
+      const token = await this.getValidToken();
+
+      // Prepare request data
+      const requestData = {
+        project_id: projectId,
+        top_k: topK,
+        filters: {
+          has_leadership: filters.has_leadership || null,
+          highest_education: filters.highest_education || null,
+          seniority_level: filters.seniority_level || null,
+        },
+      };
+
+      console.log("Request data:", JSON.stringify(requestData, null, 2));
+
+      // Make the API call to get ranked candidates
+      const response = await axios.post(`${this.apiUrl}/get-ranked-candidates`, requestData, {
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 30000,
+      });
+
+      console.log("Get ranked candidates API response status:", response.status);
+      console.log("Get ranked candidates API response data:", response.data);
+
+      if (response.data && response.data.success) {
+        console.log("Ranked candidates fetched successfully");
+        console.log(`Total candidates returned: ${response.data.combined_ranked_results?.length || 0}`);
+
+        return {
+          success: true,
+          projectId: response.data.project_id,
+          projectDescription: response.data.project_description,
+          requiredSkills: response.data.required_skills || [],
+          filtersApplied: response.data.filters_applied || {},
+          topK: response.data.top_k,
+          resultsCount: response.data.results_count || {},
+          rankedCandidates: response.data.combined_ranked_results || [],
+        };
+      } else {
+        console.error("API returned unsuccessful response:", response.data);
+        throw new Error(`Failed to fetch ranked candidates: ${response.data?.message || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Get ranked candidates failed:");
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+
+      return {
+        success: false,
+        error: error.response?.data || error.message,
+      };
+    }
+  }
+
+  /**
    * Test the API connection
    */
   async testConnection() {

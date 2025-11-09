@@ -121,6 +121,11 @@ router.post(
 // @access  Private (Client only, must be job owner)
 router.get("/:id/proposals", auth, checkRole(["client", "admin"]), jobController.getProposals);
 
+// @route   GET /api/jobs/:id/ranked-candidates
+// @desc    Get ranked candidates for a job (Best Match)
+// @access  Private (Client only, must be job owner)
+router.get("/:id/ranked-candidates", auth, checkRole(["client", "admin"]), jobController.getRankedCandidates);
+
 // @route   PUT /api/jobs/:id/proposals/:proposalId
 // @desc    Update proposal status (accept/reject)
 // @access  Private (Client only, must be job owner)

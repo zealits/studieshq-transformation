@@ -100,6 +100,17 @@ const jobService = {
       throw error.response?.data || error;
     }
   },
+
+  // Get ranked candidates for a job (Best Match)
+  getRankedCandidates: async (jobId, topK = 100, filters = {}) => {
+    try {
+      const params = { top_k: topK, ...filters };
+      const response = await axios.get(`/api/jobs/${jobId}/ranked-candidates`, { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
 };
 
 export default jobService;
