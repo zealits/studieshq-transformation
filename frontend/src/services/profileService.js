@@ -85,6 +85,16 @@ const profileService = {
       throw error.response?.data || error;
     }
   },
+
+  // Generate test for freelancer
+  generateTest: async () => {
+    try {
+      const response = await axios.get("/api/profile/generate-test");
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
 };
 
 export default profileService;

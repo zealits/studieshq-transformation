@@ -621,3 +621,62 @@ exports.deletePortfolioItem = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+/**
+ * @desc    Generate test for freelancer based on their profile
+ * @route   GET /api/profile/generate-test
+ * @access  Private (Freelancer only)
+ */
+exports.generateTest = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (user.role !== "freelancer") {
+      return res.status(403).json({ success: false, message: "Only freelancers can generate tests" });
+    }
+
+    if (!user.candidateId) {
+      return res.status(400).json({
+        success: false,
+        message: "Candidate ID not found. Please complete your profile registration first.",
+      });
+    }
+
+    // Get access token from resume parser service
+    const accessToken = await resumeParserService.getValidToken();
+
+    // Make API call to generate test
+    const axios = require("axios");
+    const apiUrl = process.env.RESUME_PARSER_API_URL || "https://resumeparser.aiiventure.com";
+
+    const response = await axios.get(`${apiUrl}/candidate/${user.candidateId}/generate-test`, {
+      headers: {
+        accept: "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      timeout: 30000,
+    });
+
+    if (response.data && response.data.success) {
+      res.json({
+        success: true,
+        data: response.data,
+      });
+    } else {
+      throw new Error(response.data?.message || "Failed to generate test");
+    }
+  } catch (err) {
+    console.error("Error in generateTest:", err.message);
+    console.error("Error details:", err.response?.data || err.message);
+
+    res.status(500).json({
+      success: false,
+      message: err.response?.data?.message || err.message || "Failed to generate test",
+      error: err.response?.data || err.message,
+    });
+  }
+};

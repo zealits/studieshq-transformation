@@ -47,6 +47,7 @@ import FreelancerMessages from "./pages/freelancer/MessagesPage";
 import FreelancerPayments from "./pages/freelancer/PaymentsPage";
 import FreelancerProfile from "./pages/freelancer/ProfilePage";
 import FreelancerInvitations from "./pages/freelancer/InvitationsPage";
+import TestPage from "./pages/freelancer/TestPage";
 import SupportPage from "./pages/Support/MyTickets";
 import SubmitTicket from "./pages/Support/SubmitTicket";
 import TicketDetails from "./pages/Support/TicketDetails";
@@ -196,6 +197,7 @@ function App() {
           <Route path="messages" element={<FreelancerMessages />} />
           <Route path="payments" element={<FreelancerPayments />} />
           <Route path="profile" element={<FreelancerProfile />} />
+          <Route path="test" element={<TestPage />} />
           <Route path="support" element={<SupportPage />} />
           <Route path="support/submit" element={<SubmitTicket />} />
           <Route path="support/tickets/:id" element={<TicketDetails />} />
