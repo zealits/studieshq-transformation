@@ -351,9 +351,106 @@ exports.getJobs = async (req, res) => {
       })
     );
 
+    // Calculate tags for all jobs (after all jobs are processed)
+    // First, calculate thresholds that require all jobs data
+    const allScores = jobsWithProposalCounts
+      .map((j) => j.overall_score || 0)
+      .filter((score) => score > 0)
+      .sort((a, b) => b - a);
+    const top20Percentile = allScores.length > 0 ? (allScores[Math.floor(allScores.length * 0.2)] || 0) : 0;
+    
+    const budgets = jobs.map((j) => j.budget?.max || 0).sort((a, b) => b - a);
+    const top25Percentile = budgets.length > 0 ? (budgets[Math.floor(budgets.length * 0.25)] || 0) : 0;
+
+    // Now add tags to each job
+    const jobsWithTags = jobsWithProposalCounts.map((jobObj) => {
+      const tags = [];
+      const job = jobs.find((j) => j._id.toString() === jobObj._id.toString());
+      
+      // "Best Match" tag - if overall_score is high (top 20% or > 0.5)
+      if (shouldSortByRelevance && jobObj.overall_score > 0) {
+        if (jobObj.overall_score >= top20Percentile || jobObj.overall_score >= 0.5) {
+          tags.push({
+            type: "best_match",
+            label: "Best Match",
+            color: "green", // Green for best match
+          });
+        }
+      }
+      
+      // "Posted Today" tag - if job was posted today
+      if (job && job.createdAt) {
+        const today = new Date();
+        const jobDate = new Date(job.createdAt);
+        today.setHours(0, 0, 0, 0);
+        jobDate.setHours(0, 0, 0, 0);
+        
+        if (jobDate.getTime() === today.getTime()) {
+          tags.push({
+            type: "posted_today",
+            label: "Posted Today",
+            color: "blue", // Blue for posted today
+          });
+        }
+      }
+      
+      // "Closing Soon" tag - if deadline is within 3 days
+      if (job && job.deadline) {
+        const deadline = new Date(job.deadline);
+        const now = new Date();
+        const daysUntilDeadline = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilDeadline >= 0 && daysUntilDeadline <= 3) {
+          tags.push({
+            type: "closing_soon",
+            label: daysUntilDeadline === 0 ? "Closing Today" : daysUntilDeadline === 1 ? "Closing Tomorrow" : "Closing Soon",
+            color: "red", // Red for urgency
+          });
+        }
+      }
+      
+      // "New" tag - if job was posted within last 24 hours
+      if (job && job.createdAt) {
+        const now = new Date();
+        const jobDate = new Date(job.createdAt);
+        const hoursSincePosted = (now - jobDate) / (1000 * 60 * 60);
+        
+        if (hoursSincePosted <= 24 && !tags.find((t) => t.type === "posted_today")) {
+          tags.push({
+            type: "new",
+            label: "New",
+            color: "purple", // Purple for new
+          });
+        }
+      }
+      
+      // "High Budget" tag - if budget max is in top 25%
+      if (job && job.budget?.max >= top25Percentile && job.budget?.max >= 1000) {
+        tags.push({
+          type: "high_budget",
+          label: "High Budget",
+          color: "gold", // Gold for high budget
+        });
+      }
+      
+      // "Featured" tag - if job is featured
+      if (job && job.featured) {
+        tags.push({
+          type: "featured",
+          label: "Featured",
+          color: "yellow", // Yellow for featured
+        });
+      }
+      
+      return {
+        ...jobObj,
+        tags: tags, // Add tags array
+      };
+    });
+
     // Sort by overall_score (descending) if we have relevance data, otherwise keep original sort
     if (shouldSortByRelevance) {
-      jobsWithProposalCounts.sort((a, b) => {
+      jobsWithTags.sort((a, b) => {
         // First sort by overall_score (descending)
         if (b.overall_score !== a.overall_score) {
           return b.overall_score - a.overall_score;
@@ -368,13 +465,13 @@ exports.getJobs = async (req, res) => {
     }
 
     // Log the number of jobs found
-    // console.log(`Found ${jobsWithProposalCounts.length} jobs matching the query`);
+    // console.log(`Found ${jobsWithTags.length} jobs matching the query`);
 
     // Always return an array of jobs, even if empty
     res.json({
       success: true,
-      count: jobsWithProposalCounts.length,
-      data: { jobs: jobsWithProposalCounts || [] },
+      count: jobsWithTags.length,
+      data: { jobs: jobsWithTags || [] },
     });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });

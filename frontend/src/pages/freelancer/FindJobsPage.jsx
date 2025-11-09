@@ -288,8 +288,35 @@ const FindJobsPage = () => {
             return (
               <div key={job._id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
                 <div className="flex justify-between items-start">
-                  <div>
-                    <h2 className="text-xl font-semibold hover:text-primary">{job.title}</h2>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h2 className="text-xl font-semibold hover:text-primary">{job.title}</h2>
+                      {/* Display tags */}
+                      {job.tags && job.tags.length > 0 && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {job.tags.map((tag, index) => {
+                            // Get color classes based on tag color
+                            const colorClasses = {
+                              green: "bg-green-100 text-green-800 border-green-200",
+                              blue: "bg-blue-100 text-blue-800 border-blue-200",
+                              red: "bg-red-100 text-red-800 border-red-200",
+                              purple: "bg-purple-100 text-purple-800 border-purple-200",
+                              gold: "bg-yellow-100 text-yellow-800 border-yellow-200",
+                              yellow: "bg-yellow-100 text-yellow-800 border-yellow-200",
+                            };
+                            
+                            return (
+                              <span
+                                key={index}
+                                className={`px-2.5 py-0.5 text-xs font-medium rounded-full border ${colorClasses[tag.color] || "bg-gray-100 text-gray-800 border-gray-200"}`}
+                              >
+                                {tag.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                     <div className="flex items-center text-sm text-gray-500 mt-1">
                       <span>
                         ${job.budget.min} - ${job.budget.max} USD
@@ -303,7 +330,7 @@ const FindJobsPage = () => {
                     </div>
                   </div>
                   {hasApplied ? (
-                    <div className="flex flex-col items-end">
+                    <div className="flex flex-col items-end ml-4">
                       <span
                         className={`px-3 py-1 text-sm font-medium rounded-full ${
                           proposalStatus === "pending"
@@ -320,7 +347,7 @@ const FindJobsPage = () => {
                       <span className="text-sm text-gray-500 mt-1">Already Applied</span>
                     </div>
                   ) : (
-                    <button className="btn-primary" onClick={() => handleApplyClick(job)}>
+                    <button className="btn-primary ml-4" onClick={() => handleApplyClick(job)}>
                       Apply Now
                     </button>
                   )}
