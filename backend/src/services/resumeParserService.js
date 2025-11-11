@@ -149,6 +149,74 @@ class ResumeParserService {
   }
 
   /**
+   * Analyze a GitHub profile using the API
+   * @param {string} profileUrl - GitHub profile URL
+   * @param {number} repoCount - Number of repositories to analyze
+   */
+  async analyzeGithubProfile(profileUrl, repoCount = 5) {
+    try {
+      if (!profileUrl || typeof profileUrl !== "string") {
+        throw new Error("A valid GitHub profile URL is required for analysis");
+      }
+
+      const normalizedRepoCount = Number.isInteger(repoCount) && repoCount > 0 ? Math.min(repoCount, 50) : 5;
+
+      console.log(`Analyzing GitHub profile: ${profileUrl} (top ${normalizedRepoCount} repositories)`);
+
+      // Ensure we have a valid token
+      const token = await this.getValidToken();
+      console.log("Using access token for GitHub analysis");
+
+      // Prepare API URL (uses www subdomain)
+      let analysisApiUrl = this.apiUrl;
+      if (!analysisApiUrl.includes("www.")) {
+        analysisApiUrl = analysisApiUrl.replace("resumeparser", "www.resumeparser");
+      }
+
+      const payload = {
+        profile_url: profileUrl,
+        repo_count: normalizedRepoCount,
+      };
+
+      console.log(`Sending GitHub analysis request to ${analysisApiUrl}/analyze-github-profile`);
+
+      const response = await axios.post(`${analysisApiUrl}/analyze-github-profile`, payload, {
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 30000,
+      });
+
+      console.log("GitHub analysis response status:", response.status);
+      console.log("GitHub analysis response data:", response.data);
+
+      if (response.data && response.data.success) {
+        console.log("GitHub profile analyzed successfully");
+        return {
+          success: true,
+          report: response.data.report || null,
+          repoCount: normalizedRepoCount,
+        };
+      }
+
+      console.error("GitHub analysis API returned unsuccessful response:", response.data);
+      throw new Error(`GitHub analysis failed: ${response.data?.message || "Unknown error"}`);
+    } catch (error) {
+      console.error("GitHub profile analysis failed:");
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+
+      return {
+        success: false,
+        error: error.response?.data || error.message,
+      };
+    }
+  }
+
+  /**
    * Transform user and profile data to the API format
    * @param {Object} user - User document
    * @param {Object} profile - Profile document

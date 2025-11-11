@@ -60,6 +60,70 @@ const ExperienceSchema = new Schema({
   },
 });
 
+// GitHub analysis schemas
+const GithubLanguageSchema = new Schema(
+  {
+    language: String,
+    percentage: Number,
+  },
+  { _id: false }
+);
+
+const GithubRepositoriesSummarySchema = new Schema(
+  {
+    totalRepositoriesAnalyzed: Number,
+    totalUserRepositories: Number,
+    totalStarsAnalyzed: Number,
+    totalForksAnalyzed: Number,
+    primaryLanguage: String,
+    note: String,
+    languageOverview: [GithubLanguageSchema],
+  },
+  { _id: false }
+);
+
+const GithubProfileInfoSchema = new Schema(
+  {
+    username: String,
+    name: String,
+    bio: String,
+    company: String,
+    location: String,
+    email: String,
+    blog: String,
+    twitterUsername: String,
+    avatarUrl: String,
+    profileUrl: String,
+    followers: Number,
+    following: Number,
+    publicRepos: Number,
+    publicGists: Number,
+    createdAt: Date,
+    updatedAt: Date,
+  },
+  { _id: false }
+);
+
+const GithubAnalysisSchema = new Schema(
+  {
+    profileUrl: String,
+    repoCount: {
+      type: Number,
+      default: 5,
+    },
+    analyzedAt: Date,
+    profileInfo: {
+      type: GithubProfileInfoSchema,
+      default: null,
+    },
+    repositoriesSummary: {
+      type: GithubRepositoriesSummarySchema,
+      default: null,
+    },
+  },
+  { _id: false }
+);
+
 // Verification Documents Schema
 const VerificationDocumentSchema = new Schema({
   type: {
@@ -208,6 +272,11 @@ const ProfileSchema = new Schema({
     },
   },
   skills: [String],
+
+  githubAnalysis: {
+    type: GithubAnalysisSchema,
+    default: null,
+  },
 
   // Freelancer specific fields
   hourlyRate: {

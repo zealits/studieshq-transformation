@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { fetchMyProfile, updateProfile } from "../../redux/slices/profileSlice";
@@ -86,6 +86,7 @@ const ProfilePage = () => {
       github: "",
       portfolio: "",
     },
+    githubAnalysis: null,
   });
 
   // State to track if document types are saved
@@ -248,6 +249,7 @@ const ProfilePage = () => {
           github: profile.social?.github || "",
           portfolio: profile.website || "",
         },
+        githubAnalysis: profile.githubAnalysis || null,
       });
 
       // Update LinkedIn verification status
@@ -287,6 +289,45 @@ const ProfilePage = () => {
 
   // State for active tab
   const [activeTab, setActiveTab] = useState("basic");
+
+  const githubAnalysis = formData.githubAnalysis;
+  const githubProfileInfo = githubAnalysis?.profileInfo;
+  const githubRepoSummary = githubAnalysis?.repositoriesSummary;
+
+  const githubLanguages = useMemo(() => {
+    if (!githubRepoSummary?.languageOverview) return [];
+
+    if (Array.isArray(githubRepoSummary.languageOverview)) {
+      return githubRepoSummary.languageOverview
+        .filter((entry) => entry && entry.language)
+        .map((entry) => ({
+          language: entry.language,
+          percentage:
+            typeof entry.percentage === "number" ? entry.percentage : Number.parseFloat(entry.percentage) || 0,
+        }))
+        .sort((a, b) => b.percentage - a.percentage);
+    }
+
+    return Object.entries(githubRepoSummary.languageOverview)
+      .map(([language, value]) => ({
+        language,
+        percentage: typeof value === "number" ? value : Number.parseFloat(value) || 0,
+      }))
+      .filter((entry) => entry.language)
+      .sort((a, b) => b.percentage - a.percentage);
+  }, [githubRepoSummary]);
+
+  const githubAnalyzedAtLabel = useMemo(() => {
+    if (!githubAnalysis?.analyzedAt) return null;
+    const parsed = new Date(githubAnalysis.analyzedAt);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleString();
+  }, [githubAnalysis?.analyzedAt]);
+
+  const formatLanguagePercentage = (value) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return null;
+    const rounded = Math.round(value * 10) / 10;
+    return `${rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
+  };
 
   // Trigger file input when edit mode is enabled via avatar click
   useEffect(() => {
@@ -1587,6 +1628,114 @@ const ProfilePage = () => {
                         />
                       </div>
                     </div>
+                    {githubAnalysis && (
+                      <div className="mt-6">
+                        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+                          <div className="flex flex-wrap items-center gap-4">
+                            {githubProfileInfo?.avatarUrl && (
+                              <img
+                                src={githubProfileInfo.avatarUrl}
+                                alt={githubProfileInfo?.username || "GitHub avatar"}
+                                className="h-14 w-14 rounded-full border border-gray-200 object-cover"
+                              />
+                            )}
+                            <div className="min-w-[180px] flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                {githubProfileInfo?.username && (
+                                  <a
+                                    href={githubProfileInfo.profileUrl || githubAnalysis.profileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-base font-semibold text-gray-900 hover:text-primary"
+                                  >
+                                    @{githubProfileInfo.username}
+                                  </a>
+                                )}
+                                {githubProfileInfo?.name && (
+                                  <span className="text-sm text-gray-600">{githubProfileInfo.name}</span>
+                                )}
+                              </div>
+                              {githubProfileInfo?.bio && (
+                                <p className="mt-1 text-sm text-gray-600">{githubProfileInfo.bio}</p>
+                              )}
+                              {githubProfileInfo?.profileUrl && (
+                                <a
+                                  href={githubProfileInfo.profileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="mt-2 inline-flex items-center text-sm font-medium text-primary hover:underline"
+                                >
+                                  View GitHub profile
+                                  <svg className="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                      d="M17 7h-6m6 0l-8 8m8-8v6"
+                                    />
+                                  </svg>
+                                </a>
+                              )}
+                            </div>
+                            {githubAnalyzedAtLabel && (
+                              <div className="text-sm text-gray-500">Last analyzed: {githubAnalyzedAtLabel}</div>
+                            )}
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap gap-6 text-sm">
+                            {githubProfileInfo?.publicRepos !== undefined &&
+                              githubProfileInfo?.publicRepos !== null && (
+                                <div>
+                                  <p className="text-xs uppercase text-gray-500">Public Repos</p>
+                                  <p className="text-base font-semibold text-gray-800">
+                                    {githubProfileInfo.publicRepos}
+                                  </p>
+                                </div>
+                              )}
+                            {githubProfileInfo?.followers !== undefined && githubProfileInfo?.followers !== null && (
+                              <div>
+                                <p className="text-xs uppercase text-gray-500">Followers</p>
+                                <p className="text-base font-semibold text-gray-800">{githubProfileInfo.followers}</p>
+                              </div>
+                            )}
+                            {githubProfileInfo?.following !== undefined && githubProfileInfo?.following !== null && (
+                              <div>
+                                <p className="text-xs uppercase text-gray-500">Following</p>
+                                <p className="text-base font-semibold text-gray-800">{githubProfileInfo.following}</p>
+                              </div>
+                            )}
+                            {githubRepoSummary?.primaryLanguage && (
+                              <div>
+                                <p className="text-xs uppercase text-gray-500">Primary Language</p>
+                                <p className="text-base font-semibold text-gray-800">
+                                  {githubRepoSummary.primaryLanguage}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {githubLanguages.length > 0 && (
+                            <div className="mt-4">
+                              <p className="text-xs uppercase text-gray-500 mb-2">Top Languages</p>
+                              <div className="flex flex-wrap gap-2">
+                                {githubLanguages.slice(0, 6).map((language) => {
+                                  const percentageLabel = formatLanguagePercentage(language.percentage);
+                                  return (
+                                    <span
+                                      key={language.language}
+                                      className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
+                                    >
+                                      {language.language}
+                                      {percentageLabel && <span className="text-gray-500">{percentageLabel}</span>}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -76,12 +76,31 @@ exports.createOrUpdateProfile = async (req, res) => {
     verificationDocuments,
   } = req.body;
 
+  const sanitizedSocial = social
+    ? Object.keys(social).reduce((acc, key) => {
+        const value = social[key];
+        if (typeof value === "string") {
+          acc[key] = value.trim();
+        } else {
+          acc[key] = value;
+        }
+        return acc;
+      }, {})
+    : null;
+
+  const incomingGithubUrl = sanitizedSocial?.github || "";
+  const incomingPortfolioUrl = sanitizedSocial?.portfolio || "";
+  const forceGithubRefresh = Boolean(req.body?.forceGithubRefresh);
+  const requestedRepoCount = parseInt(req.body?.githubRepoCount, 10);
+  const repoCountToAnalyze =
+    Number.isInteger(requestedRepoCount) && requestedRepoCount > 0 ? Math.min(requestedRepoCount, 50) : 5;
+
   // Build profile object
   const profileFields = {
     user: req.user.id,
     bio: bio || "",
     location: location || "",
-    website: website || "",
+    website: incomingPortfolioUrl || website || "",
     phone: phone || "",
   };
 
@@ -104,8 +123,8 @@ exports.createOrUpdateProfile = async (req, res) => {
   }
 
   // Handle social links
-  if (social) {
-    profileFields.social = social;
+  if (sanitizedSocial) {
+    profileFields.social = sanitizedSocial;
   }
 
   // Add role-specific fields
@@ -140,6 +159,15 @@ exports.createOrUpdateProfile = async (req, res) => {
     session = await mongoose.startSession();
     session.startTransaction();
 
+    const existingProfile = await Profile.findOne({ user: req.user.id }).session(session);
+    const previousGithubUrl = existingProfile?.social?.github || "";
+    const previousGithubAnalysis = existingProfile?.githubAnalysis;
+    const githubUrlProvided = Boolean(incomingGithubUrl);
+    const githubUrlChanged = githubUrlProvided && incomingGithubUrl !== previousGithubUrl;
+    const githubUrlRemoved = !githubUrlProvided && Boolean(previousGithubUrl);
+    const shouldAnalyzeGithub =
+      githubUrlProvided && (githubUrlChanged || !previousGithubAnalysis || forceGithubRefresh);
+
     // Update user data if fullName or email was provided
     if (fullName || email) {
       const updateFields = {};
@@ -162,6 +190,115 @@ exports.createOrUpdateProfile = async (req, res) => {
 
     // Commit the transaction
     await session.commitTransaction();
+
+    // Handle GitHub analysis updates outside the transaction
+    if (githubUrlRemoved) {
+      try {
+        await Profile.updateOne({ user: req.user.id }, { $unset: { githubAnalysis: "" } });
+        console.log("GitHub analysis data cleared due to removed GitHub URL");
+      } catch (githubClearError) {
+        console.error("Failed to clear GitHub analysis data:", githubClearError.message);
+      }
+    } else if (shouldAnalyzeGithub) {
+      try {
+        const analysisResult = await resumeParserService.analyzeGithubProfile(incomingGithubUrl, repoCountToAnalyze);
+
+        if (analysisResult.success && analysisResult.report) {
+          const report = analysisResult.report || {};
+          const profileInfoRaw = report.profile_info || {};
+          const repositoriesSummaryRaw = report.repositories_summary || {};
+          const languagesRaw = repositoriesSummaryRaw.language_overview || {};
+
+          const languageEntries = Array.isArray(languagesRaw)
+            ? languagesRaw
+            : Object.entries(languagesRaw).map(([language, value]) => ({
+                language,
+                percentage: typeof value === "number" ? value : Number.parseFloat(value) || 0,
+              }));
+
+          const languageOverview = languageEntries
+            .map(({ language, percentage }) => ({
+              language,
+              percentage: Number.isFinite(percentage) ? Math.round(percentage * 100) / 100 : 0,
+            }))
+            .filter((entry) => entry.language);
+
+          const parseDate = (value) => {
+            if (!value) return null;
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? null : date;
+          };
+
+          const githubAnalysisData = {
+            profileUrl: profileInfoRaw.profile_url || incomingGithubUrl,
+            repoCount: analysisResult.repoCount,
+            analyzedAt: new Date(),
+            profileInfo: {
+              username: profileInfoRaw.username || "",
+              name: profileInfoRaw.name || "",
+              bio: profileInfoRaw.bio || "",
+              company: profileInfoRaw.company || "",
+              location: profileInfoRaw.location || "",
+              email: profileInfoRaw.email || "",
+              blog: profileInfoRaw.blog || "",
+              twitterUsername: profileInfoRaw.twitter_username || "",
+              avatarUrl: profileInfoRaw.avatar_url || "",
+              profileUrl: profileInfoRaw.profile_url || incomingGithubUrl,
+              followers: typeof profileInfoRaw.followers === "number" ? profileInfoRaw.followers : null,
+              following: typeof profileInfoRaw.following === "number" ? profileInfoRaw.following : null,
+              publicRepos: typeof profileInfoRaw.public_repos === "number" ? profileInfoRaw.public_repos : null,
+              publicGists: typeof profileInfoRaw.public_gists === "number" ? profileInfoRaw.public_gists : null,
+              createdAt: parseDate(profileInfoRaw.created_at),
+              updatedAt: parseDate(profileInfoRaw.updated_at),
+            },
+            repositoriesSummary: {
+              totalRepositoriesAnalyzed:
+                typeof repositoriesSummaryRaw.total_repositories_analyzed === "number"
+                  ? repositoriesSummaryRaw.total_repositories_analyzed
+                  : null,
+              totalUserRepositories:
+                typeof repositoriesSummaryRaw.total_user_repositories === "number"
+                  ? repositoriesSummaryRaw.total_user_repositories
+                  : null,
+              totalStarsAnalyzed:
+                typeof repositoriesSummaryRaw.total_stars_analyzed === "number"
+                  ? repositoriesSummaryRaw.total_stars_analyzed
+                  : null,
+              totalForksAnalyzed:
+                typeof repositoriesSummaryRaw.total_forks_analyzed === "number"
+                  ? repositoriesSummaryRaw.total_forks_analyzed
+                  : null,
+              primaryLanguage: repositoriesSummaryRaw.primary_language || "",
+              note: repositoriesSummaryRaw.note || "",
+              languageOverview,
+            },
+          };
+
+          await Profile.updateOne({ user: req.user.id }, { $set: { githubAnalysis: githubAnalysisData } });
+          console.log("GitHub analysis data updated successfully");
+        } else {
+          console.error("GitHub analysis API returned no report data:", analysisResult.error);
+          if (githubUrlChanged) {
+            try {
+              await Profile.updateOne({ user: req.user.id }, { $unset: { githubAnalysis: "" } });
+              console.log("Cleared stale GitHub analysis data after unsuccessful analysis response");
+            } catch (githubClearError) {
+              console.error("Failed to clear stale GitHub analysis data:", githubClearError.message);
+            }
+          }
+        }
+      } catch (githubAnalysisError) {
+        console.error("Failed to analyze GitHub profile:", githubAnalysisError.message);
+        if (githubUrlChanged) {
+          try {
+            await Profile.updateOne({ user: req.user.id }, { $unset: { githubAnalysis: "" } });
+            console.log("Cleared stale GitHub analysis data after analysis failure");
+          } catch (githubClearError) {
+            console.error("Failed to clear stale GitHub analysis data:", githubClearError.message);
+          }
+        }
+      }
+    }
 
     // Fetch updated user and profile
     const updatedUser = await User.findById(req.user.id);
