@@ -176,7 +176,11 @@ const uploadProfileImage = async (req, res) => {
     }
 
     // Update user's avatar in database with Cloudinary URL
-    const user = await User.findByIdAndUpdate(req.user.id, { avatar: req.file.path }, { new: true }).select(
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { avatar: req.file.path, avatarSource: "manual" },
+      { new: true }
+    ).select(
       "-password"
     );
 

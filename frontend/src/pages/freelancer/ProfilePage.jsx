@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { fetchMyProfile, updateProfile } from "../../redux/slices/profileSlice";
 import { uploadProfileImage } from "../../redux/slices/uploadSlice";
 import { toast } from "react-toastify";
@@ -26,6 +27,18 @@ const ProfilePage = () => {
     isVerified: false,
     verifiedAt: null,
   });
+
+  // LinkedIn verification states
+  const [linkedinStatus, setLinkedinStatus] = useState({
+    isVerified: false,
+    linkedinId: null,
+    linkedinUrl: null,
+    verifiedAt: null,
+    profileData: null,
+  });
+  const [linkedinLoading, setLinkedinLoading] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // State for form data
   const [formData, setFormData] = useState({
@@ -81,16 +94,108 @@ const ProfilePage = () => {
   // Fetch profile data when component mounts
   useEffect(() => {
     dispatch(fetchMyProfile());
+    fetchLinkedInStatus();
   }, [dispatch]);
+
+  // Handle LinkedIn OAuth callback
+  useEffect(() => {
+    const linkedinVerified = searchParams.get("linkedin_verified");
+    const linkedinError = searchParams.get("linkedin_error");
+
+    if (linkedinVerified === "true") {
+      toast.success("LinkedIn account verified successfully!");
+      // Remove query params
+      setSearchParams({});
+      // Refresh profile data
+      dispatch(fetchMyProfile());
+      fetchLinkedInStatus();
+    } else if (linkedinError) {
+      toast.error(`LinkedIn verification failed: ${decodeURIComponent(linkedinError)}`);
+      setSearchParams({});
+    }
+  }, [searchParams, dispatch, setSearchParams]);
+
+  // Fetch LinkedIn verification status
+  const fetchLinkedInStatus = async () => {
+    try {
+      const response = await api.get("/api/linkedin/status");
+      if (response.data.success) {
+        setLinkedinStatus(response.data.data);
+        // Update formData with verified LinkedIn URL if available
+        if (response.data.data.linkedinUrl) {
+          setFormData((prev) => ({
+            ...prev,
+            socialLinks: {
+              ...prev.socialLinks,
+              linkedin: response.data.data.linkedinUrl,
+            },
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching LinkedIn status:", error);
+    }
+  };
+
+  // Initiate LinkedIn OAuth flow
+  const handleLinkedInAuth = async () => {
+    try {
+      setLinkedinLoading(true);
+
+      const response = await api.get("/api/linkedin/auth");
+
+      if (response.data.success) {
+        // Redirect to LinkedIn authorization page
+        window.location.href = response.data.authUrl;
+      } else {
+        console.error("🔴 [Frontend] API returned success:false", response.data);
+        toast.error(`Failed to initiate LinkedIn authentication: ${response.data.message || "Unknown error"}`);
+        setLinkedinLoading(false);
+      }
+    } catch (error) {
+      console.error("🔴 [Frontend] Error initiating LinkedIn auth:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers,
+        },
+        fullError: error,
+      });
+
+      const errorMessage = error.response?.data?.message || error.message || "Unknown error";
+      toast.error(`Failed to initiate LinkedIn authentication: ${errorMessage}`);
+      setLinkedinLoading(false);
+    }
+  };
+
+  // Disconnect LinkedIn account
+  const handleDisconnectLinkedIn = async () => {
+    if (!window.confirm("Are you sure you want to disconnect your LinkedIn account?")) {
+      return;
+    }
+
+    try {
+      const response = await api.delete("/api/linkedin/disconnect");
+      if (response.data.success) {
+        toast.success("LinkedIn account disconnected");
+        fetchLinkedInStatus();
+        dispatch(fetchMyProfile());
+      }
+    } catch (error) {
+      console.error("Error disconnecting LinkedIn:", error);
+      toast.error("Failed to disconnect LinkedIn account");
+    }
+  };
 
   // Update form data when profile is fetched
   useEffect(() => {
     if (data && data.success) {
       // Get the profile from the nested data structure
       const profile = data.data.profile || {};
-      console.log("Setting freelancer profile data:", profile);
-      console.log("User resume data:", profile.user?.resume);
-
       // Create deep copies of array objects to make them mutable
       const deepCopyEducation = profile.education ? profile.education.map((item) => ({ ...item })) : [];
       const deepCopyExperience = profile.experience ? profile.experience.map((item) => ({ ...item })) : [];
@@ -144,6 +249,25 @@ const ProfilePage = () => {
           portfolio: profile.website || "",
         },
       });
+
+      // Update LinkedIn verification status
+      if (profile.linkedinVerification) {
+        setLinkedinStatus({
+          isVerified: profile.linkedinVerification.isVerified || false,
+          linkedinId: profile.linkedinVerification.linkedinId || null,
+          linkedinUrl: profile.social?.linkedin || null,
+          verifiedAt: profile.linkedinVerification.verifiedAt || null,
+          profileData: profile.linkedinVerification.profileData || null,
+        });
+      } else {
+        setLinkedinStatus({
+          isVerified: false,
+          linkedinId: null,
+          linkedinUrl: profile.social?.linkedin || null,
+          verifiedAt: null,
+          profileData: null,
+        });
+      }
 
       // Update phone verification status
       setPhoneVerificationStatus({
@@ -545,7 +669,7 @@ const ProfilePage = () => {
               <div className="relative mb-4 md:mb-0 md:mr-6">
                 <div
                   className={`w-32 h-32 rounded-full flex items-center justify-center overflow-hidden relative group cursor-pointer transition-all ${
-                    !isEditing && !data?.data?.profile?.user?.avatar
+                    !isEditing && !data?.data?.profile?.user?.avatar && !linkedinStatus.profileData?.picture
                       ? "bg-gray-100 border-2 border-dashed border-gray-400 hover:border-primary"
                       : "bg-gray-300"
                   }`}
@@ -554,6 +678,12 @@ const ProfilePage = () => {
                     <img
                       src={data.data.profile.user.avatar}
                       alt={formData.fullName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : linkedinStatus.profileData?.picture ? (
+                    <img
+                      src={linkedinStatus.profileData.picture}
+                      alt={linkedinStatus.profileData.name || formData.fullName}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -1282,22 +1412,137 @@ const ProfilePage = () => {
                       <div>
                         <label className="block text-gray-700 mb-2" htmlFor="linkedin">
                           LinkedIn
+                          {linkedinStatus.isVerified && (
+                            <span className="ml-2 inline-flex items-center">
+                              <svg
+                                className="w-4 h-4 text-green-500"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              <span className="ml-1 text-xs text-green-600 font-medium">Verified</span>
+                            </span>
+                          )}
                         </label>
-                        <input
-                          type="url"
-                          id="linkedin"
-                          name="socialLinks.linkedin"
-                          value={formData.socialLinks.linkedin}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              socialLinks: { ...formData.socialLinks, linkedin: e.target.value },
-                            })
-                          }
-                          disabled={!isEditing}
-                          className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                          placeholder="https://linkedin.com/in/your-profile"
-                        />
+                        {linkedinStatus.isVerified ? (
+                          <div className="space-y-2">
+                            <div className="flex items-start gap-3 p-3 border border-green-300 bg-green-50 rounded-md">
+                              {linkedinStatus.profileData?.picture && (
+                                <div className="flex-shrink-0">
+                                  <img
+                                    src={linkedinStatus.profileData.picture}
+                                    alt={linkedinStatus.profileData?.name || "LinkedIn profile"}
+                                    className="w-12 h-12 rounded-full object-cover border border-green-200"
+                                  />
+                                </div>
+                              )}
+                              <div className="flex-1">
+                                {linkedinStatus.profileData?.name && (
+                                  <p className="text-sm font-semibold text-gray-800 mb-1">
+                                    {linkedinStatus.profileData.name}
+                                  </p>
+                                )}
+                                {formData.socialLinks.linkedin ? (
+                                  <a
+                                    href={formData.socialLinks.linkedin}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:underline text-sm font-medium"
+                                  >
+                                    {formData.socialLinks.linkedin}
+                                  </a>
+                                ) : (
+                                  <div>
+                                    <p className="text-sm text-gray-700 font-medium">Account verified</p>
+                                    <p className="text-xs text-gray-500 mt-1">Add your LinkedIn profile URL below</p>
+                                  </div>
+                                )}
+                                {linkedinStatus.verifiedAt && (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Verified on {new Date(linkedinStatus.verifiedAt).toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
+                              {isEditing && (
+                                <button
+                                  type="button"
+                                  onClick={handleDisconnectLinkedIn}
+                                  className="text-red-600 hover:text-red-800 text-sm"
+                                  title="Disconnect LinkedIn"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              onClick={handleLinkedInAuth}
+                              disabled={linkedinLoading || !isEditing}
+                              className={`w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-[#0077b5] rounded-md font-medium transition-colors ${
+                                linkedinLoading || !isEditing
+                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-300"
+                                  : "bg-[#0077b5] text-white hover:bg-[#005885]"
+                              }`}
+                            >
+                              {linkedinLoading ? (
+                                <>
+                                  <svg
+                                    className="animate-spin h-5 w-5"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <circle
+                                      className="opacity-25"
+                                      cx="12"
+                                      cy="12"
+                                      r="10"
+                                      stroke="currentColor"
+                                      strokeWidth="4"
+                                    ></circle>
+                                    <path
+                                      className="opacity-75"
+                                      fill="currentColor"
+                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                    ></path>
+                                  </svg>
+                                  <span>Connecting...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <svg
+                                    className="w-5 h-5"
+                                    fill="currentColor"
+                                    viewBox="0 0 24 24"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                                  </svg>
+                                  <span>Sign in with LinkedIn</span>
+                                </>
+                              )}
+                            </button>
+                            <p className="text-xs text-gray-500">
+                              Verify your LinkedIn account by signing in. This ensures your profile is authentic.
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       <div>

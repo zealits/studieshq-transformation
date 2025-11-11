@@ -24,6 +24,11 @@ const UserSchema = new Schema(
     avatar: {
       type: String,
     },
+    avatarSource: {
+      type: String,
+      enum: ["default", "linkedin", "manual"],
+      default: "default",
+    },
     resume: {
       filename: {
         type: String,

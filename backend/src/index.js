@@ -25,6 +25,7 @@ const contactRoutes = require("./routes/contactRoutes");
 const otpRoutes = require("./routes/otpRoutes");
 const supportRoutes = require("./routes/supportRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
+const linkedinRoutes = require("./routes/linkedinRoutes");
 
 // Create Express app
 const app = express();
@@ -70,6 +71,7 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/otp", otpRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/linkedin", linkedinRoutes);
 
 // Handle React routing, return all requests to React app
 app.get("*", (req, res) => {

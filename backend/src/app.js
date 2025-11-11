@@ -22,6 +22,7 @@ const otpRoutes = require("./routes/otpRoutes");
 const supportRoutes = require("./routes/supportRoutes");
 const stateRegionRoutes = require("./routes/stateRegionRoutes");
 const companyRoutes = require("./routes/companyRoutes");
+const linkedinRoutes = require("./routes/linkedinRoutes");
 
 // Load environment variables
 dotenv.config();
@@ -75,6 +76,7 @@ app.use("/api/otp", otpRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/states", stateRegionRoutes);
 app.use("/api/company", companyRoutes);
+app.use("/api/linkedin", linkedinRoutes);
 
 // Serve static files from the frontend/dist directory
 app.use(

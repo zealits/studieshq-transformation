@@ -185,6 +185,28 @@ const ProfileSchema = new Schema({
       type: String,
     },
   },
+  // LinkedIn OAuth verification
+  linkedinVerification: {
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    linkedinId: {
+      type: String, // LinkedIn 'sub' identifier
+    },
+    verifiedAt: {
+      type: Date,
+    },
+    profileData: {
+      name: String,
+      givenName: String,
+      familyName: String,
+      email: String,
+      emailVerified: Boolean,
+      picture: String,
+      locale: String,
+    },
+  },
   skills: [String],
 
   // Freelancer specific fields
