@@ -319,7 +319,7 @@ exports.getJobs = async (req, res) => {
     // Build the base query for jobs - fetch all jobs matching the filters
     // We'll sort by relevance later if we have API data
     const jobs = await Job.find(query)
-      .populate("client", "name avatar email")
+      .populate("client", "name avatar email role company")
       .populate("client.profile")
       .select("-__v")
       .sort({ featured: -1, createdAt: -1 });

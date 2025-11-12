@@ -449,63 +449,89 @@ const FindJobsPage = () => {
                 {job.client && (
                   <div className="mt-4 pt-4 border-t flex items-center">
                     <div className="w-8 h-8 bg-primary-light rounded-full flex items-center justify-center text-white">
-                      {job.client.name ? job.client.name.charAt(0) : "C"}
+                      {(() => {
+                        // Show company name initial if it's a project sponsor company
+                        if (job.client.role === "project_sponsor_company" && (job.companyDetails?.name || job.client.company?.businessName)) {
+                          return (job.companyDetails?.name || job.client.company?.businessName || "C").charAt(0).toUpperCase();
+                        }
+                        // Otherwise show client name initial
+                        return job.client.name ? job.client.name.charAt(0) : "C";
+                      })()}
                     </div>
                     <div className="ml-3">
-                      {job.companyDetails && job.companyDetails.name ? (
+                      {/* Show company name if it's a project sponsor company */}
+                      {(job.client.role === "project_sponsor_company" && (job.companyDetails?.name || job.client.company?.businessName)) || job.companyDetails?.name ? (
                         <div>
-                          <div className="font-medium">{job.companyDetails.name}</div>
+                          <div className="font-medium">
+                            {job.companyDetails?.name || job.client.company?.businessName || "Company"}
+                          </div>
                           <div className="flex items-center text-sm">
-                            <span className="text-gray-500">{job.companyDetails.location || job.location}</span>
-                            {job.companyDetails.website && (
+                            {(job.companyDetails?.website || job.client.company?.website) && (
+                              <a
+                                href={
+                                  (job.companyDetails?.website || job.client.company?.website).startsWith("http")
+                                    ? (job.companyDetails?.website || job.client.company?.website)
+                                    : `https://${job.companyDetails?.website || job.client.company?.website}`
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline"
+                              >
+                                Website
+                              </a>
+                            )}
+                            {job.client.profile?.rating && (
                               <>
-                                <span className="mx-2">•</span>
-                                <a
-                                  href={
-                                    job.companyDetails.website.startsWith("http")
-                                      ? job.companyDetails.website
-                                      : `https://${job.companyDetails.website}`
-                                  }
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-primary hover:underline"
-                                >
-                                  Website
-                                </a>
+                                {(job.companyDetails?.website || job.client.company?.website) && <span className="mx-2">•</span>}
+                                <div className="flex items-center">
+                                  <svg
+                                    className="w-4 h-4 text-yellow-400"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                  </svg>
+                                  <span className="ml-1">{job.client.profile.rating.toFixed(1)}</span>
+                                </div>
+                              </>
+                            )}
+                            {job.client.profile?.totalHires > 0 && (
+                              <>
+                                {(job.companyDetails?.website || job.client.company?.website || job.client.profile?.rating) && <span className="mx-2">•</span>}
+                                <span className="text-gray-500">{job.client.profile.totalHires} hires</span>
                               </>
                             )}
                           </div>
                         </div>
                       ) : (
-                        <div className="font-medium">{job.client.name || "Client"}</div>
+                        <div>
+                          <div className="font-medium">{job.client.name || "Client"}</div>
+                          <div className="flex items-center text-sm">
+                            {job.client.profile?.rating && (
+                              <>
+                                <div className="flex items-center">
+                                  <svg
+                                    className="w-4 h-4 text-yellow-400"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                  </svg>
+                                  <span className="ml-1">{job.client.profile.rating.toFixed(1)}</span>
+                                </div>
+                              </>
+                            )}
+                            {job.client.profile?.totalHires > 0 && (
+                              <>
+                                {job.client.profile?.rating && <span className="mx-2">•</span>}
+                                <span className="text-gray-500">{job.client.profile.totalHires} hires</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       )}
-                      <div className="flex items-center text-sm">
-                        {!job.companyDetails?.name && (
-                          <span className="text-gray-500">{job.client.profile?.location || "Unknown Location"}</span>
-                        )}
-                        {job.client.profile?.rating && (
-                          <>
-                            <span className="mx-2">•</span>
-                            <div className="flex items-center">
-                              <svg
-                                className="w-4 h-4 text-yellow-400"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                              </svg>
-                              <span className="ml-1">{job.client.profile.rating.toFixed(1)}</span>
-                            </div>
-                          </>
-                        )}
-                        {job.client.profile?.totalHires > 0 && (
-                          <>
-                            <span className="mx-2">•</span>
-                            <span className="text-gray-500">{job.client.profile.totalHires} hires</span>
-                          </>
-                        )}
-                      </div>
                     </div>
                   </div>
                 )}
