@@ -5,10 +5,10 @@ import { createSelector } from "@reduxjs/toolkit";
 // Async thunk for fetching all freelancers
 export const fetchFreelancers = createAsyncThunk("freelancers/fetchAll", async (filters = {}, { rejectWithValue }) => {
   try {
-    // Build query parameters for location filtering
+    // Build query parameters for country filtering
     const queryParams = new URLSearchParams();
-    if (filters.location) {
-      queryParams.append("location", filters.location);
+    if (filters.country) {
+      queryParams.append("country", filters.country);
     }
 
     const response = await axios.get(`/api/profile/freelancers?${queryParams.toString()}`);
@@ -16,7 +16,7 @@ export const fetchFreelancers = createAsyncThunk("freelancers/fetchAll", async (
     // Return the freelancers array directly along with filter info
     return {
       freelancers: response.data.data.freelancers,
-      isFiltered: !!filters.location,
+      isFiltered: !!filters.country,
     };
   } catch (error) {
     return rejectWithValue(error.response?.data || error.message);
@@ -46,7 +46,7 @@ const initialState = {
     skill: "",
     rate: "",
     experience: "",
-    location: "",
+    country: "",
   },
 };
 

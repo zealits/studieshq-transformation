@@ -394,15 +394,15 @@ exports.getAllProfiles = async (req, res) => {
  */
 exports.getAllFreelancers = async (req, res) => {
   try {
-    const { location } = req.query;
+    const { country } = req.query;
 
     // Build the filter object
     const userFilter = { role: "freelancer" };
     const profileFilter = {};
 
-    // Add location filter if provided
-    if (location && location.trim() !== "") {
-      profileFilter.location = new RegExp(location.trim(), "i"); // Case-insensitive regex match
+    // Add country filter if provided
+    if (country && country.trim() !== "") {
+      profileFilter["address.country"] = new RegExp(country.trim(), "i"); // Case-insensitive regex match
     }
 
     const users = await User.find(userFilter).select("_id");

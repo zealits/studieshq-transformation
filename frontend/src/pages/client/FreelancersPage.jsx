@@ -33,14 +33,14 @@ const FreelancersPage = () => {
     dispatch(fetchAllFreelancersForOptions()); // Fetch all for dropdown options
   }, [dispatch]);
 
-  // Re-fetch freelancers when location filter changes (for backend filtering)
+  // Re-fetch freelancers when country filter changes (for backend filtering)
   useEffect(() => {
-    if (filters.location) {
-      dispatch(fetchFreelancers({ location: filters.location }));
+    if (filters.country) {
+      dispatch(fetchFreelancers({ country: filters.country }));
     } else {
       dispatch(fetchFreelancers());
     }
-  }, [dispatch, filters.location]);
+  }, [dispatch, filters.country]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -73,10 +73,12 @@ const FreelancersPage = () => {
     navigate(`${basePath}/freelancers/${freelancer.user._id}`);
   };
 
-  // Get unique locations from all freelancers for the dropdown
-  const availableLocations = Array.from(
+  // Get unique countries from all freelancers for the dropdown
+  const availableCountries = Array.from(
     new Set(
-      allFreelancers.map((freelancer) => freelancer.location).filter((location) => location && location.trim() !== "")
+      allFreelancers
+        .map((freelancer) => freelancer.address?.country)
+        .filter((country) => country && country.trim() !== "")
     )
   ).sort();
 
@@ -142,20 +144,20 @@ const FreelancersPage = () => {
           </div>
 
           <div>
-            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-              Location
+            <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">
+              Country
             </label>
             <select
-              id="location"
-              name="location"
+              id="country"
+              name="country"
               className="input"
-              value={filters.location}
+              value={filters.country}
               onChange={handleFilterChange}
             >
-              <option value="">All Locations</option>
-              {availableLocations.map((location) => (
-                <option key={location} value={location}>
-                  {location}
+              <option value="">All Countries</option>
+              {availableCountries.map((country) => (
+                <option key={country} value={country}>
+                  {country}
                 </option>
               ))}
             </select>
@@ -201,7 +203,7 @@ const FreelancersPage = () => {
                 setFilters({
                   searchTerm: "",
                   skill: "",
-                  location: "",
+                  country: "",
                   rate: "",
                   experience: "",
                 })
@@ -218,7 +220,7 @@ const FreelancersPage = () => {
       <div className="mb-4">
         <p className="text-gray-600">
           {freelancers.length === 1 ? `1 freelancer found` : `${freelancers.length} freelancers found`}
-          {filters.location && ` in ${filters.location}`}
+          {filters.country && ` in ${filters.country}`}
         </p>
       </div>
 
@@ -308,7 +310,14 @@ const FreelancersPage = () => {
                         d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                       ></path>
                     </svg>
-                    {freelancer.location || "Location not specified"}
+                    {(() => {
+                      const address = freelancer.address || {};
+                      const parts = [];
+                      if (address.city) parts.push(address.city);
+                      if (address.state) parts.push(address.state);
+                      if (address.country) parts.push(address.country);
+                      return parts.length > 0 ? parts.join(", ") : "Location not specified";
+                    })()}
                   </div>
                   <div className="flex space-x-2">
                     <button 
