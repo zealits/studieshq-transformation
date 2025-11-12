@@ -3,6 +3,98 @@ import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import profileService from "../../services/profileService";
 
+// AI Test Generation Loading Component
+const AITestGenerationLoader = () => {
+  const [dots, setDots] = useState("");
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots((prev) => {
+        if (prev === "...") return "";
+        return prev + ".";
+      });
+    }, 500);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  const messages = [
+    "Analyzing your profile and skills",
+    "Generating personalized questions",
+    "Creating MCQ questions",
+    "Preparing theory questions",
+    "Finalizing your test"
+  ];
+  
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentMessageIndex((prev) => (prev + 1) % messages.length);
+    }, 2000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+      <div className="relative mb-8">
+        {/* Animated Test/Quiz Icon */}
+        <div className="relative w-32 h-32">
+          <svg
+            className="w-32 h-32 text-primary animate-pulse"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
+          </svg>
+          {/* Rotating rings */}
+          <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin opacity-20"></div>
+          <div className="absolute inset-4 border-4 border-blue-400 border-t-transparent rounded-full animate-spin opacity-30" style={{ animationDirection: "reverse", animationDuration: "1.5s" }}></div>
+          {/* Pulsing question marks */}
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center animate-ping">
+            <span className="text-white text-xs font-bold">?</span>
+          </div>
+          <div className="absolute -bottom-2 -left-2 w-5 h-5 bg-blue-400 rounded-full flex items-center justify-center animate-ping" style={{ animationDelay: "0.5s" }}>
+            <span className="text-white text-xs font-bold">?</span>
+          </div>
+        </div>
+      </div>
+      
+      <div className="text-center max-w-lg">
+        <h3 className="text-2xl font-bold text-gray-800 mb-2">
+          {messages[currentMessageIndex]}{dots}
+        </h3>
+        <p className="text-gray-600 text-sm mb-6">
+          AI is creating a personalized test based on your skills and experience
+        </p>
+      </div>
+      
+      {/* Animated progress bar */}
+      <div className="w-96 h-2.5 bg-gray-200 rounded-full mt-4 overflow-hidden">
+        <div className="h-full bg-gradient-to-r from-primary via-blue-400 to-primary rounded-full animate-pulse" style={{ width: "75%" }}></div>
+      </div>
+      
+      {/* Animated question cards preview */}
+      <div className="mt-10 flex gap-4 opacity-40">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="w-24 h-20 bg-gray-100 rounded-lg animate-pulse flex items-center justify-center" style={{ animationDelay: `${i * 0.3}s` }}>
+            <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3 2.959-.086.02-.18.041-.27.07-.39.08-.78.18-1.18.27-.4.09-.8.19-1.18.27-.09.029-.184.05-.27.07C9.278 14.575 8 13.4 8 12c0-1.657 1.79-3 4-3 1.742 0 3.223.835 3.772 2" />
+            </svg>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const TestPage = () => {
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
@@ -569,11 +661,8 @@ const TestPage = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading test...</p>
-        </div>
+      <div className="flex justify-center items-center h-screen bg-gray-50">
+        <AITestGenerationLoader />
       </div>
     );
   }
