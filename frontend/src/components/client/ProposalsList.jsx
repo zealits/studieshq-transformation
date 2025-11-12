@@ -1,15 +1,125 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { fetchJobProposals, updateProposalStatus } from "../../redux/slices/jobsSlice";
 import Spinner from "../common/Spinner";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "react-hot-toast";
 import jobService from "../../services/jobService";
 
+// Progress Bar Component
+const ProgressBar = ({ percentage, label, showPercentage = true }) => {
+  const getColor = (percent) => {
+    if (percent >= 80) return "bg-green-500";
+    if (percent >= 60) return "bg-blue-500";
+    if (percent >= 40) return "bg-yellow-500";
+    return "bg-red-500";
+  };
+
+  const getTextColor = (percent) => {
+    if (percent >= 80) return "text-green-700";
+    if (percent >= 60) return "text-blue-700";
+    if (percent >= 40) return "text-yellow-700";
+    return "text-red-700";
+  };
+
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-semibold text-gray-700">{label}</span>
+        {showPercentage && (
+          <span className={`text-xs font-bold ${getTextColor(percentage)}`}>
+            {percentage}%
+          </span>
+        )}
+      </div>
+      <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+        <div
+          className={`h-full ${getColor(percentage)} rounded-full transition-all duration-1000 ease-out`}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
+  );
+};
+
+// AI Loading Component
+const AILoadingAnimation = () => {
+  const [dots, setDots] = useState("");
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots((prev) => {
+        if (prev === "...") return "";
+        return prev + ".";
+      });
+    }, 500);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  const messages = [
+    "AI is analyzing profiles",
+    "Matching skills and experience",
+    "Evaluating best candidates",
+    "Finding perfect matches"
+  ];
+  
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentMessageIndex((prev) => (prev + 1) % messages.length);
+    }, 2000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-4">
+      <div className="relative mb-8">
+        {/* Animated AI Brain Icon */}
+        <div className="relative w-24 h-24">
+          <svg
+            className="w-24 h-24 text-primary animate-pulse"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+            />
+          </svg>
+          {/* Rotating rings */}
+          <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin opacity-20"></div>
+          <div className="absolute inset-2 border-4 border-blue-400 border-t-transparent rounded-full animate-spin opacity-30" style={{ animationDirection: "reverse", animationDuration: "1.5s" }}></div>
+        </div>
+      </div>
+      
+      <div className="text-center">
+        <h3 className="text-xl font-semibold text-gray-800 mb-2">
+          {messages[currentMessageIndex]}{dots}
+        </h3>
+        <p className="text-gray-600 text-sm">
+          This may take a few moments
+        </p>
+      </div>
+      
+      {/* Animated progress bar */}
+      <div className="w-64 h-1 bg-gray-200 rounded-full mt-6 overflow-hidden">
+        <div className="h-full bg-gradient-to-r from-primary via-blue-400 to-primary rounded-full animate-pulse" style={{ width: "60%" }}></div>
+      </div>
+    </div>
+  );
+};
+
 const ProposalsList = ({ jobId, onClose }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { clientJobs, proposals, isLoading, error } = useSelector((state) => state.jobs);
   const [confirmingProposal, setConfirmingProposal] = useState(null);
 
@@ -176,7 +286,10 @@ const ProposalsList = ({ jobId, onClose }) => {
   const handleViewProfile = (proposal) => {
     const freelancerId = proposal.freelancer?._id || proposal.freelancer;
     if (freelancerId) {
-      navigate(`/client/freelancers/${freelancerId}`);
+      // Check if we're on the company client route or regular client route
+      const isCompanyClient = location.pathname.startsWith("/company/client");
+      const basePath = isCompanyClient ? "/company/client" : "/client";
+      navigate(`${basePath}/freelancers/${freelancerId}`);
     } else {
       toast.error("Unable to load freelancer profile");
     }
@@ -267,9 +380,7 @@ const ProposalsList = ({ jobId, onClose }) => {
 
         <div className="p-6">
           {selectedTab === "bestmatch" && loadingRanked ? (
-            <div className="flex justify-center items-center py-12">
-              <Spinner size="large" />
-            </div>
+            <AILoadingAnimation />
           ) : selectedTab === "bestmatch" && rankedError ? (
             <div className="text-center py-12">
               <svg
@@ -372,9 +483,9 @@ const ProposalsList = ({ jobId, onClose }) => {
               )}
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-6">
               {filteredProposals.map((proposal) => (
-                <div key={proposal._id} className="border rounded-lg p-6 hover:shadow-md transition-shadow relative">
+                <div key={proposal._id} className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:shadow-lg hover:border-primary/30 transition-all duration-300 relative">
                   {updatingProposalId === proposal._id && (
                     <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
                       <Spinner size="medium" />
@@ -408,9 +519,9 @@ const ProposalsList = ({ jobId, onClose }) => {
                     </div>
                   )}
 
-                  <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-                    <div className="flex items-start">
-                      <div className="w-12 h-12 bg-primary-light rounded-full flex items-center justify-center text-white overflow-hidden">
+                  <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-6 pb-6 border-b border-gray-200">
+                    <div className="flex items-start space-x-4">
+                      <div className="w-16 h-16 bg-gradient-to-br from-primary to-blue-600 rounded-xl flex items-center justify-center text-white overflow-hidden shadow-md ring-2 ring-white">
                         {proposal.freelancerProfileSnapshot?.avatar ? (
                           <img
                             src={proposal.freelancerProfileSnapshot.avatar}
@@ -418,119 +529,124 @@ const ProposalsList = ({ jobId, onClose }) => {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <span className="text-lg font-semibold">
+                          <span className="text-xl font-bold">
                             {proposal.freelancerProfileSnapshot?.name?.charAt(0) || "F"}
                           </span>
                         )}
                       </div>
-                      <div className="ml-4">
-                        <h3 className="font-semibold text-lg">
-                          {proposal.freelancerProfileSnapshot?.name || "Freelancer"}
-                        </h3>
-                        <p className="text-gray-600">{proposal.freelancerProfileSnapshot?.title || "Freelancer"}</p>
-                        {(proposal.freelancerProfileSnapshot?.companyName || proposal.freelancer?.companyFreelancer?.companyName || proposal.freelancer?.companyFreelancerName) && (
-                          <p className="text-sm text-primary font-medium mt-1">
-                            <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                            </svg>
-                            {proposal.freelancerProfileSnapshot?.companyName || proposal.freelancer?.companyFreelancer?.companyName || proposal.freelancer?.companyFreelancerName}
-                          </p>
-                        )}
-                        <div className="mt-1 flex items-center">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              proposal.status === "pending"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : proposal.status === "shortlisted"
-                                ? "bg-blue-100 text-blue-800"
-                                : proposal.status === "accepted"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {proposal.status === "pending"
-                              ? "Pending"
-                              : proposal.status === "shortlisted"
-                              ? "Shortlisted"
-                              : proposal.status === "accepted"
-                              ? "Accepted"
-                              : "Rejected"}
-                          </span>
-                          <span className="ml-2 text-sm text-gray-500">
-                            Submitted {formatSubmittedDate(proposal.createdAt)}
-                          </span>
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-bold text-xl text-gray-900 mb-1">
+                              {proposal.freelancerProfileSnapshot?.name || "Freelancer"}
+                            </h3>
+                            <p className="text-gray-600 font-medium mb-2">{proposal.freelancerProfileSnapshot?.title || "Freelancer"}</p>
+                            {(proposal.freelancerProfileSnapshot?.companyName || proposal.freelancer?.companyFreelancer?.companyName || proposal.freelancer?.companyFreelancerName) && (
+                              <p className="text-sm text-primary font-semibold mb-3 inline-flex items-center">
+                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                                {proposal.freelancerProfileSnapshot?.companyName || proposal.freelancer?.companyFreelancer?.companyName || proposal.freelancer?.companyFreelancerName}
+                              </p>
+                            )}
+                            <div className="flex items-center flex-wrap gap-2">
+                              <span
+                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                                  proposal.status === "pending"
+                                    ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
+                                    : proposal.status === "shortlisted"
+                                    ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                    : proposal.status === "accepted"
+                                    ? "bg-green-100 text-green-800 border border-green-200"
+                                    : "bg-red-100 text-red-800 border border-red-200"
+                                }`}
+                              >
+                                {proposal.status === "pending"
+                                  ? "Pending"
+                                  : proposal.status === "shortlisted"
+                                  ? "Shortlisted"
+                                  : proposal.status === "accepted"
+                                  ? "Accepted"
+                                  : "Rejected"}
+                              </span>
+                              <span className="text-sm text-gray-500 font-medium">
+                                Submitted {formatSubmittedDate(proposal.createdAt)}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="md:text-right">
-                      <div className="bg-gray-50 rounded-lg p-3 inline-block">
-                        <p className="text-2xl font-bold text-primary">${proposal.bidPrice}</p>
-                        <p className="text-sm text-gray-500">Bid Amount</p>
+                    <div className="flex flex-row gap-4 items-start">
+                      <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200 shadow-sm min-w-[120px]">
+                        <p className="text-3xl font-bold text-gray-900 mb-1">${proposal.bidPrice}</p>
+                        <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Bid Amount</p>
                       </div>
                       {selectedTab === "bestmatch" && rankings[proposal._id] && (
-                        <div className="bg-primary-light rounded-lg p-3 inline-block mt-2">
-                          <p className="text-xl font-bold text-white">
+                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200 shadow-sm min-w-[140px]">
+                          <p className="text-3xl font-bold text-blue-600 mb-1">
                             {Math.round(rankings[proposal._id].overallScore * 100)}%
                           </p>
-                          <p className="text-xs text-white opacity-90">Match Score</p>
+                          <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Match Score</p>
                         </div>
                       )}
                     </div>
                   </div>
 
                   {selectedTab === "bestmatch" && rankings[proposal._id] && (
-                    <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-blue-900 mb-2">Match Details</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div>
-                          <p className="text-xs text-blue-700">Overall Score</p>
-                          <p className="text-sm font-bold text-blue-900">
-                            {Math.round(rankings[proposal._id].overallScore * 100)}%
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-blue-700">Professional</p>
-                          <p className="text-sm font-bold text-blue-900">
-                            {Math.round(rankings[proposal._id].professionalScore * 100)}%
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-blue-700">Project</p>
-                          <p className="text-sm font-bold text-blue-900">
-                            {Math.round(rankings[proposal._id].projectScore * 100)}%
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-blue-700">Skills</p>
-                          <p className="text-sm font-bold text-blue-900">
-                            {Math.round(rankings[proposal._id].skillsScore * 100)}%
-                          </p>
-                        </div>
+                    <div className="mt-4 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 shadow-sm">
+                      <div className="flex items-center mb-4">
+                        <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        <h4 className="font-bold text-blue-900 text-sm uppercase tracking-wide">Match Details</h4>
                       </div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {rankings[proposal._id].seniorityLevel && (
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                            {rankings[proposal._id].seniorityLevel}
-                          </span>
-                        )}
-                        {rankings[proposal._id].highestEducation && (
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                            {rankings[proposal._id].highestEducation}
-                          </span>
-                        )}
-                        {rankings[proposal._id].hasLeadership && (
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                            Leadership Experience
-                          </span>
-                        )}
+                      <div className="space-y-3 mb-4">
+                        <ProgressBar
+                          percentage={Math.round(rankings[proposal._id].overallScore * 100)}
+                          label="Overall Score"
+                        />
+                        <ProgressBar
+                          percentage={Math.round(rankings[proposal._id].professionalScore * 100)}
+                          label="Professional"
+                        />
+                        <ProgressBar
+                          percentage={Math.round(rankings[proposal._id].projectScore * 100)}
+                          label="Project"
+                        />
+                        <ProgressBar
+                          percentage={Math.round(rankings[proposal._id].skillsScore * 100)}
+                          label="Skills"
+                        />
                       </div>
+                      {(rankings[proposal._id].seniorityLevel || rankings[proposal._id].highestEducation || rankings[proposal._id].hasLeadership) && (
+                        <div className="pt-3 border-t border-blue-200">
+                          <div className="flex flex-wrap gap-2">
+                            {rankings[proposal._id].seniorityLevel && (
+                              <span className="text-xs bg-white text-blue-800 px-2.5 py-1 rounded-full font-semibold border border-blue-200">
+                                {rankings[proposal._id].seniorityLevel}
+                              </span>
+                            )}
+                            {rankings[proposal._id].highestEducation && (
+                              <span className="text-xs bg-white text-blue-800 px-2.5 py-1 rounded-full font-semibold border border-blue-200">
+                                {rankings[proposal._id].highestEducation}
+                              </span>
+                            )}
+                            {rankings[proposal._id].hasLeadership && (
+                              <span className="text-xs bg-white text-blue-800 px-2.5 py-1 rounded-full font-semibold border border-blue-200">
+                                Leadership
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
                   <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <span className="block text-sm text-gray-500 mb-1">Estimated Duration</span>
-                      <span className="font-medium">
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <span className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Estimated Duration</span>
+                      <span className="font-bold text-gray-900 text-lg">
                         {proposal.estimatedDuration === "less_than_1_month"
                           ? "Less than 1 month"
                           : proposal.estimatedDuration === "1_to_3_months"
@@ -540,15 +656,15 @@ const ProposalsList = ({ jobId, onClose }) => {
                           : "More than 6 months"}
                       </span>
                     </div>
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <span className="block text-sm text-gray-500 mb-1">Experience</span>
-                      <span className="font-medium">
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <span className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Experience</span>
+                      <span className="font-bold text-gray-900 text-lg">
                         {proposal.freelancerProfileSnapshot?.experience || "Not specified"}
                       </span>
                     </div>
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <span className="block text-sm text-gray-500 mb-1">Hourly Rate</span>
-                      <span className="font-medium">
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <span className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Hourly Rate</span>
+                      <span className="font-bold text-gray-900 text-lg">
                         {proposal.freelancerProfileSnapshot?.hourlyRate
                           ? `$${proposal.freelancerProfileSnapshot.hourlyRate.min} - $${proposal.freelancerProfileSnapshot.hourlyRate.max}/hr`
                           : "Not specified"}
@@ -558,13 +674,13 @@ const ProposalsList = ({ jobId, onClose }) => {
 
                   {proposal.freelancerProfileSnapshot?.skills &&
                     proposal.freelancerProfileSnapshot.skills.length > 0 && (
-                      <div className="mt-4">
-                        <span className="block text-sm text-gray-500 mb-2">Skills</span>
+                      <div className="mt-6">
+                        <span className="block text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Skills</span>
                         <div className="flex flex-wrap gap-2">
                           {proposal.freelancerProfileSnapshot.skills.map((skill, index) => (
                             <span
                               key={index}
-                              className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded"
+                              className="bg-white text-gray-800 text-sm font-semibold px-4 py-2 rounded-full border border-gray-300 shadow-sm hover:shadow-md transition-shadow"
                             >
                               {skill}
                             </span>
@@ -573,30 +689,30 @@ const ProposalsList = ({ jobId, onClose }) => {
                       </div>
                     )}
 
-                  <div className="mt-5">
-                    <h4 className="font-medium mb-2">Cover Letter</h4>
-                    <div className="bg-gray-50 p-4 rounded-lg text-gray-700">{proposal.coverLetter}</div>
+                  <div className="mt-6">
+                    <h4 className="font-bold text-gray-900 mb-3 text-lg">Cover Letter</h4>
+                    <div className="bg-gradient-to-br from-gray-50 to-white p-5 rounded-xl border border-gray-200 text-gray-700 leading-relaxed shadow-sm">{proposal.coverLetter}</div>
                   </div>
 
-                  <div className="mt-6 flex flex-wrap gap-3">
+                  <div className="mt-8 pt-6 border-t border-gray-200 flex flex-wrap gap-3">
                     {proposal.status === "pending" && (
                       <>
                         <button
-                          className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+                          className="px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark font-semibold shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                           onClick={() => handleUpdateStatus(proposal._id, "shortlisted")}
                           disabled={updatingProposalId !== null}
                         >
                           Shortlist
                         </button>
                         <button
-                          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                          className="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                           onClick={() => handleUpdateStatus(proposal._id, "accepted")}
                           disabled={updatingProposalId !== null}
                         >
                           Accept Proposal
                         </button>
                         <button
-                          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                          className="px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                           onClick={() => handleUpdateStatus(proposal._id, "rejected")}
                           disabled={updatingProposalId !== null}
                         >
@@ -607,14 +723,14 @@ const ProposalsList = ({ jobId, onClose }) => {
                     {proposal.status === "shortlisted" && (
                       <>
                         <button
-                          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                          className="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                           onClick={() => handleUpdateStatus(proposal._id, "accepted")}
                           disabled={updatingProposalId !== null}
                         >
                           Accept Proposal
                         </button>
                         <button
-                          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                          className="px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                           onClick={() => handleUpdateStatus(proposal._id, "rejected")}
                           disabled={updatingProposalId !== null}
                         >
@@ -624,7 +740,7 @@ const ProposalsList = ({ jobId, onClose }) => {
                     )}
                     <button 
                       onClick={() => handleViewProfile(proposal)}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                      className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 font-semibold transition-all duration-200 shadow-sm hover:shadow-md"
                     >
                       View Profile
                     </button>

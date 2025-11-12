@@ -6,6 +6,89 @@ import Spinner from "../../components/common/Spinner";
 import { formatDistanceToNow } from "date-fns";
 import ApplyJobModal from "../../components/freelancer/ApplyJobModal";
 
+// AI Job Matching Loading Component
+const AIJobMatchingLoader = () => {
+  const [dots, setDots] = useState("");
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots((prev) => {
+        if (prev === "...") return "";
+        return prev + ".";
+      });
+    }, 500);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  const messages = [
+    "Analyzing your profile and skills",
+    "Matching jobs to your expertise",
+    "Finding the best opportunities",
+    "Filtering relevant projects"
+  ];
+  
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentMessageIndex((prev) => (prev + 1) % messages.length);
+    }, 2000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center justify-center py-20 px-4 bg-white rounded-lg shadow-md">
+      <div className="relative mb-8">
+        {/* Animated Job Search Icon */}
+        <div className="relative w-28 h-28">
+          <svg
+            className="w-28 h-28 text-primary animate-pulse"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          {/* Rotating search rings */}
+          <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin opacity-20"></div>
+          <div className="absolute inset-3 border-4 border-blue-400 border-t-transparent rounded-full animate-spin opacity-30" style={{ animationDirection: "reverse", animationDuration: "1.5s" }}></div>
+          {/* Pulsing dots */}
+          <div className="absolute top-0 right-0 w-3 h-3 bg-primary rounded-full animate-ping"></div>
+          <div className="absolute bottom-0 left-0 w-2 h-2 bg-blue-400 rounded-full animate-ping" style={{ animationDelay: "0.5s" }}></div>
+        </div>
+      </div>
+      
+      <div className="text-center max-w-md">
+        <h3 className="text-2xl font-bold text-gray-800 mb-2">
+          {messages[currentMessageIndex]}{dots}
+        </h3>
+        <p className="text-gray-600 text-sm mb-4">
+          We're finding the best jobs that match your profile
+        </p>
+      </div>
+      
+      {/* Animated progress bar */}
+      <div className="w-80 h-2 bg-gray-200 rounded-full mt-6 overflow-hidden">
+        <div className="h-full bg-gradient-to-r from-primary via-blue-400 to-primary rounded-full animate-pulse" style={{ width: "70%" }}></div>
+      </div>
+      
+      {/* Animated job cards preview */}
+      <div className="mt-8 flex gap-3 opacity-50">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="w-20 h-16 bg-gray-100 rounded-lg animate-pulse" style={{ animationDelay: `${i * 0.2}s` }}></div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const FindJobsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
@@ -237,9 +320,7 @@ const FindJobsPage = () => {
 
       {/* Jobs List */}
       {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <Spinner />
-        </div>
+        <AIJobMatchingLoader />
       ) : filteredJobs.length === 0 ? (
         <div className="bg-white rounded-lg shadow-md p-6 text-center">
           <svg

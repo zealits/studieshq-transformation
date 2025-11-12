@@ -125,10 +125,10 @@ router.put(
 
 // @route   DELETE /api/projects/:id/milestones/:milestoneId
 // @desc    Delete milestone from project
-// @access  Private (Client only)
+// @access  Private (Client, Project Sponsor Company, and Admin)
 router.delete(
   "/:id/milestones/:milestoneId",
-  [auth, checkRole(["client", "admin"])],
+  [auth, checkRole(["client", "project_sponsor_company", "admin"])],
   projectController.deleteMilestone
 );
 

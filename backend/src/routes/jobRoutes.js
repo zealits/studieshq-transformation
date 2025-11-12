@@ -9,12 +9,12 @@ const jobController = require("../controllers/jobController");
 
 // @route   POST /api/jobs
 // @desc    Create a new job
-// @access  Private (Client only)
+// @access  Private (Client, Project Sponsor Company, and Admin)
 router.post(
   "/",
   [
     auth,
-    checkRole(["client", "admin"]),
+    checkRole(["client", "project_sponsor_company", "admin"]),
     [
       check("title", "Title is required").not().isEmpty(),
       check("description", "Description is required").not().isEmpty(),
@@ -67,12 +67,12 @@ router.get("/:id", auth, jobController.getJob);
 
 // @route   PUT /api/jobs/:id
 // @desc    Update job
-// @access  Private (Client only, must be job owner)
+// @access  Private (Client, Project Sponsor Company, and Admin - must be job owner)
 router.put(
   "/:id",
   [
     auth,
-    checkRole(["client", "admin"]),
+    checkRole(["client", "project_sponsor_company", "admin"]),
     [
       check("title", "Title must be a string").optional().isString(),
       check("description", "Description must be a string").optional().isString(),
@@ -96,8 +96,8 @@ router.put(
 
 // @route   DELETE /api/jobs/:id
 // @desc    Delete job
-// @access  Private (Client only, must be job owner)
-router.delete("/:id", auth, checkRole(["client", "admin"]), jobController.deleteJob);
+// @access  Private (Client, Project Sponsor Company, and Admin - must be job owner)
+router.delete("/:id", auth, checkRole(["client", "project_sponsor_company", "admin"]), jobController.deleteJob);
 
 // @route   POST /api/jobs/:id/proposals
 // @desc    Submit a proposal for a job
@@ -118,22 +118,22 @@ router.post(
 
 // @route   GET /api/jobs/:id/proposals
 // @desc    Get all proposals for a job
-// @access  Private (Client only, must be job owner)
-router.get("/:id/proposals", auth, checkRole(["client", "admin"]), jobController.getProposals);
+// @access  Private (Client, Project Sponsor Company, and Admin - must be job owner)
+router.get("/:id/proposals", auth, checkRole(["client", "project_sponsor_company", "admin"]), jobController.getProposals);
 
 // @route   GET /api/jobs/:id/ranked-candidates
 // @desc    Get ranked candidates for a job (Best Match)
-// @access  Private (Client only, must be job owner)
-router.get("/:id/ranked-candidates", auth, checkRole(["client", "admin"]), jobController.getRankedCandidates);
+// @access  Private (Client, Project Sponsor Company, and Admin - must be job owner)
+router.get("/:id/ranked-candidates", auth, checkRole(["client", "project_sponsor_company", "admin"]), jobController.getRankedCandidates);
 
 // @route   PUT /api/jobs/:id/proposals/:proposalId
 // @desc    Update proposal status (accept/reject)
-// @access  Private (Client only, must be job owner)
+// @access  Private (Client, Project Sponsor Company, and Admin - must be job owner)
 router.put(
   "/:id/proposals/:proposalId",
   [
     auth,
-    checkRole(["client", "admin"]),
+    checkRole(["client", "project_sponsor_company", "admin"]),
     [check("status", "Status is required and must be valid").isIn(["pending", "shortlisted", "accepted", "rejected"])],
   ],
   jobController.updateProposalStatus
@@ -141,8 +141,8 @@ router.put(
 
 // @route   PUT /api/jobs/:id/publish
 // @desc    Publish a draft job
-// @access  Private (Client only, must be job owner)
-router.put("/:id/publish", auth, checkRole(["client", "admin"]), jobController.publishJob);
+// @access  Private (Client, Project Sponsor Company, and Admin - must be job owner)
+router.put("/:id/publish", auth, checkRole(["client", "project_sponsor_company", "admin"]), jobController.publishJob);
 
 // @route   GET /api/jobs/admin/all
 // @desc    Get all jobs for admin dashboard (all statuses)
@@ -156,12 +156,12 @@ router.get("/categories/counts", jobController.getJobCountsByCategory);
 
 // @route   POST /api/jobs/:id/invite
 // @desc    Invite a freelancer to a job
-// @access  Private (Client only, must be job owner)
+// @access  Private (Client, Project Sponsor Company, and Admin - must be job owner)
 router.post(
   "/:id/invite",
   [
     auth,
-    checkRole(["client", "admin"]),
+    checkRole(["client", "project_sponsor_company", "admin"]),
     [
       check("freelancerId", "Freelancer ID is required").isMongoId(),
       check("message", "Message must be a string").optional().isString().isLength({ max: 500 }),

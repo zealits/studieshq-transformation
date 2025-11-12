@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   fetchFreelancers,
   fetchAllFreelancersForOptions,
@@ -16,6 +16,7 @@ import InviteFreelancerModal from "../../components/client/InviteFreelancerModal
 const FreelancersPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const freelancers = useSelector(selectFilteredFreelancers);
   const allFreelancers = useSelector(selectAllFreelancers);
   const loading = useSelector(selectFreelancerLoading);
@@ -66,7 +67,10 @@ const FreelancersPage = () => {
   };
 
   const handleViewProfile = (freelancer) => {
-    navigate(`/client/freelancers/${freelancer.user._id}`);
+    // Check if we're on the company client route or regular client route
+    const isCompanyClient = location.pathname.startsWith("/company/client");
+    const basePath = isCompanyClient ? "/company/client" : "/client";
+    navigate(`${basePath}/freelancers/${freelancer.user._id}`);
   };
 
   // Get unique locations from all freelancers for the dropdown

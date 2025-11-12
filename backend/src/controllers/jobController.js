@@ -227,7 +227,7 @@ exports.getJobs = async (req, res) => {
       // Log the authenticated user
       // console.log(`Authenticated user: ${req.user.id}, role: ${req.user.role}`);
 
-      if (req.user.role === "client") {
+      if (req.user.role === "client" || req.user.role === "project_sponsor_company") {
         if (mine === "true") {
           // IMPORTANT: Filter to only show the client's own jobs by exact ID match
           // If clientId is passed, use it for additional validation
@@ -500,8 +500,8 @@ exports.getJob = async (req, res) => {
       // Log for debugging
       // console.log(`Job client ID: ${job.client._id}, User ID: ${req.user.id}`);
 
-      // If user is a client, they should only access their own jobs
-      if (req.user.role === "client") {
+      // If user is a client or project_sponsor_company, they should only access their own jobs
+      if (req.user.role === "client" || req.user.role === "project_sponsor_company") {
         // Convert IDs to strings for proper comparison
         const jobClientId = job.client._id.toString();
         const userId = req.user.id.toString();

@@ -13,21 +13,21 @@ const { validatePaymentFlow, fixWalletInconsistencies } = require("../utils/vali
 
 // @route   POST /api/escrow/block-budget
 // @desc    Block budget for a job posting
-// @access  Private (Client only)
+// @access  Private (Client and Project Sponsor Company only)
 router.post(
   "/block-budget",
-  [auth, checkRole(["client"]), [check("jobId", "Job ID is required").not().isEmpty()]],
+  [auth, checkRole(["client", "project_sponsor_company"]), [check("jobId", "Job ID is required").not().isEmpty()]],
   escrowController.blockJobBudget
 );
 
 // @route   POST /api/escrow/create
 // @desc    Create escrow when freelancer is hired
-// @access  Private (Client only)
+// @access  Private (Client and Project Sponsor Company only)
 router.post(
   "/create",
   [
     auth,
-    checkRole(["client"]),
+    checkRole(["client", "project_sponsor_company"]),
     [
       check("projectId", "Project ID is required").not().isEmpty(),
       check("freelancerId", "Freelancer ID is required").not().isEmpty(),
@@ -39,10 +39,10 @@ router.post(
 
 // @route   POST /api/escrow/:projectId/milestones/:milestoneId/release
 // @desc    Release milestone payment from escrow
-// @access  Private (Client and Admin)
+// @access  Private (Client, Project Sponsor Company, and Admin)
 router.post(
   "/:projectId/milestones/:milestoneId/release",
-  [auth, checkRole(["client", "admin"])],
+  [auth, checkRole(["client", "project_sponsor_company", "admin"])],
   escrowController.releaseMilestonePayment
 );
 
@@ -53,8 +53,8 @@ router.get("/freelancer/data", [auth, checkRole(["freelancer"])], escrowControll
 
 // @route   GET /api/escrow/client/data
 // @desc    Get client's escrow and payment data
-// @access  Private (Client only)
-router.get("/client/data", [auth, checkRole(["client"])], escrowController.getClientEscrowData);
+// @access  Private (Client and Project Sponsor Company only)
+router.get("/client/data", [auth, checkRole(["client", "project_sponsor_company"])], escrowController.getClientEscrowData);
 
 // @route   GET /api/escrow/company/data
 // @desc    Get company's escrow and payment data (aggregated from all team members)
