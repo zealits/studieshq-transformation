@@ -95,6 +95,16 @@ const profileService = {
       throw error.response?.data || error;
     }
   },
+
+  // Submit test answers and get evaluation
+  submitTest: async (testData) => {
+    try {
+      const response = await axios.post("/api/profile/submit-test", testData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
 };
 
 export default profileService;

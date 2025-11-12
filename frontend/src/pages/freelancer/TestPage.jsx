@@ -15,22 +15,90 @@ const TestPage = () => {
   const [timeRemaining, setTimeRemaining] = useState(20 * 60); // 20 minutes in seconds
   const [testStarted, setTestStarted] = useState(false);
   const [testCompleted, setTestCompleted] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [notification, setNotification] = useState(null);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+  const [showTabSwitchWarning, setShowTabSwitchWarning] = useState(false);
+  const tabSwitchCountRef = useRef(0);
   const timerIntervalRef = useRef(null);
   const questionRef = useRef(null);
+  const notificationTimeoutRef = useRef(null);
+  const testContainerRef = useRef(null);
+  const tabSwitchWarningTimeoutRef = useRef(null);
 
   // Handle test completion - defined early so it can be used in useEffect
-  const handleTestComplete = useCallback(() => {
+  const handleTestComplete = useCallback(async () => {
+    if (testCompleted || submitting) return; // Prevent multiple submissions
+
+    setSubmitting(true);
     setTestCompleted(true);
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
     }
-    // Here you can submit answers to backend if needed
-    alert("Test completed! Your answers have been saved.");
-  }, []);
+
+    try {
+      // Format answers for submission
+      const mcqs = testData?.test?.mcqs || [];
+      const theory = testData?.test?.theory || [];
+
+      // Convert MCQ answers from { index: option_string } to array of indices
+      const mcqAnswers = mcqs.map((question, index) => {
+        const selectedOption = answers.mcqs[index];
+        if (!selectedOption) return 0; // Default to first option if not answered
+        const optionIndex = question.options?.indexOf(selectedOption);
+        return optionIndex !== -1 ? optionIndex : 0;
+      });
+
+      // Convert theory answers from { index: answer_string } to array of strings
+      const theoryAnswers = theory.map((_, index) => {
+        return answers.theory[index] || "";
+      });
+
+      // Submit test
+      const response = await profileService.submitTest({
+        test: testData.test,
+        answers: {
+          mcqs: mcqAnswers,
+          theory: theoryAnswers,
+        },
+      });
+
+      if (response.success) {
+        setTestResult(response.data);
+        console.log("Test submitted successfully:", response.data);
+      } else {
+        throw new Error(response.message || "Failed to submit test");
+      }
+    } catch (error) {
+      console.error("Error submitting test:", error);
+      alert(`Error submitting test: ${error.message || "Please try again later."}`);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [testData, answers, testCompleted, submitting]);
+
+  // Show notification helper function
+  const showNotification = useCallback((message, type = "warning") => {
+    // Don't show notifications if test is completed
+    if (testCompleted) return;
+    
+    setNotification({ message, type });
+    
+    // Clear any existing timeout
+    if (notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current);
+    }
+    
+    // Auto-hide after 4 seconds
+    notificationTimeoutRef.current = setTimeout(() => {
+      setNotification(null);
+    }, 4000);
+  }, [testCompleted]);
 
   // Prevent text selection, copying, and screenshots
   useEffect(() => {
-    if (!testStarted) return;
+    if (!testStarted || testCompleted) return;
 
     const preventSelection = (e) => {
       e.preventDefault();
@@ -44,7 +112,7 @@ const TestPage = () => {
 
     const preventContextMenu = (e) => {
       e.preventDefault();
-      alert("⚠️ Screenshots and copying are not allowed during the test!");
+      showNotification("⚠️ Screenshots and copying are not allowed during the test!", "warning");
       return false;
     };
 
@@ -53,108 +121,144 @@ const TestPage = () => {
       // Print Screen key
       if (e.key === "PrintScreen" || e.keyCode === 44) {
         e.preventDefault();
-        alert("⚠️ Screenshots are not allowed during the test!");
+        showNotification("⚠️ Screenshots are not allowed during the test!", "warning");
         return false;
       }
 
       // Windows: Win + Print Screen
       if (e.key === "PrintScreen" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        alert("⚠️ Screenshots are not allowed during the test!");
+        showNotification("⚠️ Screenshots are not allowed during the test!", "warning");
         return false;
       }
 
       // Mac: Cmd + Shift + 3/4/5
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "3" || e.key === "4" || e.key === "5")) {
         e.preventDefault();
-        alert("⚠️ Screenshots are not allowed during the test!");
+        showNotification("⚠️ Screenshots are not allowed during the test!", "warning");
         return false;
       }
 
       // Windows: Alt + Print Screen
       if (e.key === "PrintScreen" && e.altKey) {
         e.preventDefault();
-        alert("⚠️ Screenshots are not allowed during the test!");
+        showNotification("⚠️ Screenshots are not allowed during the test!", "warning");
         return false;
       }
 
       // F12 (Developer Tools)
       if (e.key === "F12" || e.keyCode === 123) {
         e.preventDefault();
-        alert("⚠️ Developer tools are disabled during the test!");
+        showNotification("⚠️ Developer tools are disabled during the test!", "warning");
         return false;
       }
 
       // Ctrl+Shift+I (Developer Tools)
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "I") {
         e.preventDefault();
-        alert("⚠️ Developer tools are disabled during the test!");
+        showNotification("⚠️ Developer tools are disabled during the test!", "warning");
         return false;
       }
 
       // Ctrl+Shift+J (Console)
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "J") {
         e.preventDefault();
-        alert("⚠️ Developer tools are disabled during the test!");
+        showNotification("⚠️ Developer tools are disabled during the test!", "warning");
         return false;
       }
 
       // Ctrl+Shift+C (Inspect Element)
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "C") {
         e.preventDefault();
-        alert("⚠️ Developer tools are disabled during the test!");
+        showNotification("⚠️ Developer tools are disabled during the test!", "warning");
         return false;
       }
 
       // Ctrl+U (View Source)
       if ((e.ctrlKey || e.metaKey) && e.key === "U") {
         e.preventDefault();
-        alert("⚠️ Viewing page source is not allowed during the test!");
+        showNotification("⚠️ Viewing page source is not allowed during the test!", "warning");
         return false;
       }
 
       // Ctrl+S (Save Page)
       if ((e.ctrlKey || e.metaKey) && e.key === "S") {
         e.preventDefault();
-        alert("⚠️ Saving the page is not allowed during the test!");
+        showNotification("⚠️ Saving the page is not allowed during the test!", "warning");
         return false;
       }
 
       // Ctrl+P (Print)
       if ((e.ctrlKey || e.metaKey) && e.key === "P") {
         e.preventDefault();
-        alert("⚠️ Printing is not allowed during the test!");
+        showNotification("⚠️ Printing is not allowed during the test!", "warning");
         return false;
       }
     };
 
     // Detect if user tries to open DevTools
     const detectDevTools = () => {
+      if (testCompleted) return; // Don't check if test is completed
       const threshold = 160;
       const widthThreshold = window.outerWidth - window.innerWidth > threshold;
       const heightThreshold = window.outerHeight - window.innerHeight > threshold;
       
       if (widthThreshold || heightThreshold) {
-        alert("⚠️ Developer tools detected! Please close them to continue the test.");
+        showNotification("⚠️ Developer tools detected! Please close them to continue the test.", "warning");
         // Log to backend if needed
         console.warn("DevTools detected during test");
       }
     };
 
+    // Show tab switch warning for minimum duration
+    const showTabSwitchWarningForDuration = (duration = 3000) => {
+      // Clear any existing timeout
+      if (tabSwitchWarningTimeoutRef.current) {
+        clearTimeout(tabSwitchWarningTimeoutRef.current);
+      }
+      
+      // Show the warning
+      setShowTabSwitchWarning(true);
+      
+      // Hide after minimum duration
+      tabSwitchWarningTimeoutRef.current = setTimeout(() => {
+        setShowTabSwitchWarning(false);
+        tabSwitchWarningTimeoutRef.current = null;
+      }, duration);
+    };
+
     // Detect tab/window switching (common before screenshots)
     const handleVisibilityChange = () => {
+      if (testCompleted) return; // Don't show warning if test is completed
       if (document.hidden) {
         // Tab switched or window minimized - likely screenshot attempt
-        alert("⚠️ WARNING: Tab switching detected! This may indicate a screenshot attempt. Please stay on this page.");
+        tabSwitchCountRef.current += 1;
+        const newCount = tabSwitchCountRef.current;
+        setTabSwitchCount(newCount);
+        showNotification(`⚠️ WARNING: Tab switching detected! (${newCount} time${newCount === 1 ? '' : 's'}) This may indicate a screenshot attempt. Please stay on this page.`, "warning");
+        // Show warning overlay for at least 3 seconds
+        showTabSwitchWarningForDuration(3000);
         // Log the event
-        console.warn("Tab visibility changed - possible screenshot attempt");
+        console.warn("Tab visibility changed - possible screenshot attempt", `Count: ${newCount}`);
       }
     };
 
     // Detect window blur (user clicked away)
     const handleBlur = () => {
-      alert("⚠️ WARNING: Window focus lost! This may indicate a screenshot attempt. Please stay focused on the test window.");
-      console.warn("Window blur detected - possible screenshot attempt");
+      if (testCompleted) return; // Don't show warning if test is completed
+      tabSwitchCountRef.current += 1;
+      const newCount = tabSwitchCountRef.current;
+      setTabSwitchCount(newCount);
+      showNotification(`⚠️ WARNING: Window focus lost! (${newCount} time${newCount === 1 ? '' : 's'}) This may indicate a screenshot attempt. Please stay focused on the test window.`, "warning");
+      // Show warning overlay for at least 3 seconds
+      showTabSwitchWarningForDuration(3000);
+      console.warn("Window blur detected - possible screenshot attempt", `Count: ${newCount}`);
+    };
+    
+    // Handle window focus (user returned)
+    const handleFocus = () => {
+      // Don't hide the warning immediately - let the timeout handle it
+      // This ensures the warning stays for the minimum duration
     };
 
     // Detect window resize (some screenshot tools trigger this)
@@ -173,6 +277,7 @@ const TestPage = () => {
     // Add visibility and blur listeners
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
     window.addEventListener("resize", handleResize);
 
     // Detect if user tries to use browser's screenshot feature
@@ -219,17 +324,26 @@ const TestPage = () => {
       document.removeEventListener("drop", preventDrag);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("beforeunload", handleBeforeUnload);
       if (devToolsCheckInterval) {
         clearInterval(devToolsCheckInterval);
       }
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current);
+      }
+      if (tabSwitchWarningTimeoutRef.current) {
+        clearTimeout(tabSwitchWarningTimeoutRef.current);
+      }
       document.body.style.userSelect = "";
       document.body.style.webkitUserSelect = "";
       document.body.style.mozUserSelect = "";
       document.body.style.msUserSelect = "";
+      setNotification(null); // Clear any notifications
+      setShowTabSwitchWarning(false); // Clear tab switch warning
     };
-  }, [testStarted, testCompleted]);
+  }, [testStarted, testCompleted, showNotification]);
 
   // Timer effect
   useEffect(() => {
@@ -257,6 +371,108 @@ const TestPage = () => {
       handleTestComplete();
     }
   }, [timeRemaining, testStarted, testCompleted, handleTestComplete]);
+
+  // Fullscreen API helpers
+  const enterFullscreen = useCallback(async () => {
+    const element = testContainerRef.current;
+    if (!element) return;
+
+    try {
+      if (element.requestFullscreen) {
+        await element.requestFullscreen();
+      } else if (element.webkitRequestFullscreen) {
+        // Safari
+        await element.webkitRequestFullscreen();
+      } else if (element.mozRequestFullScreen) {
+        // Firefox
+        await element.mozRequestFullScreen();
+      } else if (element.msRequestFullscreen) {
+        // IE/Edge
+        await element.msRequestFullscreen();
+      }
+    } catch (error) {
+      console.error("Error entering fullscreen:", error);
+      showNotification("Could not enter fullscreen mode. Please allow fullscreen for the best test experience.", "warning");
+    }
+  }, [showNotification]);
+
+  const exitFullscreen = useCallback(() => {
+    try {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        // Safari
+        document.webkitExitFullscreen();
+      } else if (document.mozCancelFullScreen) {
+        // Firefox
+        document.mozCancelFullScreen();
+      } else if (document.msExitFullscreen) {
+        // IE/Edge
+        document.msExitFullscreen();
+      }
+    } catch (error) {
+      console.error("Error exiting fullscreen:", error);
+    }
+  }, []);
+
+  const isFullscreen = useCallback(() => {
+    return !!(
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.mozFullScreenElement ||
+      document.msFullscreenElement
+    );
+  }, []);
+
+  // Handle fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!isFullscreen() && testStarted && !testCompleted) {
+        // If user exits fullscreen during test, try to re-enter
+        showNotification("⚠️ Fullscreen mode is required for the test. Please allow fullscreen.", "warning");
+        setTimeout(() => {
+          if (testStarted && !testCompleted) {
+            enterFullscreen();
+          }
+        }, 1000);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+    };
+  }, [testStarted, testCompleted, isFullscreen, showNotification, enterFullscreen]);
+
+  // Enter fullscreen when test starts
+  useEffect(() => {
+    if (testStarted && !testCompleted) {
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        enterFullscreen();
+      }, 100);
+    }
+  }, [testStarted, testCompleted, enterFullscreen]);
+
+  // Exit fullscreen when test completes
+  useEffect(() => {
+    if (testCompleted) {
+      exitFullscreen();
+      // Clear tab switch warning when test completes
+      setShowTabSwitchWarning(false);
+      if (tabSwitchWarningTimeoutRef.current) {
+        clearTimeout(tabSwitchWarningTimeoutRef.current);
+        tabSwitchWarningTimeoutRef.current = null;
+      }
+    }
+  }, [testCompleted, exitFullscreen]);
 
   // Format time as MM:SS
   const formatTime = (seconds) => {
@@ -288,6 +504,8 @@ const TestPage = () => {
   }, []);
 
   const handleStartTest = () => {
+    tabSwitchCountRef.current = 0; // Reset counter when test starts
+    setTabSwitchCount(0);
     setTestStarted(true);
   };
 
@@ -427,6 +645,8 @@ const TestPage = () => {
               <ul className="list-disc list-inside space-y-2 text-blue-800">
                 <li>You have a maximum of 20 minutes to complete this test</li>
                 <li>The test consists of {mcqs.length} multiple choice questions and {theory.length} theory/coding questions</li>
+                <li>The test will automatically enter fullscreen mode when you start</li>
+                <li>Fullscreen mode is required and cannot be exited during the test</li>
                 <li>Questions cannot be copied or selected</li>
                 <li>You can navigate between questions using Next/Previous buttons</li>
                 <li>Make sure to answer all questions before submitting</li>
@@ -494,15 +714,60 @@ const TestPage = () => {
           ))}
         </div>
         <div className="relative z-10 bg-white rounded-lg shadow-md p-8 text-center">
-          <div className="text-green-500 text-6xl mb-4">✓</div>
-          <h1 className="text-3xl font-bold mb-4">Test Completed!</h1>
-          <p className="text-gray-600 mb-6">Your answers have been saved successfully.</p>
-          <button
-            onClick={() => navigate("/freelancer")}
-            className="bg-primary text-white px-6 py-2 rounded hover:bg-primary-dark"
-          >
-            Return to Dashboard
-          </button>
+          {submitting ? (
+            <>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <h1 className="text-3xl font-bold mb-4">Submitting Test...</h1>
+              <p className="text-gray-600 mb-6">Please wait while we evaluate your answers.</p>
+            </>
+          ) : testResult ? (
+            <>
+              <div className="text-green-500 text-6xl mb-4">✓</div>
+              <h1 className="text-3xl font-bold mb-4">Test Completed!</h1>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+                <h2 className="text-2xl font-semibold text-blue-900 mb-4">Your Score</h2>
+                <div className="text-4xl font-bold text-blue-600 mb-2">
+                  {testResult.marks?.score || 0} / {testResult.marks?.max || 0}
+                </div>
+                <div className="text-lg text-blue-800 mb-4">
+                  {testResult.marks?.max > 0
+                    ? `${Math.round((testResult.marks.score / testResult.marks.max) * 100)}%`
+                    : "0%"}
+                </div>
+                {testResult.breakdown && (
+                  <div className="mt-4 pt-4 border-t border-blue-200">
+                    <div className="flex justify-around text-sm">
+                      <div>
+                        <span className="font-semibold">MCQ:</span> {testResult.breakdown.mcq || 0}
+                      </div>
+                      <div>
+                        <span className="font-semibold">Theory:</span> {testResult.breakdown.theory || 0}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <p className="text-gray-600 mb-6">Your score has been saved to your profile.</p>
+              <button
+                onClick={() => navigate("/freelancer")}
+                className="bg-primary text-white px-6 py-2 rounded hover:bg-primary-dark"
+              >
+                Return to Dashboard
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="text-yellow-500 text-6xl mb-4">⚠</div>
+              <h1 className="text-3xl font-bold mb-4">Test Completed</h1>
+              <p className="text-gray-600 mb-6">There was an issue submitting your test. Please contact support.</p>
+              <button
+                onClick={() => navigate("/freelancer")}
+                className="bg-primary text-white px-6 py-2 rounded hover:bg-primary-dark"
+              >
+                Return to Dashboard
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
@@ -530,8 +795,107 @@ const TestPage = () => {
         .screenshot-warning {
           animation: pulse 2s infinite;
         }
+        @keyframes slideDown {
+          from {
+            transform: translateY(-100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        .notification-enter {
+          animation: slideDown 0.3s ease-out;
+        }
+        /* Fullscreen styles */
+        :fullscreen {
+          background: white;
+        }
+        :-webkit-full-screen {
+          background: white;
+        }
+        :-moz-full-screen {
+          background: white;
+        }
+        :-ms-fullscreen {
+          background: white;
+        }
       `}</style>
-      <div className="relative max-w-5xl mx-auto p-6" style={{ minHeight: "100vh" }}>
+
+      {/* Custom Notification Component */}
+      {notification && (
+        <div
+          className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[9999] notification-enter"
+          style={{ maxWidth: "90%", width: "500px" }}
+        >
+          <div
+            className={`rounded-lg shadow-2xl p-4 flex items-start gap-3 ${
+              notification.type === "warning"
+                ? "bg-yellow-50 border-2 border-yellow-400"
+                : notification.type === "error"
+                ? "bg-red-50 border-2 border-red-400"
+                : "bg-blue-50 border-2 border-blue-400"
+            }`}
+          >
+            <div
+              className={`flex-shrink-0 text-2xl ${
+                notification.type === "warning"
+                  ? "text-yellow-600"
+                  : notification.type === "error"
+                  ? "text-red-600"
+                  : "text-blue-600"
+              }`}
+            >
+              {notification.type === "warning" ? "⚠️" : notification.type === "error" ? "❌" : "ℹ️"}
+            </div>
+            <div className="flex-1">
+              <p
+                className={`text-sm font-semibold ${
+                  notification.type === "warning"
+                    ? "text-yellow-900"
+                    : notification.type === "error"
+                    ? "text-red-900"
+                    : "text-blue-900"
+                }`}
+              >
+                {notification.message}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setNotification(null);
+                if (notificationTimeoutRef.current) {
+                  clearTimeout(notificationTimeoutRef.current);
+                }
+              }}
+              className={`flex-shrink-0 ml-2 text-lg font-bold hover:opacity-70 transition-opacity ${
+                notification.type === "warning"
+                  ? "text-yellow-700"
+                  : notification.type === "error"
+                  ? "text-red-700"
+                  : "text-blue-700"
+              }`}
+              aria-label="Close notification"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div 
+        ref={testContainerRef}
+        className="relative bg-white" 
+        style={{ 
+          minHeight: "100vh",
+          width: "100%",
+          height: "100%",
+          padding: testStarted ? "1.5rem" : "1.5rem",
+          maxWidth: testStarted ? "100%" : "80rem",
+          margin: testStarted ? "0" : "0 auto",
+        }}
+      >
       {/* Watermark Text Pattern - Fixed to viewport, covers entire screen */}
       <div
         className="fixed inset-0 pointer-events-none"
@@ -616,8 +980,8 @@ const TestPage = () => {
         </div>
       )}
 
-      {/* Additional overlay warning when tab is not active */}
-      {testStarted && !testCompleted && typeof document !== 'undefined' && document.hidden && (
+      {/* Additional overlay warning when tab switching is detected */}
+      {testStarted && !testCompleted && showTabSwitchWarning && (
         <div 
           className="fixed inset-0 bg-red-900 bg-opacity-95 text-white flex items-center justify-center z-[100]"
           style={{
@@ -627,8 +991,18 @@ const TestPage = () => {
           <div className="text-center p-8">
             <div className="text-6xl mb-4">⚠️</div>
             <h2 className="text-3xl font-bold mb-4">TAB SWITCHING DETECTED</h2>
+            <div className="bg-red-800 bg-opacity-80 rounded-lg px-6 py-3 mb-4 inline-block">
+              <p className="text-2xl font-bold">
+                Tab Switch Count: <span className="text-yellow-300">{tabSwitchCount}</span>
+              </p>
+            </div>
             <p className="text-xl mb-4">Please return to the test window immediately.</p>
             <p className="text-lg">Screenshot attempts are being monitored and logged.</p>
+            {tabSwitchCount > 1 && (
+              <p className="text-base mt-4 text-yellow-200">
+                ⚠️ Multiple tab switches detected. This may result in test disqualification.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -654,6 +1028,11 @@ const TestPage = () => {
             <div className="text-sm text-gray-600">
               Question {currentQuestionNumber} of {totalQuestions}
             </div>
+            {tabSwitchCount > 0 && (
+              <div className="text-sm bg-red-100 text-red-700 px-3 py-1 rounded-full font-semibold">
+                ⚠️ Tab Switches: {tabSwitchCount}
+              </div>
+            )}
           </div>
           <button
             onClick={handleSubmitTest}
@@ -1000,89 +1379,102 @@ const TestPage = () => {
         )}
       </div>
 
-      {/* Navigation Buttons */}
-      <div className="flex justify-between items-center bg-white rounded-lg shadow-md p-4">
-        <button
-          onClick={handlePreviousQuestion}
-          disabled={currentSection === "mcqs" && currentQuestionIndex === 0}
-          className={`px-6 py-2 rounded ${
-            currentSection === "mcqs" && currentQuestionIndex === 0
-              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          ← Previous
-        </button>
-
-        <div className="text-sm text-gray-600">
-          Section: {currentSection === "mcqs" ? "MCQs" : "Theory"} ({currentQuestionIndex + 1} /{" "}
-          {currentSection === "mcqs" ? mcqs.length : theory.length})
-        </div>
-
-        <button
-          onClick={handleNextQuestion}
-          className="bg-primary text-white px-6 py-2 rounded hover:bg-primary-dark"
-        >
-          {currentSection === "theory" && currentQuestionIndex === theory.length - 1
-            ? "Complete Test"
-            : "Next →"}
-        </button>
-      </div>
-
-      {/* Question Navigation Overview */}
-      <div className="mt-6 bg-white rounded-lg shadow-md p-4">
-        <h3 className="font-semibold mb-3">Question Navigation</h3>
-        <div className="flex flex-wrap gap-2">
-          {/* MCQ indicators */}
-          {mcqs.map((_, index) => (
+      {/* Navigation Buttons - Fixed at bottom */}
+      <div 
+        className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50"
+        style={{
+          padding: testStarted && !testCompleted ? "1rem 1.5rem" : "1rem",
+        }}
+      >
+        <div className="max-w-7xl mx-auto">
+          {/* Navigation Buttons */}
+          <div className="flex justify-between items-center mb-4">
             <button
-              key={`mcq-${index}`}
-              onClick={() => {
-                setCurrentSection("mcqs");
-                setCurrentQuestionIndex(index);
-              }}
-              className={`w-10 h-10 rounded ${
-                currentSection === "mcqs" && currentQuestionIndex === index
-                  ? "bg-primary text-white"
-                  : answers.mcqs[index]
-                  ? "bg-green-200 text-green-800"
-                  : "bg-gray-200 text-gray-600"
-              } hover:bg-primary hover:text-white transition-colors`}
+              onClick={handlePreviousQuestion}
+              disabled={currentSection === "mcqs" && currentQuestionIndex === 0}
+              className={`px-6 py-2 rounded ${
+                currentSection === "mcqs" && currentQuestionIndex === 0
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
             >
-              {index + 1}
+              ← Previous
             </button>
-          ))}
-          {/* Theory indicators */}
-          {theory.map((_, index) => (
+
+            <div className="text-sm text-gray-600">
+              Section: {currentSection === "mcqs" ? "MCQs" : "Theory"} ({currentQuestionIndex + 1} /{" "}
+              {currentSection === "mcqs" ? mcqs.length : theory.length})
+            </div>
+
             <button
-              key={`theory-${index}`}
-              onClick={() => {
-                setCurrentSection("theory");
-                setCurrentQuestionIndex(index);
-              }}
-              className={`w-10 h-10 rounded ${
-                currentSection === "theory" && currentQuestionIndex === index
-                  ? "bg-primary text-white"
-                  : answers.theory[index]
-                  ? "bg-green-200 text-green-800"
-                  : "bg-gray-200 text-gray-600"
-              } hover:bg-primary hover:text-white transition-colors`}
+              onClick={handleNextQuestion}
+              className="bg-primary text-white px-6 py-2 rounded hover:bg-primary-dark"
             >
-              {mcqs.length + index + 1}
+              {currentSection === "theory" && currentQuestionIndex === theory.length - 1
+                ? "Complete Test"
+                : "Next →"}
             </button>
-          ))}
-        </div>
-        <div className="mt-3 flex items-center space-x-4 text-sm">
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-green-200 rounded mr-2"></div>
-            <span>Answered</span>
           </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-gray-200 rounded mr-2"></div>
-            <span>Not Answered</span>
+
+          {/* Question Navigation Overview */}
+          <div className="bg-white rounded-lg p-3 border border-gray-200">
+            <h3 className="font-semibold mb-2 text-sm">Question Navigation</h3>
+            <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
+              {/* MCQ indicators */}
+              {mcqs.map((_, index) => (
+                <button
+                  key={`mcq-${index}`}
+                  onClick={() => {
+                    setCurrentSection("mcqs");
+                    setCurrentQuestionIndex(index);
+                  }}
+                  className={`w-8 h-8 rounded text-xs ${
+                    currentSection === "mcqs" && currentQuestionIndex === index
+                      ? "bg-primary text-white"
+                      : answers.mcqs[index]
+                      ? "bg-green-200 text-green-800"
+                      : "bg-gray-200 text-gray-600"
+                  } hover:bg-primary hover:text-white transition-colors`}
+                >
+                  {index + 1}
+                </button>
+              ))}
+              {/* Theory indicators */}
+              {theory.map((_, index) => (
+                <button
+                  key={`theory-${index}`}
+                  onClick={() => {
+                    setCurrentSection("theory");
+                    setCurrentQuestionIndex(index);
+                  }}
+                  className={`w-8 h-8 rounded text-xs ${
+                    currentSection === "theory" && currentQuestionIndex === index
+                      ? "bg-primary text-white"
+                      : answers.theory[index]
+                      ? "bg-green-200 text-green-800"
+                      : "bg-gray-200 text-gray-600"
+                  } hover:bg-primary hover:text-white transition-colors`}
+                >
+                  {mcqs.length + index + 1}
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 flex items-center space-x-4 text-xs">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-green-200 rounded mr-1"></div>
+                <span>Answered</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-gray-200 rounded mr-1"></div>
+                <span>Not Answered</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+      
+      {/* Spacer to prevent content from being hidden behind fixed navigation */}
+      <div style={{ height: "200px" }}></div>
       </div>
     </div>
     </>

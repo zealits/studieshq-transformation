@@ -324,6 +324,32 @@ const ProfileSchema = new Schema({
     },
   ],
 
+  // Test score
+  testScore: {
+    score: {
+      type: Number,
+      default: null,
+    },
+    maxScore: {
+      type: Number,
+      default: null,
+    },
+    breakdown: {
+      mcq: {
+        type: Number,
+        default: null,
+      },
+      theory: {
+        type: Number,
+        default: null,
+      },
+    },
+    evaluatedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+
   // Client specific fields
   company: {
     type: String,

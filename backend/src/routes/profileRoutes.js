@@ -116,4 +116,9 @@ router.delete("/portfolio/:portfolio_id", auth, checkRole(["freelancer"]), profi
 // @access  Private (Freelancer only)
 router.get("/generate-test", auth, checkRole(["freelancer"]), profileController.generateTest);
 
+// @route   POST /api/profile/submit-test
+// @desc    Submit test answers and evaluate candidate
+// @access  Private (Freelancer only)
+router.post("/submit-test", auth, checkRole(["freelancer"]), profileController.submitTest);
+
 module.exports = router;

@@ -709,6 +709,72 @@ class ResumeParserService {
   }
 
   /**
+   * Evaluate a candidate's test answers
+   * @param {string} candidateId - The candidate ID from the API
+   * @param {Object} testData - Test data containing test questions and answers
+   * @param {Object} testData.test - Test questions (mcqs and theory)
+   * @param {Object} testData.answers - Candidate answers (mcqs array and theory array)
+   */
+  async evaluateCandidate(candidateId, testData) {
+    try {
+      console.log(`Evaluating test for candidate: ${candidateId}`);
+
+      // Ensure we have a valid token
+      const token = await this.getValidToken();
+
+      // Use www.resumeparser.aiiventure.com for candidate evaluation
+      let evaluateApiUrl = this.apiUrl;
+      if (!evaluateApiUrl.includes("www.")) {
+        evaluateApiUrl = evaluateApiUrl.replace("resumeparser", "www.resumeparser");
+      }
+
+      const payload = {
+        test: testData.test,
+        answers: testData.answers,
+      };
+
+      console.log(`Sending evaluation request to ${evaluateApiUrl}/candidate/${candidateId}/evaluate`);
+
+      const response = await axios.post(`${evaluateApiUrl}/candidate/${candidateId}/evaluate`, payload, {
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 30000,
+      });
+
+      console.log("Evaluate candidate API response status:", response.status);
+      console.log("Evaluate candidate API response data:", response.data);
+
+      if (response.data && response.data.success) {
+        console.log("Candidate test evaluated successfully");
+        console.log(`Score: ${response.data.marks?.score}/${response.data.marks?.max}`);
+
+        return {
+          success: true,
+          candidateId: response.data.candidate_id,
+          marks: response.data.marks,
+          breakdown: response.data.breakdown,
+        };
+      } else {
+        console.error("API returned unsuccessful response:", response.data);
+        throw new Error(`Test evaluation failed: ${response.data?.message || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Test evaluation failed:");
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+
+      return {
+        success: false,
+        error: error.response?.data || error.message,
+      };
+    }
+  }
+
+  /**
    * Test the API connection
    */
   async testConnection() {

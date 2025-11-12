@@ -817,3 +817,92 @@ exports.generateTest = async (req, res) => {
     });
   }
 };
+
+/**
+ * @desc    Submit test answers and evaluate candidate
+ * @route   POST /api/profile/submit-test
+ * @access  Private (Freelancer only)
+ */
+exports.submitTest = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (user.role !== "freelancer") {
+      return res.status(403).json({ success: false, message: "Only freelancers can submit tests" });
+    }
+
+    if (!user.candidateId) {
+      return res.status(400).json({
+        success: false,
+        message: "Candidate ID not found. Please complete your profile registration first.",
+      });
+    }
+
+    const { test, answers } = req.body;
+
+    if (!test || !answers) {
+      return res.status(400).json({
+        success: false,
+        message: "Test data and answers are required",
+      });
+    }
+
+    // Evaluate the test using resume parser service
+    const evaluationResult = await resumeParserService.evaluateCandidate(user.candidateId, {
+      test,
+      answers,
+    });
+
+    if (!evaluationResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to evaluate test",
+        error: evaluationResult.error,
+      });
+    }
+
+    // Save the test score to the user's profile
+    const profile = await Profile.findOne({ user: req.user.id });
+
+    if (!profile) {
+      return res.status(404).json({ success: false, message: "Profile not found" });
+    }
+
+    // Update test score in profile
+    profile.testScore = {
+      score: evaluationResult.marks?.score || null,
+      maxScore: evaluationResult.marks?.max || null,
+      breakdown: {
+        mcq: evaluationResult.breakdown?.mcq || null,
+        theory: evaluationResult.breakdown?.theory || null,
+      },
+      evaluatedAt: new Date(),
+    };
+
+    await profile.save();
+
+    console.log(`Test score saved for user ${user.email}: ${evaluationResult.marks?.score}/${evaluationResult.marks?.max}`);
+
+    res.json({
+      success: true,
+      data: {
+        candidateId: evaluationResult.candidateId,
+        marks: evaluationResult.marks,
+        breakdown: evaluationResult.breakdown,
+      },
+    });
+  } catch (err) {
+    console.error("Error in submitTest:", err.message);
+    console.error("Error details:", err.response?.data || err.message);
+
+    res.status(500).json({
+      success: false,
+      message: err.response?.data?.message || err.message || "Failed to submit test",
+      error: err.response?.data || err.message,
+    });
+  }
+};
