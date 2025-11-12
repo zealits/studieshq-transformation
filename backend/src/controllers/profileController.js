@@ -51,7 +51,7 @@ exports.createOrUpdateProfile = async (req, res) => {
 
   const {
     bio,
-    location,
+    address,
     website,
     social,
     skills,
@@ -99,10 +99,14 @@ exports.createOrUpdateProfile = async (req, res) => {
   const profileFields = {
     user: req.user.id,
     bio: bio || "",
-    location: location || "",
     website: incomingPortfolioUrl || website || "",
     phone: phone || "",
   };
+
+  // Handle address if provided
+  if (address) {
+    profileFields.address = address;
+  }
 
   // Handle verification documents if provided
   if (verificationDocuments) {

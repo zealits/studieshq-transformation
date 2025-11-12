@@ -200,9 +200,6 @@ const ProfileSchema = new Schema({
       type: Date,
     },
   },
-  location: {
-    type: String,
-  },
   address: {
     line1: {
       type: String,

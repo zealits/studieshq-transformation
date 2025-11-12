@@ -9,6 +9,7 @@ import {
   clearUpdateSuccess,
   clearAllMessages,
 } from "../../redux/slices/companySlice";
+import { Country, State, City } from "country-state-city";
 
 const CompanyProfilePage = () => {
   const { user } = useSelector((state) => state.auth);
@@ -19,6 +20,8 @@ const CompanyProfilePage = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
+  const [availableStates, setAvailableStates] = useState([]);
+  const [availableCities, setAvailableCities] = useState([]);
   const [formData, setFormData] = useState({
     name: "",
     company: {
@@ -33,11 +36,14 @@ const CompanyProfilePage = () => {
       phoneNumber: "",
       logo: "",
       address: {
-        street: "",
+        line1: "",
+        line2: "",
+        country: "",
+        countryCode: "",
         city: "",
         state: "",
-        country: "",
-        zipCode: "",
+        stateCode: "",
+        postalCode: "",
       },
       documents: {
         businessLicense: {
@@ -88,13 +94,43 @@ const CompanyProfilePage = () => {
           website: companyProfile.user?.company?.website || "",
           phoneNumber: companyProfile.user?.company?.phoneNumber || "",
           logo: companyProfile.user?.company?.logo || "",
-          address: {
-            street: companyProfile.user?.company?.address?.street || "",
-            city: companyProfile.user?.company?.address?.city || "",
-            state: companyProfile.user?.company?.address?.state || "",
-            country: companyProfile.user?.company?.address?.country || "",
-            zipCode: companyProfile.user?.company?.address?.zipCode || "",
-          },
+          address: (() => {
+            const addressData = companyProfile.user?.company?.address || {};
+            
+            // Derive countryCode from country name if countryCode is missing
+            let countryCode = addressData.countryCode || "";
+            if (!countryCode && addressData.country) {
+              const foundCountry = Country.getAllCountries().find(
+                (c) => c.name.toLowerCase() === addressData.country.toLowerCase()
+              );
+              if (foundCountry) {
+                countryCode = foundCountry.isoCode;
+              }
+            }
+
+            // Derive stateCode from state name if stateCode is missing
+            let stateCode = addressData.stateCode || "";
+            if (!stateCode && addressData.state && countryCode) {
+              const states = State.getStatesOfCountry(countryCode);
+              const foundState = states.find(
+                (s) => s.name.toLowerCase() === addressData.state.toLowerCase()
+              );
+              if (foundState) {
+                stateCode = foundState.isoCode;
+              }
+            }
+
+            return {
+              line1: addressData.line1 || addressData.street || "",
+              line2: addressData.line2 || "",
+              country: addressData.country || "",
+              countryCode: countryCode,
+              city: addressData.city || "",
+              state: addressData.state || "",
+              stateCode: stateCode,
+              postalCode: addressData.postalCode || addressData.zipCode || "",
+            };
+          })(),
           documents: {
             businessLicense: {
               type: "business_license",
@@ -111,6 +147,21 @@ const CompanyProfilePage = () => {
           },
         },
       });
+
+      // Load states and cities if address data exists
+      const addressData = companyProfile.user?.company?.address;
+      const countryCode = formData.company.address.countryCode;
+      const stateCode = formData.company.address.stateCode;
+      
+      if (countryCode) {
+        const states = State.getStatesOfCountry(countryCode);
+        setAvailableStates(states || []);
+        
+        if (stateCode) {
+          const cities = City.getCitiesOfState(countryCode, stateCode);
+          setAvailableCities(cities || []);
+        }
+      }
     }
   }, [companyProfile]);
 
@@ -154,6 +205,28 @@ const CompanyProfilePage = () => {
     }
   };
 
+  // Load states when country changes
+  useEffect(() => {
+    if (formData.company.address.countryCode) {
+      const states = State.getStatesOfCountry(formData.company.address.countryCode);
+      setAvailableStates(states || []);
+      setAvailableCities([]); // Clear cities when country changes
+    } else {
+      setAvailableStates([]);
+      setAvailableCities([]);
+    }
+  }, [formData.company.address.countryCode]);
+
+  // Load cities when state changes
+  useEffect(() => {
+    if (formData.company.address.countryCode && formData.company.address.stateCode) {
+      const cities = City.getCitiesOfState(formData.company.address.countryCode, formData.company.address.stateCode);
+      setAvailableCities(cities || []);
+    } else {
+      setAvailableCities([]);
+    }
+  }, [formData.company.address.countryCode, formData.company.address.stateCode]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setHasChanges(true);
@@ -162,15 +235,50 @@ const CompanyProfilePage = () => {
       const field = name.split(".")[1];
       if (name.includes("address.")) {
         const addressField = name.split(".")[2];
-        setFormData({
-          ...formData,
-          company: {
-            ...formData.company,
-            address: {
-              ...formData.company.address,
-              [addressField]: value,
+        setFormData((prev) => {
+          const newAddress = {
+            ...prev.company.address,
+            [addressField]: value,
+          };
+
+          // When country code is selected, also set the country name
+          if (addressField === "countryCode" && value) {
+            const selectedCountry = Country.getCountryByCode(value);
+            if (selectedCountry) {
+              newAddress.country = selectedCountry.name;
+            }
+          }
+
+          // When state code is selected, also set the state name
+          if (addressField === "stateCode" && value && prev.company.address.countryCode) {
+            const selectedState = State.getStateByCodeAndCountry(value, prev.company.address.countryCode);
+            if (selectedState) {
+              newAddress.state = selectedState.name;
+            }
+          }
+
+          // Clear dependent fields when country changes
+          if (addressField === "country" || addressField === "countryCode") {
+            newAddress.state = "";
+            newAddress.stateCode = "";
+            newAddress.city = "";
+            setAvailableStates([]);
+            setAvailableCities([]);
+          }
+
+          // Clear city when state changes
+          if (addressField === "state" || addressField === "stateCode") {
+            newAddress.city = "";
+            setAvailableCities([]);
+          }
+
+          return {
+            ...prev,
+            company: {
+              ...prev.company,
+              address: newAddress,
             },
-          },
+          };
         });
       } else {
         setFormData({
@@ -511,68 +619,133 @@ const CompanyProfilePage = () => {
               </div>
             </div>
 
-            {/* Location */}
+            {/* Address */}
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-3">Location</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
+              <h3 className="text-lg font-medium text-gray-900 mb-3">Address</h3>
+              <div className="space-y-4">
+                {/* Address Line 1 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1</label>
                   <input
                     type="text"
-                    name="company.address.street"
-                    value={formData.company.address.street}
+                    name="company.address.line1"
+                    value={formData.company.address.line1}
                     onChange={handleChange}
                     disabled={!isEditing}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
-                    placeholder="123 Main Street"
+                    placeholder="Street address, P.O. box"
                   />
                 </div>
+
+                {/* Address Line 2 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 2</label>
                   <input
                     type="text"
-                    name="company.address.city"
-                    value={formData.company.address.city}
+                    name="company.address.line2"
+                    value={formData.company.address.line2}
                     onChange={handleChange}
                     disabled={!isEditing}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
-                    placeholder="New York"
+                    placeholder="Apartment, suite, unit, building, floor, etc."
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">State/Province</label>
-                  <input
-                    type="text"
-                    name="company.address.state"
-                    value={formData.company.address.state}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
-                    placeholder="NY"
-                  />
+
+                {/* Country, State, City Row */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Country */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                    <select
+                      name="company.address.countryCode"
+                      value={formData.company.address.countryCode}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                    >
+                      <option value="">Select Country</option>
+                      {Country.getAllCountries().map((country) => (
+                        <option key={country.isoCode} value={country.isoCode}>
+                          {country.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* State/Province */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">State/Province</label>
+                    {availableStates.length > 0 ? (
+                      <select
+                        name="company.address.stateCode"
+                        value={formData.company.address.stateCode}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                      >
+                        <option value="">Select State</option>
+                        {availableStates.map((state) => (
+                          <option key={state.isoCode} value={state.isoCode}>
+                            {state.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        name="company.address.state"
+                        value={formData.company.address.state}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                        placeholder="State/Province"
+                      />
+                    )}
+                  </div>
+
+                  {/* City */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                    {availableCities.length > 0 ? (
+                      <select
+                        name="company.address.city"
+                        value={formData.company.address.city}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                      >
+                        <option value="">Select City</option>
+                        {availableCities.map((city) => (
+                          <option key={city.name} value={city.name}>
+                            {city.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        name="company.address.city"
+                        value={formData.company.address.city}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                        placeholder="City"
+                      />
+                    )}
+                  </div>
                 </div>
+
+                {/* Postal Code */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Postal/ZIP Code</label>
                   <input
                     type="text"
-                    name="company.address.country"
-                    value={formData.company.address.country}
+                    name="company.address.postalCode"
+                    value={formData.company.address.postalCode}
                     onChange={handleChange}
                     disabled={!isEditing}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
-                    placeholder="United States"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">ZIP/Postal Code</label>
-                  <input
-                    type="text"
-                    name="company.address.zipCode"
-                    value={formData.company.address.zipCode}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
-                    placeholder="10001"
+                    placeholder="Postal/ZIP Code"
                   />
                 </div>
               </div>
