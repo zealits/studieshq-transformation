@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { fetchProjects } from "../../redux/slices/projectsSlice";
 import { fetchClientJobs } from "../../redux/slices/jobsSlice";
 import { formatDate } from "../../utils/dateUtils";
+import CountrySpecificBusinessInfo from "../../components/company/CountrySpecificBusinessInfo";
 
 const ProjectSponsorCompanyDashboard = () => {
   const dispatch = useDispatch();
@@ -204,6 +205,16 @@ const ProjectSponsorCompanyDashboard = () => {
               </div>
             </div>
           </div>
+
+          {/* Country-Specific Business Information */}
+          {user?.company?.address?.countryCode && user?.company?.countrySpecificFields && (
+            <div className="col-span-1 md:col-span-2">
+              <CountrySpecificBusinessInfo
+                countryCode={user.company.address.countryCode}
+                countrySpecificFields={user.company.countrySpecificFields}
+              />
+            </div>
+          )}
         </div>
       </div>
 

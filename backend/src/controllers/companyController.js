@@ -5,12 +5,70 @@ const FreelancerInvitation = require("../models/FreelancerInvitation");
 const Proposal = require("../models/Proposal");
 const { Project } = require("../models/Project");
 const { Transaction } = require("../models/Payment");
+const CountryBusinessFields = require("../models/CountryBusinessFields");
 const multer = require("multer");
 const XLSX = require("xlsx");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const emailService = require("../services/emailService");
 const resumeParserService = require("../services/resumeParserService");
+
+/**
+ * @desc    Get country-specific business fields
+ * @route   GET /api/company/country-fields/:countryCode
+ * @access  Private
+ */
+exports.getCountryBusinessFields = async (req, res) => {
+  try {
+    const { countryCode } = req.params;
+
+    if (!countryCode) {
+      return res.status(400).json({
+        success: false,
+        error: "Country code is required",
+      });
+    }
+
+    const countryFields = await CountryBusinessFields.findOne({
+      $or: [{ countryCode: countryCode.toUpperCase() }, { country: countryCode }],
+      isActive: true,
+    });
+
+    if (!countryFields) {
+      return res.status(404).json({
+        success: false,
+        error: "Business fields not found for this country",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: countryFields,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+/**
+ * @desc    Get all available countries with business fields
+ * @route   GET /api/company/country-fields
+ * @access  Private
+ */
+exports.getAllCountryBusinessFields = async (req, res) => {
+  try {
+    const countries = await CountryBusinessFields.find({ isActive: true }).select("country countryCode");
+
+    res.status(200).json({
+      success: true,
+      data: countries,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
 
 /**
  * @desc    Get company profile
@@ -34,6 +92,26 @@ exports.getCompanyProfile = async (req, res) => {
 
     const profile = await Profile.findOne({ user: req.user.id });
 
+    // Convert countrySpecificFields Map to plain object for JSON serialization
+    const companyData = user.company.toObject ? user.company.toObject() : { ...user.company };
+    if (companyData.countrySpecificFields && companyData.countrySpecificFields instanceof Map) {
+      companyData.countrySpecificFields = Object.fromEntries(companyData.countrySpecificFields);
+    }
+
+    // Ensure phone data is properly serialized (handle Mixed type)
+    if (companyData.phone && typeof companyData.phone === 'object') {
+      // Phone is already an object, ensure all fields are present
+      companyData.phone = {
+        countryCode: companyData.phone.countryCode || null,
+        number: companyData.phone.number || null,
+        isVerified: companyData.phone.isVerified === true || companyData.phone.isVerified === 'true',
+        verifiedAt: companyData.phone.verifiedAt || null,
+      };
+    } else if (!companyData.phone) {
+      // Phone doesn't exist, set to null
+      companyData.phone = null;
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -45,7 +123,7 @@ exports.getCompanyProfile = async (req, res) => {
           userType: user.userType,
           companyType: user.companyType,
           isVerified: user.isVerified,
-          company: user.company,
+          company: companyData,
           createdAt: user.createdAt,
         },
         profile: profile || {},
@@ -85,12 +163,76 @@ exports.updateCompanyProfile = async (req, res) => {
     // Update company information
     if (company) {
       // Handle documents separately to maintain proper structure
-      const { documents, ...otherCompanyData } = company;
+      const { documents, countrySpecificFields, phone, ...otherCompanyData } = company;
 
+      // Save existing phone before update to preserve it if needed
+      const existingPhoneBeforeUpdate = user.company.phone ? { ...user.company.phone } : null;
+
+      // Remove companySize if it's empty/null to make it truly optional
+      if (otherCompanyData.companySize === "" || otherCompanyData.companySize === null) {
+        delete otherCompanyData.companySize;
+      }
+
+      // Handle phone number update - preserve verification status if phone number hasn't changed
+      // Only update if phone is provided and is a valid object (not undefined or null)
+      if (phone && typeof phone === 'object' && phone !== null) {
+        const existingPhone = user.company.phone;
+        // If phone number or country code changed, reset verification
+        if (
+          !existingPhone ||
+          existingPhone.number !== phone.number ||
+          existingPhone.countryCode !== phone.countryCode
+        ) {
+          user.company.phone = {
+            countryCode: phone.countryCode || "+91",
+            number: phone.number || "",
+            isVerified: false,
+            verifiedAt: null,
+          };
+        } else {
+          // Phone number hasn't changed, preserve verification status
+          user.company.phone = {
+            ...existingPhone,
+            countryCode: phone.countryCode || existingPhone.countryCode,
+            number: phone.number || existingPhone.number,
+          };
+        }
+      }
+      // If phone is not provided, don't modify the existing phone field
+
+      // Remove phone from otherCompanyData if it exists to prevent overwriting with undefined
+      // This is a safety check in case phone somehow ended up in otherCompanyData
+      if (otherCompanyData.hasOwnProperty('phone')) {
+        delete otherCompanyData.phone;
+      }
+
+      // Merge company data, but exclude phone from otherCompanyData to prevent undefined overwrite
       user.company = {
         ...user.company,
         ...otherCompanyData,
       };
+
+      // Ensure phone is never undefined - if it was accidentally set to undefined, restore or delete it
+      if (user.company.phone === undefined || user.company.phone === null) {
+        if (existingPhoneBeforeUpdate) {
+          // Restore existing phone if it existed before
+          user.company.phone = existingPhoneBeforeUpdate;
+        } else {
+          // Delete phone if it never existed - don't initialize with empty values
+          delete user.company.phone;
+        }
+      }
+
+      // Handle country-specific fields
+      if (countrySpecificFields && Object.keys(countrySpecificFields).length > 0) {
+        // Convert countrySpecificFields object to Map format for MongoDB
+        if (!user.company.countrySpecificFields) {
+          user.company.countrySpecificFields = new Map();
+        }
+        Object.keys(countrySpecificFields).forEach((key) => {
+          user.company.countrySpecificFields.set(key, countrySpecificFields[key]);
+        });
+      }
 
       // Handle document updates
       if (documents) {
@@ -148,6 +290,12 @@ exports.updateCompanyProfile = async (req, res) => {
 
     await profile.save();
 
+    // Convert countrySpecificFields Map to plain object for JSON serialization
+    const companyData = user.company.toObject ? user.company.toObject() : { ...user.company };
+    if (companyData.countrySpecificFields && companyData.countrySpecificFields instanceof Map) {
+      companyData.countrySpecificFields = Object.fromEntries(companyData.countrySpecificFields);
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -159,7 +307,7 @@ exports.updateCompanyProfile = async (req, res) => {
           userType: user.userType,
           companyType: user.companyType,
           isVerified: user.isVerified,
-          company: user.company,
+          company: companyData,
         },
         profile,
       },
@@ -246,7 +394,16 @@ exports.uploadCompanyDocument = async (req, res) => {
       });
     }
 
-    // Add document to company documents array
+    // Check if document of this type already exists and remove it
+    if (user.company.documents) {
+      const existingDocIndex = user.company.documents.findIndex((doc) => doc.type === type);
+      if (existingDocIndex >= 0) {
+        // Remove old document (file deletion is handled in upload controller)
+        user.company.documents.splice(existingDocIndex, 1);
+      }
+    }
+
+    // Add new document to company documents array
     const document = {
       type,
       url,
@@ -254,6 +411,9 @@ exports.uploadCompanyDocument = async (req, res) => {
       status: "pending",
     };
 
+    if (!user.company.documents) {
+      user.company.documents = [];
+    }
     user.company.documents.push(document);
     await user.save();
 
@@ -263,6 +423,113 @@ exports.uploadCompanyDocument = async (req, res) => {
         document,
         message: "Document uploaded successfully",
       },
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+/**
+ * @desc    Delete company document
+ * @route   DELETE /api/company/documents/:documentType
+ * @access  Private
+ */
+exports.deleteCompanyDocument = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    const fs = require("fs");
+    const path = require("path");
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    if (user.userType !== "company") {
+      return res.status(400).json({
+        success: false,
+        error: "This endpoint is only available for company users",
+      });
+    }
+
+    const { documentType } = req.params;
+
+    if (!documentType) {
+      return res.status(400).json({
+        success: false,
+        error: "Document type is required",
+      });
+    }
+
+    // Find the document
+    if (!user.company.documents || user.company.documents.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Document not found",
+      });
+    }
+
+    const documentIndex = user.company.documents.findIndex((doc) => doc.type === documentType);
+
+    if (documentIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        error: "Document not found",
+      });
+    }
+
+    const document = user.company.documents[documentIndex];
+
+    // Delete the physical file if it exists
+    if (document.url) {
+      try {
+        const companyId = user._id.toString();
+        let filename = null;
+        
+        // Extract filename from URL
+        // URL format: /api/upload/files/company-verification/:companyId/:filename
+        // or could be Cloudinary URL: https://res.cloudinary.com/...
+        if (document.url.includes("/company-verification/")) {
+          // Server-stored file
+          const urlParts = document.url.split("/");
+          const companyIndex = urlParts.findIndex((part) => part === "company-verification");
+          if (companyIndex >= 0 && urlParts[companyIndex + 2]) {
+            filename = urlParts[companyIndex + 2];
+          }
+        } else if (document.url.includes("cloudinary.com")) {
+          // Cloudinary URL - skip file deletion (Cloudinary handles it)
+          console.log("Skipping Cloudinary file deletion");
+        } else {
+          // Try to extract filename from end of URL
+          const urlParts = document.url.split("/");
+          filename = urlParts[urlParts.length - 1];
+        }
+        
+        if (filename) {
+          // Path to company verification directory
+          const uploadsDir = path.join(__dirname, "../uploads");
+          const companyVerificationDir = path.join(uploadsDir, "company-verification");
+          const filePath = path.join(companyVerificationDir, companyId, filename);
+
+          // Delete file if it exists
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log("Document file deleted:", filename);
+          }
+        }
+      } catch (fileError) {
+        console.warn("Failed to delete document file:", fileError.message);
+        // Continue with database cleanup even if file deletion fails
+      }
+    }
+
+    // Remove document from array
+    user.company.documents.splice(documentIndex, 1);
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Document deleted successfully",
     });
   } catch (err) {
     console.error(err.message);
@@ -368,10 +635,15 @@ exports.updateVerificationStatus = async (req, res) => {
 
     user.company.verificationStatus = verificationStatus;
 
+    // Note: isVerified is for email verification, not document verification
+    // Only update isVerified if explicitly setting to verified AND email is already verified
+    // Don't change isVerified when rejecting documents - email verification is separate
     if (verificationStatus === "verified") {
-      user.isVerified = true;
+      // Only set isVerified to true if email is already verified
+      // Don't automatically verify email just because documents are verified
+      // Email verification should be done separately through email verification flow
     } else if (verificationStatus === "rejected") {
-      user.isVerified = false;
+      // Don't change isVerified - it's for email verification only
       // Add rejection reason to documents if provided
       if (rejectionReason) {
         user.company.documents.forEach((doc) => {
@@ -438,7 +710,20 @@ exports.updateCompanyDocumentVerification = async (req, res) => {
     // Update the document status
     user.company.documents[documentIndex].status = status;
     user.company.documents[documentIndex].verifiedAt = status === "approved" ? new Date() : null;
-    user.company.documents[documentIndex].rejectionReason = status === "rejected" ? rejectionReason : null;
+    
+    // Handle rejection reason
+    if (status === "rejected") {
+      user.company.documents[documentIndex].rejectionReason = rejectionReason || null;
+    } else {
+      // Clear rejection reason if status is not rejected
+      user.company.documents[documentIndex].rejectionReason = null;
+    }
+    
+    console.log(`Document ${documentType} updated:`, {
+      status,
+      rejectionReason: user.company.documents[documentIndex].rejectionReason,
+      hasRejectionReason: !!user.company.documents[documentIndex].rejectionReason,
+    });
 
     // Check if all documents are approved and update overall verification status
     // Filter out documents with missing or invalid types
@@ -454,24 +739,32 @@ exports.updateCompanyDocumentVerification = async (req, res) => {
       documentStatuses: validDocuments.map((doc) => ({ type: doc.type, status: doc.status })),
     });
 
+    // Update company verification status based on document status
+    // Note: isVerified is for email verification, not document verification
     if (allDocumentsApproved && validDocuments.length > 0) {
       user.company.verificationStatus = "verified";
-      user.isVerified = true;
+      // Only set isVerified to true if email is already verified
+      // Don't change isVerified if email is not verified
     } else if (hasRejectedDocuments) {
       user.company.verificationStatus = "rejected";
-      user.isVerified = false;
+      // Don't change isVerified - it's for email verification only
     } else {
       // If some documents are still pending, keep verification as pending
       user.company.verificationStatus = "pending";
-      user.isVerified = false;
+      // Don't change isVerified - it's for email verification only
     }
 
     await user.save();
 
+    // Get the updated document to ensure all fields are included
+    const updatedDocument = user.company.documents[documentIndex].toObject 
+      ? user.company.documents[documentIndex].toObject() 
+      : { ...user.company.documents[documentIndex] };
+
     res.status(200).json({
       success: true,
       data: {
-        document: user.company.documents[documentIndex],
+        document: updatedDocument,
         verificationStatus: user.company.verificationStatus,
         isVerified: user.isVerified,
       },
@@ -524,15 +817,18 @@ exports.cleanupCompanyDocuments = async (req, res) => {
       documentStatuses: validDocuments.map((doc) => ({ type: doc.type, status: doc.status })),
     });
 
+    // Update company verification status based on document status
+    // Note: isVerified is for email verification, not document verification
     if (allDocumentsApproved && validDocuments.length > 0) {
       user.company.verificationStatus = "verified";
-      user.isVerified = true;
+      // Only set isVerified to true if email is already verified
+      // Don't change isVerified if email is not verified
     } else if (hasRejectedDocuments) {
       user.company.verificationStatus = "rejected";
-      user.isVerified = false;
+      // Don't change isVerified - it's for email verification only
     } else {
       user.company.verificationStatus = "pending";
-      user.isVerified = false;
+      // Don't change isVerified - it's for email verification only
     }
 
     await user.save();

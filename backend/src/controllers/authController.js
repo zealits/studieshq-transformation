@@ -67,6 +67,16 @@ exports.register = async (req, res) => {
     // Add company-specific data if userType is company
     if (userType === "company") {
       userData.companyType = companyType;
+      // Remove companySize if it's empty/null to make it truly optional
+      if (company) {
+        if (company.companySize === "" || company.companySize === null) {
+          delete company.companySize;
+        }
+        // Remove phone if it's undefined/null to avoid casting errors
+        if (company.phone === undefined || company.phone === null) {
+          delete company.phone;
+        }
+      }
       userData.company = company;
     }
 
@@ -518,10 +528,13 @@ exports.resendVerification = async (req, res) => {
   }
 
   try {
-    const user = await User.findOne({ email: req.body.email });
+    const user = await User.findOne({ email: req.body.email.toLowerCase().trim() });
 
     if (!user) {
-      return res.status(404).json({ success: false, error: "No user with that email" });
+      return res.status(404).json({ 
+        success: false, 
+        error: "This email address is not registered. Please check your email or register a new account." 
+      });
     }
 
     if (user.isVerified) {

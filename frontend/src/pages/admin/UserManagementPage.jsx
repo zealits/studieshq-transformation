@@ -35,6 +35,7 @@ const UserManagementPage = () => {
   });
   const [invitationStatistics, setInvitationStatistics] = useState([]);
   const [invitationPagination, setInvitationPagination] = useState({});
+  const [countryFields, setCountryFields] = useState(null);
 
   useEffect(() => {
     const params = {
@@ -76,15 +77,31 @@ const UserManagementPage = () => {
   }, [activeTab]);
 
   // Handle user selection for details/editing
-  const handleUserSelect = (user) => {
+  const handleUserSelect = async (user) => {
     setSelectedUser(user);
     setIsModalOpen(true);
+    
+    // Load country-specific fields if it's a company user
+    if (user.userType === "company" && user.company?.address?.countryCode) {
+      try {
+        const response = await api.get(`/api/company/country-fields/${user.company.address.countryCode}`);
+        if (response.data.success) {
+          setCountryFields(response.data.data);
+        }
+      } catch (error) {
+        console.error("Error loading country fields:", error);
+        setCountryFields(null);
+      }
+    } else {
+      setCountryFields(null);
+    }
   };
 
   // Close modal
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedUser(null);
+    setCountryFields(null);
   };
 
   // Handle search functionality
@@ -949,7 +966,7 @@ const UserManagementPage = () => {
               &#8203;
             </span>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full max-h-[90vh] overflow-y-auto">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
@@ -1118,6 +1135,35 @@ const UserManagementPage = () => {
                             </div>
                           )}
 
+                          {/* Country-Specific Business Information */}
+                          {selectedUser.company.countrySpecificFields &&
+                            Object.keys(selectedUser.company.countrySpecificFields).length > 0 && (
+                              <div className="mt-4 border-t pt-4">
+                                <h4 className="font-medium mb-3 text-gray-900">
+                                  {countryFields?.country || selectedUser.company.address?.country || "Country"}-Specific Business Information
+                                </h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                  {Object.entries(selectedUser.company.countrySpecificFields)
+                                    .filter(([key, value]) => value && value !== "") // Only show fields with values
+                                    .map(([key, value]) => {
+                                      // Find the field definition to get the label
+                                      const fieldDef = countryFields?.fields?.find((f) => f.name === key);
+                                      const label = fieldDef?.label || key.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase());
+                                      
+                                      return (
+                                        <div key={key} className="bg-gray-50 p-3 rounded-md">
+                                          <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                                          <p className="text-sm text-gray-900 font-medium">{value}</p>
+                                        </div>
+                                      );
+                                    })}
+                                </div>
+                                {Object.entries(selectedUser.company.countrySpecificFields).filter(([key, value]) => value && value !== "").length === 0 && (
+                                  <p className="text-sm text-gray-500 italic">No country-specific information provided</p>
+                                )}
+                              </div>
+                            )}
+
                           {/* Company Documents */}
                           {selectedUser.company.documents && selectedUser.company.documents.length > 0 && (
                             <div className="mt-4">
@@ -1160,7 +1206,12 @@ const UserManagementPage = () => {
                                         </span>
                                         {doc.url && (
                                           <button
-                                            onClick={() => window.open(doc.url, "_blank")}
+                                            onClick={() => {
+                                              const fullUrl = doc.url.startsWith("http")
+                                                ? doc.url
+                                                : `${import.meta.env.VITE_API_URL || "http://localhost:2001"}${doc.url}`;
+                                              window.open(fullUrl, "_blank");
+                                            }}
                                             className="text-blue-600 hover:text-blue-800 text-sm"
                                           >
                                             View Document
@@ -1168,6 +1219,31 @@ const UserManagementPage = () => {
                                         )}
                                       </div>
                                     </div>
+
+                                    {/* Display rejection reason if document is rejected */}
+                                    {doc.status === "rejected" && doc.rejectionReason && (
+                                      <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                                        <div className="flex items-start">
+                                          <svg
+                                            className="w-5 h-5 text-red-400 mt-0.5 mr-2 flex-shrink-0"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth="2"
+                                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                            />
+                                          </svg>
+                                          <div className="flex-1">
+                                            <p className="text-sm font-medium text-red-800 mb-1">Rejection Reason:</p>
+                                            <p className="text-sm text-red-700">{doc.rejectionReason}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
 
                                     {/* Action buttons for company documents */}
                                     {doc.status !== "approved" && doc.url && (

@@ -10,27 +10,7 @@ const resumeParserService = require("../services/resumeParserService");
 // Configure Cloudinary
 cloudinary.config(cloudinaryConfig);
 
-// Cloudinary storage for profile images
-const profileImageStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "profile_images",
-    allowed_formats: ["jpg", "jpeg", "png"],
-    resource_type: "image",
-  },
-});
-
-// Cloudinary storage for verification documents
-const verificationStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "verification_documents",
-    allowed_formats: ["jpg", "jpeg", "png", "pdf"],
-    resource_type: "auto",
-  },
-});
-
-// LOCAL STORAGE for milestone deliverables only
+// LOCAL STORAGE helper function
 const ensureDirectoryExists = (dirPath) => {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
@@ -41,11 +21,42 @@ const ensureDirectoryExists = (dirPath) => {
 const uploadsDir = path.join(__dirname, "../uploads");
 const milestoneDeliverablesDir = path.join(uploadsDir, "milestone-deliverables");
 const resumesDir = path.join(uploadsDir, "resumes");
+const companyVerificationDir = path.join(uploadsDir, "company-verification");
 
-// Ensure milestone deliverables directory exists
+// Ensure directories exist
 ensureDirectoryExists(uploadsDir);
 ensureDirectoryExists(milestoneDeliverablesDir);
 ensureDirectoryExists(resumesDir);
+ensureDirectoryExists(companyVerificationDir);
+
+// Cloudinary storage for profile images
+const profileImageStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "profile_images",
+    allowed_formats: ["jpg", "jpeg", "png"],
+    resource_type: "image",
+  },
+});
+
+// Local storage for company verification documents
+const companyVerificationStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // Create company-specific folder
+    const companyId = req.user?.id || "unknown";
+    const companyDir = path.join(companyVerificationDir, companyId.toString());
+    ensureDirectoryExists(companyDir);
+    cb(null, companyDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const fileExtension = path.extname(file.originalname);
+    const documentType = req.body.documentType || "document";
+    // Sanitize document type for filename
+    const sanitizedType = documentType.replace(/[^a-zA-Z0-9]/g, "_");
+    cb(null, `${sanitizedType}-${uniqueSuffix}${fileExtension}`);
+  },
+});
 
 // Local storage for milestone deliverables
 const milestoneStorage = multer.diskStorage({
@@ -88,9 +99,9 @@ const upload = multer({
   },
 });
 
-// Configure multer upload for verification documents (Cloudinary)
+// Configure multer upload for company verification documents (Local Storage)
 const verificationUpload = multer({
-  storage: verificationStorage,
+  storage: companyVerificationStorage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
@@ -202,7 +213,7 @@ const uploadProfileImage = async (req, res) => {
 };
 
 /**
- * @desc    Upload verification document (Cloudinary)
+ * @desc    Upload verification document (Local Storage)
  * @route   POST /api/upload/verification-document
  * @access  Private
  */
@@ -210,7 +221,6 @@ const uploadVerificationDocument = async (req, res) => {
   try {
     console.log("Upload verification document - req.file:", req.file);
     console.log("Upload verification document - req.body:", req.body);
-    console.log("Upload verification document - req.files:", req.files);
 
     if (!req.file) {
       console.log("No file found in req.file");
@@ -220,12 +230,78 @@ const uploadVerificationDocument = async (req, res) => {
       });
     }
 
-    // Return the Cloudinary URL and document details
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
+
+    // Check if user is a company
+    const user = await User.findById(req.user.id);
+    if (!user || user.userType !== "company") {
+      return res.status(400).json({
+        success: false,
+        message: "This endpoint is only available for company users",
+      });
+    }
+
+    const documentType = req.body.documentType;
+    const companyId = user._id.toString();
+    
+    // Check if document of this type already exists and delete old file
+    if (user.company && user.company.documents) {
+      const existingDoc = user.company.documents.find((doc) => doc.type === documentType);
+      if (existingDoc && existingDoc.url) {
+        let filename = null;
+        
+        // Extract filename from URL
+        // URL format: /api/upload/files/company-verification/:companyId/:filename
+        // or could be Cloudinary URL: https://res.cloudinary.com/...
+        if (existingDoc.url.includes("/company-verification/")) {
+          // Server-stored file
+          const urlParts = existingDoc.url.split("/");
+          const companyIndex = urlParts.findIndex((part) => part === "company-verification");
+          if (companyIndex >= 0 && urlParts[companyIndex + 2]) {
+            filename = urlParts[companyIndex + 2];
+          }
+        } else if (existingDoc.url.includes("cloudinary.com")) {
+          // Cloudinary URL - skip file deletion (Cloudinary handles it)
+          console.log("Skipping Cloudinary file deletion for replacement");
+        } else {
+          // Try to extract filename from end of URL
+          const urlParts = existingDoc.url.split("/");
+          filename = urlParts[urlParts.length - 1];
+        }
+        
+        // Delete old file if it exists and is server-stored
+        if (filename) {
+          const oldFilePath = path.join(companyVerificationDir, companyId, filename);
+          if (fs.existsSync(oldFilePath)) {
+            try {
+              fs.unlinkSync(oldFilePath);
+              console.log("Old document file deleted:", filename);
+            } catch (fileError) {
+              console.warn("Failed to delete old document file:", fileError.message);
+            }
+          }
+        }
+        
+        // Remove old document from array
+        user.company.documents = user.company.documents.filter((doc) => doc.type !== documentType);
+      }
+    }
+
+    // Create URL for the new file
+    const documentUrl = `/api/upload/files/company-verification/${companyId}/${req.file.filename}`;
+
+    // Return the document URL and details
     res.status(200).json({
       success: true,
       data: {
-        documentUrl: req.file.path,
-        documentType: req.body.documentType,
+        documentUrl: documentUrl,
+        documentType: documentType,
+        filename: req.file.filename,
       },
     });
   } catch (error) {
@@ -415,6 +491,43 @@ const serveResume = async (req, res) => {
 };
 
 /**
+ * @desc    Serve company verification documents (Local Storage only)
+ * @route   GET /api/upload/files/company-verification/:companyId/:filename
+ * @access  Private (files are protected by company ID)
+ */
+const serveCompanyVerificationDocument = async (req, res) => {
+  try {
+    const { companyId, filename } = req.params;
+
+    // Security check: Only allow company owner or admin to access
+    if (req.user) {
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        return res.status(401).json({ success: false, message: "Not authorized" });
+      }
+      
+      // Check if user is the company owner or admin
+      if (user._id.toString() !== companyId && user.role !== "admin") {
+        return res.status(403).json({ success: false, message: "Access denied" });
+      }
+    }
+
+    const filePath = path.join(companyVerificationDir, companyId, filename);
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: "File not found" });
+    }
+
+    // Serve the file
+    res.sendFile(filePath);
+  } catch (error) {
+    console.error("Error serving company verification document:", error);
+    res.status(500).json({ success: false, message: "Error serving document" });
+  }
+};
+
+/**
  * @desc    Delete resume (Local Storage) and remove from user profile
  * @route   DELETE /api/upload/resume
  * @access  Private
@@ -491,6 +604,7 @@ module.exports = {
   deleteResume,
   serveFile,
   serveResume,
+  serveCompanyVerificationDocument,
 };
 
 

@@ -12,13 +12,10 @@ const CompanyRouteGuard = ({ children, userType = "company" }) => {
   }
 
   // Check if profile is complete
+  // Only require businessName for company registration (industry and companySize are optional)
   const isProfileComplete = !!(
     user.company?.businessName &&
-    user.company.businessName.trim().length > 0 &&
-    user.company?.industry &&
-    user.company.industry.trim().length > 0 &&
-    user.company?.companySize &&
-    user.company.companySize.trim().length > 0
+    user.company.businessName.trim().length > 0
   );
 
   // For company users, check company verification status instead of individual documents

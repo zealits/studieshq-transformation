@@ -25,6 +25,20 @@ const upload = multer({
 });
 
 /**
+ * @route   GET /api/company/country-fields
+ * @desc    Get all available countries with business fields
+ * @access  Private
+ */
+router.get("/country-fields", auth, companyController.getAllCountryBusinessFields);
+
+/**
+ * @route   GET /api/company/country-fields/:countryCode
+ * @desc    Get country-specific business fields
+ * @access  Private
+ */
+router.get("/country-fields/:countryCode", auth, companyController.getCountryBusinessFields);
+
+/**
  * @route   GET /api/company/profile
  * @desc    Get company profile
  * @access  Private
@@ -73,6 +87,13 @@ router.post(
   ],
   companyController.uploadCompanyDocument
 );
+
+/**
+ * @route   DELETE /api/company/documents/:documentType
+ * @desc    Delete company document
+ * @access  Private
+ */
+router.delete("/documents/:documentType", auth, companyController.deleteCompanyDocument);
 
 /**
  * @route   GET /api/company/verification-status

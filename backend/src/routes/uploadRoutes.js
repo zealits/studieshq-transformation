@@ -13,6 +13,7 @@ const {
   deleteResume,
   serveFile,
   serveResume,
+  serveCompanyVerificationDocument,
 } = require("../controllers/uploadController");
 const resumeParserService = require("../services/resumeParserService");
 
@@ -22,7 +23,7 @@ const resumeParserService = require("../services/resumeParserService");
 router.post("/profile-image", auth, upload.single("image"), uploadProfileImage);
 
 // @route   POST /api/upload/verification-document
-// @desc    Upload verification document (Cloudinary)
+// @desc    Upload verification document (Local Storage)
 // @access  Private
 router.post(
   "/verification-document",
@@ -70,6 +71,11 @@ router.get("/files/milestone-deliverables/:filename", serveFile);
 // @desc    Serve resume files (Local Storage only)
 // @access  Public (files are protected by being stored with unique names)
 router.get("/files/resumes/:filename", serveResume);
+
+// @route   GET /api/upload/files/company-verification/:companyId/:filename
+// @desc    Serve company verification documents (Local Storage only)
+// @access  Private (files are protected by company ID)
+router.get("/files/company-verification/:companyId/:filename", auth, serveCompanyVerificationDocument);
 
 // @route   GET /api/upload/test-resume-parser
 // @desc    Test resume parser API connection
