@@ -168,7 +168,8 @@ const LoginPage = () => {
 
           <button
             type="submit"
-            className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark transition-colors"
+            className="w-full bg-white border border-[#FF017C] text-[#FF017C] py-2 px-4 rounded-full hover:bg-[#FF017C] hover:text-white transition-colors"
+            style={{ borderColor: "#FF017C" }}
             disabled={isLoading}
           >
             {isLoading ? "Signing In..." : "Sign In"}
@@ -178,7 +179,7 @@ const LoginPage = () => {
         <div className="mt-6 text-center">
           <p className="text-gray-600">
             Don't have an account?{" "}
-            <Link to="/register" className="text-primary hover:underline">
+            <Link to="/register" className="text-[#FF017C] hover:underline">
               Register
             </Link>
           </p>

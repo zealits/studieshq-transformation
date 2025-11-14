@@ -129,7 +129,8 @@ const RegisterPage = () => {
             <p className="text-gray-500 mb-8">If you don't see the email, please check your spam folder.</p>
             <Link
               to="/login"
-              className="inline-block bg-primary text-white py-2 px-6 rounded-md hover:bg-primary-dark transition-colors"
+              className="inline-block bg-white border border-[#FF017C] text-[#FF017C] py-2 px-6 rounded-full hover:bg-[#FF017C] hover:text-white transition-colors"
+              style={{ borderColor: "#FF017C" }}
             >
               Go to Login
             </Link>
@@ -373,7 +374,10 @@ const RegisterPage = () => {
 
           <button
             type="submit"
-            className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark transition-colors"
+            className="w-full text-white py-2 px-4 rounded-full transition-colors"
+            style={{
+              background: "linear-gradient(to right, #FF017C, #D67BFF)",
+            }}
             disabled={isLoading || !formData.agreeToTerms}
           >
             {isLoading ? "Creating Account..." : "Create Account"}
@@ -383,7 +387,7 @@ const RegisterPage = () => {
         <div className="mt-6 text-center">
           <p className="text-gray-600">
             Already have an account?{" "}
-            <Link to="/login" className="text-primary hover:underline">
+            <Link to="/login" className="text-[#FF017C] hover:underline">
               Sign In
             </Link>
           </p>

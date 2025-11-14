@@ -236,7 +236,10 @@ const InvitationRegisterPage = () => {
 
           <button
             type="submit"
-            className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full text-white py-2 px-4 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              background: "linear-gradient(to right, #FF017C, #D67BFF)",
+            }}
             disabled={submitting}
           >
             {submitting ? "Creating Account..." : "Join Team"}
@@ -246,7 +249,7 @@ const InvitationRegisterPage = () => {
         <div className="mt-6 text-center">
           <p className="text-gray-600 text-sm">
             Already have an account?{" "}
-            <Link to="/login" className="text-primary hover:underline">
+            <Link to="/login" className="text-[#FF017C] hover:underline">
               Sign In
             </Link>
           </p>
