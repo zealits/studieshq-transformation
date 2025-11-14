@@ -210,7 +210,7 @@ const CompanyProfilePage = () => {
         loadCountryFields(countryCode);
       }
 
-      // Load country-specific data if exists
+      // Load country-specific data if exists (will be filtered when countryFields loads)
       if (companyProfile.user?.company?.countrySpecificFields) {
         const countryData = {};
         Object.keys(companyProfile.user.company.countrySpecificFields).forEach((key) => {
@@ -243,7 +243,10 @@ const CompanyProfilePage = () => {
       dispatch(clearUpdateSuccess());
     }
     if (error) {
-      toast.error(error);
+      // Don't show verification-related errors
+      if (!error.includes("verification is complete") && !error.includes("cannot be changed")) {
+        toast.error(error);
+      }
       dispatch(clearError());
     }
   }, [updateSuccess, error, dispatch, isEditing, hasChanges]);
@@ -260,7 +263,9 @@ const CompanyProfilePage = () => {
   const handleTabChange = (tabId) => {
     // Clear all messages and toasts first
     dispatch(clearAllMessages());
+    dispatch(clearError());
     toast.dismiss();
+    toast.dismiss(); // Call twice to ensure all toasts are cleared
 
     // Then change the tab
     setActiveTab(tabId);
@@ -323,6 +328,28 @@ const CompanyProfilePage = () => {
     }
   }, [formData.company.address.countryCode]);
 
+  // Filter country-specific data to only include fields for current country
+  useEffect(() => {
+    if (countryFields?.fields && countryFields.fields.length > 0 && Object.keys(countrySpecificData).length > 0) {
+      const currentFieldNames = countryFields.fields.map(f => f.name);
+      const filteredData = {};
+      
+      Object.keys(countrySpecificData).forEach((key) => {
+        // Only keep fields that belong to the current country
+        if (currentFieldNames.includes(key)) {
+          filteredData[key] = countrySpecificData[key];
+        }
+      });
+      
+      // Only update if there are changes (to avoid infinite loops)
+      const currentKeys = Object.keys(countrySpecificData).sort().join(',');
+      const filteredKeys = Object.keys(filteredData).sort().join(',');
+      if (currentKeys !== filteredKeys) {
+        setCountrySpecificData(filteredData);
+      }
+    }
+  }, [countryFields]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setHasChanges(true);
@@ -355,11 +382,20 @@ const CompanyProfilePage = () => {
 
           // Clear dependent fields when country changes
           if (addressField === "country" || addressField === "countryCode") {
+            const oldCountryCode = prev.company.address?.countryCode;
+            const countryChanged = oldCountryCode && value && oldCountryCode !== value;
+            
             newAddress.state = "";
             newAddress.stateCode = "";
             newAddress.city = "";
             setAvailableStates([]);
             setAvailableCities([]);
+            
+            // If country changed, clear all country-specific data
+            if (countryChanged) {
+              setCountrySpecificData({});
+            }
+            
             // Load country-specific fields for new country
             if (value) {
               loadCountryFields(value);
@@ -367,6 +403,17 @@ const CompanyProfilePage = () => {
               setCountryFields(null);
               setCountrySpecificData({});
             }
+            
+            // Return updated form data with cleared documents if country changed
+            return {
+              ...prev,
+              company: {
+                ...prev.company,
+                address: newAddress,
+                // Clear documents when country changes
+                ...(countryChanged ? { documents: {} } : {}),
+              },
+            };
           }
 
           // Clear city when state changes
@@ -466,6 +513,12 @@ const CompanyProfilePage = () => {
     const file = e.target.files[0];
     if (!file) return;
 
+    // Check if company is verified - prevent document uploads silently
+    if (isCompanyVerified) {
+      e.target.value = ""; // Clear file input
+      return;
+    }
+
     // Validate file type
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
     if (!allowedTypes.includes(file.type)) {
@@ -553,7 +606,11 @@ const CompanyProfilePage = () => {
       }
     } catch (error) {
       console.error("Error uploading document:", error);
-      toast.error(error.response?.data?.error || "Failed to upload document. Please try again.");
+      // Don't show error if it's a verification-related error (user is verified)
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || "";
+      if (!errorMessage.includes("verification is complete") && !errorMessage.includes("cannot be changed")) {
+        toast.error(errorMessage || "Failed to upload document. Please try again.");
+      }
     } finally {
       setUploadingDocuments((prev) => ({ ...prev, [documentType]: false }));
       // Reset file input
@@ -677,6 +734,9 @@ const CompanyProfilePage = () => {
         return "Not Submitted";
     }
   };
+
+  // Check if company is verified - if so, disable country and document changes
+  const isCompanyVerified = user?.company?.verificationStatus === "verified";
 
   if (isLoading && !companyProfile) {
     return (
@@ -869,7 +929,7 @@ const CompanyProfilePage = () => {
                 name="company.address.countryCode"
                 value={formData.company.address.countryCode}
                 onChange={handleChange}
-                disabled={!isEditing}
+                disabled={!isEditing || isCompanyVerified}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
                 required
               >
@@ -885,9 +945,15 @@ const CompanyProfilePage = () => {
                     </option>
                   ))}
               </select>
-              <p className="text-xs text-gray-500 mt-1">
-                Please select your country to see country-specific business information fields
-              </p>
+              {isCompanyVerified ? (
+                <p className="text-xs text-yellow-600 mt-1">
+                  Country cannot be changed after verification is complete. Please contact support if you need to update this.
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">
+                  Please select your country to see country-specific business information fields
+                </p>
+              )}
             </div>
 
             {loadingCountryFields && (
@@ -1206,6 +1272,7 @@ const CompanyProfilePage = () => {
       case "verification":
         // Get unique document types from country fields
         const requiredDocuments = [];
+        const requiredDocumentTypes = new Set(); // Track which document types are required for current country
         if (countryFields && countryFields.fields) {
           countryFields.fields.forEach((field) => {
             if (field.documentType && field.documentLabel) {
@@ -1216,13 +1283,17 @@ const CompanyProfilePage = () => {
                   label: field.documentLabel,
                   fieldName: field.name,
                 });
+                requiredDocumentTypes.add(field.documentType);
               }
             }
           });
         }
 
-        // Get existing documents
-        const existingDocuments = companyProfile?.user?.company?.documents || [];
+        // Get existing documents - filter to only show documents required for current country
+        const allExistingDocuments = companyProfile?.user?.company?.documents || [];
+        const existingDocuments = allExistingDocuments.filter((doc) => 
+          requiredDocumentTypes.has(doc.type)
+        );
 
         return (
           <div className="space-y-6">
@@ -1273,14 +1344,16 @@ const CompanyProfilePage = () => {
                             type="file"
                             accept=".jpg,.jpeg,.png,.pdf"
                             onChange={(e) => handleDocumentSelect(e, documentKey)}
-                            disabled={uploadingDocuments[documentKey]}
+                            disabled={uploadingDocuments[documentKey] || isCompanyVerified}
                             className="hidden"
                             id={`${doc.type}-upload`}
                           />
                           <label
                             htmlFor={`${doc.type}-upload`}
-                            className={`cursor-pointer ${
-                              uploadingDocuments[documentKey] ? "cursor-not-allowed opacity-50" : "hover:opacity-80"
+                            className={`${
+                              uploadingDocuments[documentKey] || isCompanyVerified
+                                ? "cursor-not-allowed opacity-50"
+                                : "cursor-pointer hover:opacity-80"
                             }`}
                           >
                             {documentState.url ? (

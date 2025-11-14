@@ -82,14 +82,41 @@ const UserManagementPage = () => {
     setIsModalOpen(true);
     
     // Load country-specific fields if it's a company user
-    if (user.userType === "company" && user.company?.address?.countryCode) {
-      try {
-        const response = await api.get(`/api/company/country-fields/${user.company.address.countryCode}`);
-        if (response.data.success) {
-          setCountryFields(response.data.data);
+    if (user.userType === "company") {
+      const countryCode = user.company?.address?.countryCode;
+      // Also check if countrySpecificFields exist - if they do, we should load the field definitions
+      if (countryCode || (user.company?.countrySpecificFields && Object.keys(user.company.countrySpecificFields).length > 0)) {
+        try {
+          // Try to get country code from address, or try to infer from country name
+          let codeToUse = countryCode;
+          if (!codeToUse && user.company?.address?.country) {
+            // Try common country code mappings
+            const countryName = user.company.address.country.toLowerCase();
+            const countryCodeMap = {
+              'india': 'IN',
+              'united states': 'US',
+              'china': 'CN',
+              'germany': 'DE',
+              'united kingdom': 'GB',
+              'france': 'FR',
+              'canada': 'CA',
+              'australia': 'AU',
+              'united arab emirates': 'AE'
+            };
+            codeToUse = countryCodeMap[countryName];
+          }
+          
+          if (codeToUse) {
+            const response = await api.get(`/api/company/country-fields/${codeToUse}`);
+            if (response.data.success) {
+              setCountryFields(response.data.data);
+            }
+          }
+        } catch (error) {
+          console.error("Error loading country fields:", error);
+          setCountryFields(null);
         }
-      } catch (error) {
-        console.error("Error loading country fields:", error);
+      } else {
         setCountryFields(null);
       }
     } else {
@@ -1024,92 +1051,147 @@ const UserManagementPage = () => {
                       {/* Company Information Section */}
                       {selectedUser.userType === "company" && selectedUser.company && (
                         <div className="border-t pt-4 mt-4">
-                          <h4 className="font-medium mb-3">Company Information</h4>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
-                              <p className="text-sm text-gray-600">
-                                {selectedUser.company.businessName || "Not provided"}
-                              </p>
+                          <h4 className="font-medium mb-3 text-lg">Business Information</h4>
+                          
+                          {/* Basic Business Information */}
+                          <div className="mb-4">
+                            <h5 className="text-sm font-semibold text-gray-700 mb-2">Basic Information</h5>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Legal Business Name *</label>
+                                <p className="text-sm text-gray-900 font-medium">
+                                  {selectedUser.company.businessName || "Not provided"}
+                                </p>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Industry *</label>
+                                <p className="text-sm text-gray-900 font-medium">{selectedUser.company.industry || "Not provided"}</p>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                                <p className="text-sm text-gray-600">
+                                  {selectedUser.company.address?.country || 
+                                   (countryFields?.country) || 
+                                   "Not provided"}
+                                </p>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Company Type</label>
+                                <p className="text-sm text-gray-600 capitalize">
+                                  {selectedUser.companyType?.replace("_", " ") || "Not specified"}
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Company Type</label>
-                              <p className="text-sm text-gray-600 capitalize">
-                                {selectedUser.companyType?.replace("_", " ") || "Not specified"}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Registration Number
-                              </label>
-                              <p className="text-sm text-gray-600">
-                                {selectedUser.company.registrationNumber || "Not provided"}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Business Type</label>
-                              <p className="text-sm text-gray-600">
-                                {selectedUser.company.businessType || "Not provided"}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Industry</label>
-                              <p className="text-sm text-gray-600">{selectedUser.company.industry || "Not provided"}</p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Company Size</label>
-                              <p className="text-sm text-gray-600">
-                                {selectedUser.company.companySize || "Not provided"}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Tax ID</label>
-                              <p className="text-sm text-gray-600">{selectedUser.company.taxId || "Not provided"}</p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
-                              <p className="text-sm text-gray-600">
-                                {selectedUser.company.website ? (
-                                  <a
-                                    href={selectedUser.company.website}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:underline"
-                                  >
-                                    {selectedUser.company.website}
-                                  </a>
-                                ) : (
-                                  "Not provided"
-                                )}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                              <p className="text-sm text-gray-600">
-                                {selectedUser.company.phoneNumber || "Not provided"}
-                              </p>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Company Verification
-                              </label>
-                              <span
-                                className={`px-2 py-1 text-xs rounded-full ${
-                                  selectedUser.company.verificationStatus === "verified"
-                                    ? "bg-green-100 text-green-800"
-                                    : selectedUser.company.verificationStatus === "rejected"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-yellow-100 text-yellow-800"
-                                }`}
-                              >
-                                {selectedUser.company.verificationStatus || "pending"}
-                              </span>
+                          </div>
+
+                          {/* Country-Specific Business Information */}
+                          {selectedUser.company?.countrySpecificFields &&
+                            typeof selectedUser.company.countrySpecificFields === 'object' &&
+                            Object.keys(selectedUser.company.countrySpecificFields).length > 0 && (
+                              <div className="mt-4 border-t pt-4">
+                                <h5 className="text-sm font-semibold text-gray-700 mb-3">
+                                  {countryFields?.country || selectedUser.company.address?.country || "Country"} Specific Business Information
+                                </h5>
+                                <div className="grid grid-cols-2 gap-4">
+                                  {Object.entries(selectedUser.company.countrySpecificFields)
+                                    .filter(([key, value]) => {
+                                      // Only show fields with values
+                                      if (value === null || value === undefined || value === "") {
+                                        return false;
+                                      }
+                                      // Only show fields that belong to the current country
+                                      // If countryFields is loaded, only show fields defined for this country
+                                      if (countryFields?.fields && countryFields.fields.length > 0) {
+                                        const fieldDef = countryFields.fields.find((f) => f.name === key);
+                                        return !!fieldDef; // Only show if field is defined for current country
+                                      }
+                                      // If countryFields not loaded yet, show all fields (fallback)
+                                      return true;
+                                    })
+                                    .map(([key, value]) => {
+                                      // Find the field definition to get the label
+                                      const fieldDef = countryFields?.fields?.find((f) => f.name === key);
+                                      // Use proper label from field definition, or create a readable label from key
+                                      let label = fieldDef?.label;
+                                      if (!label) {
+                                        // Create readable label from key (e.g., "cin" -> "CIN", "gstin" -> "GSTIN", "businessType" -> "Business Type")
+                                        label = key
+                                          .replace(/([A-Z])/g, " $1")
+                                          .replace(/^./, (str) => str.toUpperCase())
+                                          .replace(/cin/gi, "CIN")
+                                          .replace(/gstin/gi, "GSTIN")
+                                          .replace(/pan/gi, "PAN")
+                                          .replace(/businessType/gi, "Business Type")
+                                          .replace(/ein/gi, "EIN")
+                                          .replace(/stateOfIncorporation/gi, "State of Incorporation");
+                                      }
+                                      
+                                      return (
+                                        <div key={key}>
+                                          <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                                          <p className="text-sm text-gray-900 font-medium">{String(value)}</p>
+                                        </div>
+                                      );
+                                    })}
+                                </div>
+                              </div>
+                            )}
+
+                          {/* Additional Company Information */}
+                          <div className="mt-4 border-t pt-4">
+                            <h5 className="text-sm font-semibold text-gray-700 mb-2">Additional Information</h5>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Company Size</label>
+                                <p className="text-sm text-gray-600">
+                                  {selectedUser.company.companySize || "Not provided"}
+                                </p>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
+                                <p className="text-sm text-gray-600">
+                                  {selectedUser.company.website ? (
+                                    <a
+                                      href={selectedUser.company.website}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 hover:underline"
+                                    >
+                                      {selectedUser.company.website}
+                                    </a>
+                                  ) : (
+                                    "Not provided"
+                                  )}
+                                </p>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                                <p className="text-sm text-gray-600">
+                                  {selectedUser.company.phoneNumber || "Not provided"}
+                                </p>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Company Verification
+                                </label>
+                                <span
+                                  className={`px-2 py-1 text-xs rounded-full ${
+                                    selectedUser.company.verificationStatus === "verified"
+                                      ? "bg-green-100 text-green-800"
+                                      : selectedUser.company.verificationStatus === "rejected"
+                                      ? "bg-red-100 text-red-800"
+                                      : "bg-yellow-100 text-yellow-800"
+                                  }`}
+                                >
+                                  {selectedUser.company.verificationStatus || "pending"}
+                                </span>
+                              </div>
                             </div>
                           </div>
 
                           {/* Company Address */}
                           {selectedUser.company.address && (
-                            <div className="mt-4">
+                            <div className="mt-4 border-t pt-4">
                               <label className="block text-sm font-medium text-gray-700 mb-1">Business Address</label>
                               <div className="text-sm text-gray-600">
                                 {[
@@ -1127,42 +1209,13 @@ const UserManagementPage = () => {
 
                           {/* Company Description */}
                           {selectedUser.company.description && (
-                            <div className="mt-4">
+                            <div className="mt-4 border-t pt-4">
                               <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Company Description
                               </label>
                               <p className="text-sm text-gray-600">{selectedUser.company.description}</p>
                             </div>
                           )}
-
-                          {/* Country-Specific Business Information */}
-                          {selectedUser.company.countrySpecificFields &&
-                            Object.keys(selectedUser.company.countrySpecificFields).length > 0 && (
-                              <div className="mt-4 border-t pt-4">
-                                <h4 className="font-medium mb-3 text-gray-900">
-                                  {countryFields?.country || selectedUser.company.address?.country || "Country"}-Specific Business Information
-                                </h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                  {Object.entries(selectedUser.company.countrySpecificFields)
-                                    .filter(([key, value]) => value && value !== "") // Only show fields with values
-                                    .map(([key, value]) => {
-                                      // Find the field definition to get the label
-                                      const fieldDef = countryFields?.fields?.find((f) => f.name === key);
-                                      const label = fieldDef?.label || key.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase());
-                                      
-                                      return (
-                                        <div key={key} className="bg-gray-50 p-3 rounded-md">
-                                          <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-                                          <p className="text-sm text-gray-900 font-medium">{value}</p>
-                                        </div>
-                                      );
-                                    })}
-                                </div>
-                                {Object.entries(selectedUser.company.countrySpecificFields).filter(([key, value]) => value && value !== "").length === 0 && (
-                                  <p className="text-sm text-gray-500 italic">No country-specific information provided</p>
-                                )}
-                              </div>
-                            )}
 
                           {/* Company Documents */}
                           {selectedUser.company.documents && selectedUser.company.documents.length > 0 && (

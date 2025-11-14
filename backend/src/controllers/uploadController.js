@@ -246,6 +246,14 @@ const uploadVerificationDocument = async (req, res) => {
       });
     }
 
+    // Check if company is verified - prevent document uploads after verification
+    if (user.company?.verificationStatus === "verified") {
+      return res.status(400).json({
+        success: false,
+        message: "Documents cannot be changed after verification is complete. Please contact support if you need to update documents.",
+      });
+    }
+
     const documentType = req.body.documentType;
     const companyId = user._id.toString();
     

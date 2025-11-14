@@ -155,7 +155,29 @@ exports.updateCompanyProfile = async (req, res) => {
       });
     }
 
+    // Check if company is verified - prevent country and document changes
+    const isVerified = user.company?.verificationStatus === "verified";
     const { name, company } = req.body;
+    
+    // If verified, prevent country changes
+    if (isVerified && company?.address?.countryCode) {
+      const oldCountryCode = user.company.address?.countryCode;
+      const newCountryCode = company.address.countryCode;
+      if (oldCountryCode && newCountryCode && oldCountryCode !== newCountryCode) {
+        return res.status(400).json({
+          success: false,
+          error: "Country cannot be changed after verification is complete. Please contact support if you need to update this.",
+        });
+      }
+    }
+    
+    // If verified, prevent document changes
+    if (isVerified && company?.documents) {
+      return res.status(400).json({
+        success: false,
+        error: "Documents cannot be changed after verification is complete. Please contact support if you need to update documents.",
+      });
+    }
 
     // Update basic user info
     if (name) user.name = name;
@@ -224,14 +246,39 @@ exports.updateCompanyProfile = async (req, res) => {
       }
 
       // Handle country-specific fields
+      // Check if country changed - if so, clear old country-specific fields and documents
+      const oldCountryCode = user.company.address?.countryCode;
+      const newCountryCode = otherCompanyData.address?.countryCode;
+      const countryChanged = newCountryCode && oldCountryCode && newCountryCode !== oldCountryCode;
+      
+      if (countryChanged) {
+        // Country changed - clear all old country-specific fields
+        user.company.countrySpecificFields = new Map();
+        
+        // Clear old documents that don't belong to the new country
+        // We'll keep documents that might be valid for both countries, but remove country-specific ones
+        // The frontend will determine which documents are required for the new country
+        user.company.documents = [];
+      }
+      
       if (countrySpecificFields && Object.keys(countrySpecificFields).length > 0) {
         // Convert countrySpecificFields object to Map format for MongoDB
         if (!user.company.countrySpecificFields) {
           user.company.countrySpecificFields = new Map();
         }
+        // Only set the fields that are provided (for the new country)
         Object.keys(countrySpecificFields).forEach((key) => {
-          user.company.countrySpecificFields.set(key, countrySpecificFields[key]);
+          // Only set if value is not empty
+          if (countrySpecificFields[key] !== null && countrySpecificFields[key] !== undefined && countrySpecificFields[key] !== "") {
+            user.company.countrySpecificFields.set(key, countrySpecificFields[key]);
+          } else {
+            // Remove field if value is empty
+            user.company.countrySpecificFields.delete(key);
+          }
         });
+      } else if (countryChanged) {
+        // Country changed but no new fields provided - ensure Map is empty
+        user.company.countrySpecificFields = new Map();
       }
 
       // Handle document updates
@@ -382,6 +429,14 @@ exports.uploadCompanyDocument = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: "This endpoint is only available for company users",
+      });
+    }
+
+    // Check if company is verified - prevent document uploads after verification
+    if (user.company?.verificationStatus === "verified") {
+      return res.status(400).json({
+        success: false,
+        error: "Documents cannot be changed after verification is complete. Please contact support if you need to update documents.",
       });
     }
 

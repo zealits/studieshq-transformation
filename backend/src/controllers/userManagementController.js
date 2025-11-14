@@ -35,8 +35,35 @@ exports.getAllUsers = async (req, res) => {
     const usersWithProfiles = await Promise.all(
       users.map(async (user) => {
         const profile = await Profile.findOne({ user: user._id });
+        const userObject = user.toObject();
+        
+        // Convert countrySpecificFields Map to plain object for JSON serialization
+        // Mongoose Maps need special handling - access directly from the document
+        if (user.company && user.company.countrySpecificFields) {
+          const countrySpecificFields = user.company.countrySpecificFields;
+          
+          // Convert Map to plain object
+          if (countrySpecificFields instanceof Map) {
+            userObject.company.countrySpecificFields = Object.fromEntries(countrySpecificFields);
+          } else if (countrySpecificFields && typeof countrySpecificFields === 'object') {
+            // Already converted or is an object - ensure it's a plain object
+            try {
+              userObject.company.countrySpecificFields = JSON.parse(JSON.stringify(countrySpecificFields));
+            } catch (e) {
+              // If JSON parsing fails, try direct conversion
+              userObject.company.countrySpecificFields = { ...countrySpecificFields };
+            }
+          }
+        } else if (userObject.company && userObject.company.countrySpecificFields) {
+          // Fallback: if it exists in userObject but wasn't converted properly
+          const fields = userObject.company.countrySpecificFields;
+          if (fields instanceof Map) {
+            userObject.company.countrySpecificFields = Object.fromEntries(fields);
+          }
+        }
+        
         return {
-          ...user.toObject(),
+          ...userObject,
           profile: profile || {},
           verificationDocuments: profile?.verificationDocuments || {
             addressProof: { status: "pending" },
