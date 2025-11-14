@@ -430,7 +430,7 @@ const UserManagementPage = () => {
       case "freelancer":
         return <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Freelancer</span>;
       case "client":
-        return <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">Client</span>;
+        return <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">Project Sponsor</span>;
       case "admin":
         return <span className="px-2 py-1 text-xs rounded-full bg-gray-900 text-white">Admin</span>;
       case "freelancer_company":
@@ -560,7 +560,7 @@ const UserManagementPage = () => {
           }`}
           onClick={() => setActiveTab("client")}
         >
-          Clients
+          Project Sponsors
         </button>
         <button
           className={`pb-2 px-4 font-medium whitespace-nowrap ${

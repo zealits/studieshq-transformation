@@ -554,7 +554,7 @@ const DashboardLayout = ({ role }) => {
                   if (role === "freelancer" && companyName) {
                     return `Freelancer (${companyName})`;
                   }
-                  return role;
+                  return role === "client" ? "Project Sponsor" : role;
                 })()}
           </p>
         </div>
@@ -741,7 +741,7 @@ const DashboardLayout = ({ role }) => {
                   ? user?.companyType === "freelancer_company"
                     ? "Freelancer Company Dashboard"
                     : "Project Sponsor Organization Dashboard"
-                  : `${role} Dashboard`}
+                  : role === "client" ? "Project Sponsor Dashboard" : `${role} Dashboard`}
               </h1>
             </div>
           </div>

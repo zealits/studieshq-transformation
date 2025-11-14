@@ -585,15 +585,6 @@ const ProfilePage = () => {
               Basic Information
             </button>
           </li>
-          <li className="mr-2" onClick={() => setActiveTab("company")}>
-            <button
-              className={`inline-block p-4 ${
-                activeTab === "company" ? "border-b-2 border-primary text-primary" : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Company Details
-            </button>
-          </li>
           <li className="mr-2" onClick={() => setActiveTab("verification")}>
             <button
               className={`inline-block p-4 ${
@@ -960,106 +951,6 @@ const ProfilePage = () => {
                     className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Company Details Tab */}
-        {activeTab === "company" && (
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-gray-700 mb-2" htmlFor="companyName">
-                  Company Name
-                </label>
-                <input
-                  type="text"
-                  id="companyName"
-                  name="companyName"
-                  value={formData.companyName}
-                  onChange={handleChange}
-                  disabled={!isEditing}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-700 mb-2" htmlFor="companyWebsite">
-                  Company Website
-                </label>
-                <input
-                  type="url"
-                  id="companyWebsite"
-                  name="companyWebsite"
-                  value={formData.companyWebsite}
-                  onChange={handleChange}
-                  disabled={!isEditing}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-700 mb-2" htmlFor="industry">
-                  Industry
-                </label>
-                <select
-                  id="industry"
-                  name="industry"
-                  value={formData.industry}
-                  onChange={handleChange}
-                  disabled={!isEditing}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="Technology">Technology</option>
-                  <option value="Healthcare">Healthcare</option>
-                  <option value="Education">Education</option>
-                  <option value="Finance">Finance</option>
-                  <option value="Retail">Retail</option>
-                  <option value="Manufacturing">Manufacturing</option>
-                  <option value="Marketing">Marketing</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-gray-700 mb-2" htmlFor="companySize">
-                  Company Size
-                </label>
-                <select
-                  id="companySize"
-                  name="companySize"
-                  value={formData.companySize}
-                  onChange={handleChange}
-                  disabled={!isEditing}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">Select company size</option>
-                  <option value="1-10">1-10 employees</option>
-                  <option value="11-50">11-50 employees</option>
-                  <option value="50-100">50-100 employees</option>
-                  <option value="101-500">101-500 employees</option>
-                  <option value="500+">500+ employees</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-gray-700 mb-2" htmlFor="itinEin">
-                  ITIN/EIN Number
-                </label>
-                <input
-                  type="text"
-                  id="itinEin"
-                  name="itinEin"
-                  value={formData.itinEin}
-                  onChange={handleChange}
-                  disabled={!isEditing}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Enter your ITIN or EIN number"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Individual Taxpayer Identification Number (ITIN) or Employer Identification Number (EIN)
-                </p>
               </div>
             </div>
           </div>

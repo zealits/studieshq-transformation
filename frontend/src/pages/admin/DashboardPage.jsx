@@ -188,7 +188,7 @@ const DashboardPage = () => {
           </div>
           <p className="text-2xl font-bold text-gray-800">{enhancedStats.totalUsers}</p>
           <p className="text-xs text-gray-500 mt-1">
-            {enhancedStats.clientCount} clients, {enhancedStats.freelancerCount} freelancers
+            {enhancedStats.clientCount} project sponsors, {enhancedStats.freelancerCount} freelancers
           </p>
         </div>
       </div>
@@ -396,7 +396,7 @@ const DashboardPage = () => {
                             : "bg-gray-100 text-gray-800"
                         }`}
                       >
-                        {user.role}
+                        {user.role === "client" ? "Project Sponsor" : user.role}
                       </span>
                     </td>
                     <td className="py-3 text-sm font-medium">{formatCurrency(user.wallet?.balance || 0)}</td>

@@ -298,7 +298,7 @@ const RegisterPage = () => {
                     onChange={handleChange}
                     className="mr-2"
                   />
-                  Client
+                  Project Sponsor
                 </label>
               </div>
             </div>
