@@ -301,7 +301,7 @@ const uploadVerificationDocument = async (req, res) => {
     }
 
     // Create URL for the new file
-    const documentUrl = `/api/upload/files/company-verification/${companyId}/${req.file.filename}`;
+    const documentUrl = `api/upload/files/company-verification/${companyId}/${req.file.filename}`;
 
     // Return the document URL and details
     res.status(200).json({
