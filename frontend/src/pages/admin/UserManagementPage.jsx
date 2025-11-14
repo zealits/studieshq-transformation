@@ -1148,6 +1148,12 @@ const UserManagementPage = () => {
                                 </p>
                               </div>
                               <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Founded Year</label>
+                                <p className="text-sm text-gray-600">
+                                  {selectedUser.company.foundedYear || "Not provided"}
+                                </p>
+                              </div>
+                              <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
                                 <p className="text-sm text-gray-600">
                                   {selectedUser.company.website ? (
@@ -1195,11 +1201,12 @@ const UserManagementPage = () => {
                               <label className="block text-sm font-medium text-gray-700 mb-1">Business Address</label>
                               <div className="text-sm text-gray-600">
                                 {[
-                                  selectedUser.company.address.street,
+                                  selectedUser.company.address.line1 || selectedUser.company.address.street,
+                                  selectedUser.company.address.line2,
                                   selectedUser.company.address.city,
                                   selectedUser.company.address.state,
                                   selectedUser.company.address.country,
-                                  selectedUser.company.address.zipCode,
+                                  selectedUser.company.address.postalCode || selectedUser.company.address.zipCode,
                                 ]
                                   .filter(Boolean)
                                   .join(", ") || "Not provided"}

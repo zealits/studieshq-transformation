@@ -274,8 +274,17 @@ const UserSchema = new Schema(
       industry: {
         type: String,
       },
+      foundedYear: {
+        type: Number,
+      },
       address: {
         street: {
+          type: String,
+        },
+        line1: {
+          type: String,
+        },
+        line2: {
           type: String,
         },
         city: {
@@ -288,6 +297,9 @@ const UserSchema = new Schema(
           type: String,
         },
         zipCode: {
+          type: String,
+        },
+        postalCode: {
           type: String,
         },
       },
@@ -336,18 +348,18 @@ const UserSchema = new Schema(
         required: false,
         default: undefined,
         validate: {
-          validator: function(v) {
+          validator: function (v) {
             // Allow undefined, null, or valid phone object
             if (v === undefined || v === null) {
               return true;
             }
-            if (typeof v === 'object' && v !== null) {
+            if (typeof v === "object" && v !== null) {
               // Validate phone object structure
               return true; // Accept any object structure
             }
             return false;
           },
-          message: 'Phone must be an object or undefined/null'
+          message: "Phone must be an object or undefined/null",
         },
       },
       companySize: {
@@ -421,27 +433,27 @@ const UserSchema = new Schema(
 // Update the updatedAt field before saving
 UserSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
-  
+
   // Remove companySize if it's empty/null to avoid validation errors
   // This ensures the field is truly optional
   if (this.company && (this.company.companySize === "" || this.company.companySize === null)) {
     delete this.company.companySize;
   }
-  
+
   // Handle phone field - ensure it's never undefined (which causes casting errors)
   // If phone is undefined/null or empty, delete it completely
   if (this.company) {
     // Check if phone is undefined, null, or an empty/invalid object
     if (
-      this.company.phone === undefined || 
+      this.company.phone === undefined ||
       this.company.phone === null ||
-      (typeof this.company.phone === 'object' && 
-       this.company.phone !== null && 
-       Object.keys(this.company.phone).length === 0)
+      (typeof this.company.phone === "object" &&
+        this.company.phone !== null &&
+        Object.keys(this.company.phone).length === 0)
     ) {
       // Delete the phone field completely to avoid casting errors
       delete this.company.phone;
-    } else if (typeof this.company.phone === 'object' && this.company.phone !== null) {
+    } else if (typeof this.company.phone === "object" && this.company.phone !== null) {
       // Ensure phone object has required structure if it exists
       if (!this.company.phone.countryCode) {
         this.company.phone.countryCode = "+91";
@@ -451,7 +463,7 @@ UserSchema.pre("save", function (next) {
       }
     }
   }
-  
+
   next();
 });
 
