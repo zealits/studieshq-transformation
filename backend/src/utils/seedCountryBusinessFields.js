@@ -7,8 +7,7 @@ dotenv.config();
 // Connect to MongoDB
 const connectDB = async () => {
   try {
-    const mongoUri =
-      "mongodb+srv://latakhillare:LtmZBL4ZiJiZ3hs0@cluster0.impfvlk.mongodb.net/studieshqtransformationfeatures?retryWrites=true&w=majority";
+    const mongoUri = process.env.MONGODB_URI;
     console.log(`🔌 Connecting to MongoDB: ${mongoUri.replace(/\/\/.*@/, "//***:***@")}`); // Hide credentials
 
     await mongoose.connect(mongoUri, {
