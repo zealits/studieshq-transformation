@@ -284,14 +284,6 @@ function App() {
             }
           />
           <Route
-            path="invitations"
-            element={
-              <CompanyRouteGuard>
-                <FreelancerInvitations />
-              </CompanyRouteGuard>
-            }
-          />
-          <Route
             path="projects"
             element={
               <CompanyRouteGuard>

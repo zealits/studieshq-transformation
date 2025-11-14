@@ -14,11 +14,14 @@ module.exports = function (roles) {
       return res.status(401).json({ success: false, message: "Authorization required" });
     }
 
+    // Ensure roles is an array
+    const allowedRoles = Array.isArray(roles) ? roles : [roles];
+
     // Check if user role is included in the allowed roles
-    if (!roles.includes(req.user.role)) {
+    if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: `Access denied: ${roles.join(" or ")} role required`,
+        message: `Access denied: ${allowedRoles.join(" or ")} role required`,
       });
     }
 

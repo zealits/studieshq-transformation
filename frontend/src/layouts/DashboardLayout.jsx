@@ -73,7 +73,6 @@ const DashboardLayout = ({ role }) => {
             links: [
               { path: "/company/freelancer", label: "Dashboard", icon: "home" },
               { path: "/company/freelancer/find-jobs", label: "Find Projects", icon: "search", locked: !isVerified },
-              { path: "/company/freelancer/invitations", label: "Invitations", icon: "mail", locked: !isVerified },
               { path: "/company/freelancer/projects", label: "My Projects", icon: "folder", locked: !isVerified },
               { path: "/company/freelancer/payments", label: "Payments", icon: "dollar", locked: !isVerified },
             ],

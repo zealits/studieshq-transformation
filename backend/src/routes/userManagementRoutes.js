@@ -9,13 +9,13 @@ const userManagementController = require("../controllers/userManagementControlle
  * @desc    Get all users with pagination and filters
  * @access  Private/Admin
  */
-router.get("/", auth, checkRole("admin"), userManagementController.getAllUsers);
+router.get("/", auth, checkRole(["admin"]), userManagementController.getAllUsers);
 
 /**
  * @route   PUT /api/admin/users/:userId/verify
  * @desc    Update user verification status
  * @access  Private/Admin
  */
-router.put("/:userId/verify", auth, checkRole("admin"), userManagementController.updateUserVerification);
+router.put("/:userId/verify", auth, checkRole(["admin"]), userManagementController.updateUserVerification);
 
 module.exports = router;
