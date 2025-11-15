@@ -22,12 +22,14 @@ const uploadsDir = path.join(__dirname, "../uploads");
 const milestoneDeliverablesDir = path.join(uploadsDir, "milestone-deliverables");
 const resumesDir = path.join(uploadsDir, "resumes");
 const companyVerificationDir = path.join(uploadsDir, "company-verification");
+const individualVerificationDir = path.join(uploadsDir, "individual-verification");
 
 // Ensure directories exist
 ensureDirectoryExists(uploadsDir);
 ensureDirectoryExists(milestoneDeliverablesDir);
 ensureDirectoryExists(resumesDir);
 ensureDirectoryExists(companyVerificationDir);
+ensureDirectoryExists(individualVerificationDir);
 
 // Cloudinary storage for profile images
 const profileImageStorage = new CloudinaryStorage({
@@ -39,14 +41,17 @@ const profileImageStorage = new CloudinaryStorage({
   },
 });
 
-// Local storage for company verification documents
-const companyVerificationStorage = multer.diskStorage({
+// Local storage for verification documents (both company and individual users)
+// Note: We'll determine the exact directory in the controller after checking user type
+// For now, store in a unified structure and handle paths in the controller
+const verificationStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    // Create company-specific folder
-    const companyId = req.user?.id || "unknown";
-    const companyDir = path.join(companyVerificationDir, companyId.toString());
-    ensureDirectoryExists(companyDir);
-    cb(null, companyDir);
+    const userId = req.user?.id || "unknown";
+    // Store in a temporary unified location first
+    // The controller will handle moving/using the correct path based on user type
+    const tempDir = path.join(uploadsDir, "verification-temp", userId.toString());
+    ensureDirectoryExists(tempDir);
+    cb(null, tempDir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
@@ -99,9 +104,9 @@ const upload = multer({
   },
 });
 
-// Configure multer upload for company verification documents (Local Storage)
+// Configure multer upload for verification documents (Local Storage) - supports both company and individual users
 const verificationUpload = multer({
-  storage: companyVerificationStorage,
+  storage: verificationStorage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
@@ -216,6 +221,7 @@ const uploadProfileImage = async (req, res) => {
  * @desc    Upload verification document (Local Storage)
  * @route   POST /api/upload/verification-document
  * @access  Private
+ * Supports both company users and individual users (clients/freelancers)
  */
 const uploadVerificationDocument = async (req, res) => {
   try {
@@ -237,83 +243,206 @@ const uploadVerificationDocument = async (req, res) => {
       });
     }
 
-    // Check if user is a company
+    // Fetch user to check type
     const user = await User.findById(req.user.id);
-    if (!user || user.userType !== "company") {
-      return res.status(400).json({
+    if (!user) {
+      return res.status(404).json({
         success: false,
-        message: "This endpoint is only available for company users",
-      });
-    }
-
-    // Check if company is verified - prevent document uploads after verification
-    if (user.company?.verificationStatus === "verified") {
-      return res.status(400).json({
-        success: false,
-        message: "Documents cannot be changed after verification is complete. Please contact support if you need to update documents.",
+        message: "User not found",
       });
     }
 
     const documentType = req.body.documentType;
-    const companyId = user._id.toString();
+    const userId = user._id.toString();
+    const filename = req.file.filename;
     
-    // Check if document of this type already exists and delete old file
-    if (user.company && user.company.documents) {
-      const existingDoc = user.company.documents.find((doc) => doc.type === documentType);
-      if (existingDoc && existingDoc.url) {
-        let filename = null;
+    // Handle company users
+    if (user.userType === "company") {
+      // Check if company is verified - prevent document uploads after verification
+      if (user.company?.verificationStatus === "verified") {
+        // Delete the uploaded file since we're rejecting the request
+        const tempFilePath = req.file.path;
+        if (fs.existsSync(tempFilePath)) {
+          try {
+            fs.unlinkSync(tempFilePath);
+          } catch (fileError) {
+            console.warn("Failed to delete temp file:", fileError.message);
+          }
+        }
+        
+        return res.status(400).json({
+          success: false,
+          message: "Documents cannot be changed after verification is complete. Please contact support if you need to update documents.",
+        });
+      }
+
+      // Move file from temp location to company verification directory
+      const targetDir = path.join(companyVerificationDir, userId);
+      ensureDirectoryExists(targetDir);
+      const targetPath = path.join(targetDir, filename);
+      const tempFilePath = req.file.path;
+      
+      // Move file to final location
+      if (fs.existsSync(tempFilePath)) {
+        fs.renameSync(tempFilePath, targetPath);
+      }
+      
+      // Check if document of this type already exists and delete old file
+      if (user.company && user.company.documents) {
+        const existingDoc = user.company.documents.find((doc) => doc.type === documentType);
+        if (existingDoc && existingDoc.url) {
+          let oldFilename = null;
+          
+          // Extract filename from URL
+          if (existingDoc.url.includes("/company-verification/")) {
+            const urlParts = existingDoc.url.split("/");
+            const companyIndex = urlParts.findIndex((part) => part === "company-verification");
+            if (companyIndex >= 0 && urlParts[companyIndex + 2]) {
+              oldFilename = urlParts[companyIndex + 2];
+            }
+          } else if (existingDoc.url.includes("cloudinary.com")) {
+            console.log("Skipping Cloudinary file deletion for replacement");
+          } else {
+            const urlParts = existingDoc.url.split("/");
+            oldFilename = urlParts[urlParts.length - 1];
+          }
+          
+          // Delete old file if it exists and is server-stored
+          if (oldFilename) {
+            const oldFilePath = path.join(companyVerificationDir, userId, oldFilename);
+            if (fs.existsSync(oldFilePath)) {
+              try {
+                fs.unlinkSync(oldFilePath);
+                console.log("Old document file deleted:", oldFilename);
+              } catch (fileError) {
+                console.warn("Failed to delete old document file:", fileError.message);
+              }
+            }
+          }
+          
+          // Remove old document from array
+          user.company.documents = user.company.documents.filter((doc) => doc.type !== documentType);
+        }
+      }
+
+      // Create URL for the new file
+      const documentUrl = `api/upload/files/company-verification/${userId}/${filename}`;
+
+      // Return the document URL and details
+      return res.status(200).json({
+        success: true,
+        data: {
+          documentUrl: documentUrl,
+          documentType: documentType,
+          filename: filename,
+        },
+      });
+    }
+    
+    // Handle individual users (clients/freelancers)
+    if (user.userType === "individual") {
+      // Validate document type for individual users
+      if (documentType !== "addressProof" && documentType !== "identityProof") {
+        // Delete the uploaded file since we're rejecting the request
+        const tempFilePath = req.file.path;
+        if (fs.existsSync(tempFilePath)) {
+          try {
+            fs.unlinkSync(tempFilePath);
+          } catch (fileError) {
+            console.warn("Failed to delete temp file:", fileError.message);
+          }
+        }
+        
+        return res.status(400).json({
+          success: false,
+          message: "Invalid document type for individual users. Must be 'addressProof' or 'identityProof'",
+        });
+      }
+
+      // Move file from temp location to individual verification directory
+      const targetDir = path.join(individualVerificationDir, userId);
+      ensureDirectoryExists(targetDir);
+      const targetPath = path.join(targetDir, filename);
+      const tempFilePath = req.file.path;
+      
+      // Move file to final location
+      if (fs.existsSync(tempFilePath)) {
+        fs.renameSync(tempFilePath, targetPath);
+      }
+      
+      // Check if document of this type already exists and delete old file
+      if (user.verificationDocuments && user.verificationDocuments[documentType] && user.verificationDocuments[documentType].documentUrl) {
+        const oldUrl = user.verificationDocuments[documentType].documentUrl;
+        let oldFilename = null;
         
         // Extract filename from URL
-        // URL format: /api/upload/files/company-verification/:companyId/:filename
-        // or could be Cloudinary URL: https://res.cloudinary.com/...
-        if (existingDoc.url.includes("/company-verification/")) {
-          // Server-stored file
-          const urlParts = existingDoc.url.split("/");
-          const companyIndex = urlParts.findIndex((part) => part === "company-verification");
-          if (companyIndex >= 0 && urlParts[companyIndex + 2]) {
-            filename = urlParts[companyIndex + 2];
+        if (oldUrl.includes("/individual-verification/")) {
+          const urlParts = oldUrl.split("/");
+          const individualIndex = urlParts.findIndex((part) => part === "individual-verification");
+          if (individualIndex >= 0 && urlParts[individualIndex + 2]) {
+            oldFilename = urlParts[individualIndex + 2];
           }
-        } else if (existingDoc.url.includes("cloudinary.com")) {
-          // Cloudinary URL - skip file deletion (Cloudinary handles it)
+        } else if (oldUrl.includes("cloudinary.com")) {
           console.log("Skipping Cloudinary file deletion for replacement");
         } else {
-          // Try to extract filename from end of URL
-          const urlParts = existingDoc.url.split("/");
-          filename = urlParts[urlParts.length - 1];
+          const urlParts = oldUrl.split("/");
+          oldFilename = urlParts[urlParts.length - 1];
         }
         
         // Delete old file if it exists and is server-stored
-        if (filename) {
-          const oldFilePath = path.join(companyVerificationDir, companyId, filename);
+        if (oldFilename) {
+          const oldFilePath = path.join(individualVerificationDir, userId, oldFilename);
           if (fs.existsSync(oldFilePath)) {
             try {
               fs.unlinkSync(oldFilePath);
-              console.log("Old document file deleted:", filename);
+              console.log("Old document file deleted:", oldFilename);
             } catch (fileError) {
               console.warn("Failed to delete old document file:", fileError.message);
             }
           }
         }
-        
-        // Remove old document from array
-        user.company.documents = user.company.documents.filter((doc) => doc.type !== documentType);
       }
+
+      // Create URL for the new file
+      const documentUrl = `api/upload/files/individual-verification/${userId}/${filename}`;
+
+      // Return the document URL and details
+      return res.status(200).json({
+        success: true,
+        data: {
+          documentUrl: documentUrl,
+          documentType: documentType,
+          filename: filename,
+        },
+      });
     }
 
-    // Create URL for the new file
-    const documentUrl = `api/upload/files/company-verification/${companyId}/${req.file.filename}`;
-
-    // Return the document URL and details
-    res.status(200).json({
-      success: true,
-      data: {
-        documentUrl: documentUrl,
-        documentType: documentType,
-        filename: req.file.filename,
-      },
+    // If user type is neither company nor individual, reject
+    const tempFilePath = req.file.path;
+    if (fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (fileError) {
+        console.warn("Failed to delete temp file:", fileError.message);
+      }
+    }
+    
+    return res.status(400).json({
+      success: false,
+      message: "Invalid user type",
     });
   } catch (error) {
     console.error("Error uploading document:", error);
+    
+    // Clean up uploaded file on error
+    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (fileError) {
+        console.warn("Failed to delete temp file on error:", fileError.message);
+      }
+    }
+    
     res.status(500).json({
       success: false,
       message: "Error uploading document",
@@ -535,6 +664,38 @@ const serveCompanyVerificationDocument = async (req, res) => {
   }
 };
 
+const serveIndividualVerificationDocument = async (req, res) => {
+  try {
+    const { userId, filename } = req.params;
+
+    // Security check: Only allow document owner or admin to access
+    if (req.user) {
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        return res.status(401).json({ success: false, message: "Not authorized" });
+      }
+      
+      // Check if user is the document owner or admin
+      if (user._id.toString() !== userId && user.role !== "admin") {
+        return res.status(403).json({ success: false, message: "Access denied" });
+      }
+    }
+
+    const filePath = path.join(individualVerificationDir, userId, filename);
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, message: "File not found" });
+    }
+
+    // Serve the file
+    res.sendFile(filePath);
+  } catch (error) {
+    console.error("Error serving individual verification document:", error);
+    res.status(500).json({ success: false, message: "Error serving document" });
+  }
+};
+
 /**
  * @desc    Delete resume (Local Storage) and remove from user profile
  * @route   DELETE /api/upload/resume
@@ -613,6 +774,7 @@ module.exports = {
   serveFile,
   serveResume,
   serveCompanyVerificationDocument,
+  serveIndividualVerificationDocument,
 };
 
 

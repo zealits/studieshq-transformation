@@ -85,7 +85,7 @@ const ProfilePage = () => {
     if (data && data.success) {
       // Get the profile from the nested data structure
       const profile = data.data.profile || {};
-      console.log("Setting client profile data:", profile);
+      // console.log("Setting client profile data:", profile);
 
       // Derive countryCode from country name if countryCode is missing
       let countryCode = profile.address?.countryCode || "";

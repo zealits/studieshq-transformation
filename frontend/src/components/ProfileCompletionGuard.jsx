@@ -52,11 +52,8 @@ const ProfileCompletionGuard = ({ children }) => {
         // For company users, check if they have company info
         isProfileComplete = !!(
           user.company?.businessName &&
-          user.company.businessName.trim().length > 0 &&
-          user.company?.industry &&
-          user.company.industry.trim().length > 0 &&
-          user.company?.companySize &&
-          user.company.companySize.trim().length > 0
+          user.company.businessName.trim().length > 0
+          
         );
 
         // For company users, check company verification status instead of individual documents
@@ -74,26 +71,35 @@ const ProfileCompletionGuard = ({ children }) => {
         }
       } else if (user.role === "freelancer") {
         // Check if freelancer is part of a company
-        if (user.companyFreelancer && user.companyFreelancer.companyId) {
-          // Company freelancers are auto-verified and don't need profile completion
+        // if (user.companyFreelancer && user.companyFreelancer.companyId) {
+        //   // Company freelancers are auto-verified and don't need profile completion
+        //   isProfileComplete = true;
+        // } else {
+        //   // For individual freelancers, check if they have basic profile info
+        //   isProfileComplete = !!(
+        //     profile.skills &&
+        //     profile.skills.length > 0 &&
+        //     profile.location &&
+        //     profile.location.trim().length > 0
+        //   );
+        // }
+
+        if (profile.verificationStatus === "verified") {
           isProfileComplete = true;
         } else {
-          // For individual freelancers, check if they have basic profile info
-          isProfileComplete = !!(
-            
-            profile.skills &&
-            profile.skills.length > 0 &&
-            profile.location &&
-            profile.location.trim().length > 0
-          );
+          isProfileComplete = false;
         }
+
+
+
       } else if (user.role === "client") {
         // For individual clients, check if they have company info
-        isProfileComplete = !!(
-          profile.company &&
-          profile.company.trim().length > 0 
-       
-        );
+
+        if (profile.verificationStatus === "verified") {
+          isProfileComplete = true;
+        } else {
+          isProfileComplete = false;
+        }
       }
 
       // If profile is not complete, redirect to profile page (for non-company users)

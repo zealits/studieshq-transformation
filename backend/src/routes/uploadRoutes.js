@@ -14,6 +14,7 @@ const {
   serveFile,
   serveResume,
   serveCompanyVerificationDocument,
+  serveIndividualVerificationDocument,
 } = require("../controllers/uploadController");
 const resumeParserService = require("../services/resumeParserService");
 
@@ -76,6 +77,11 @@ router.get("/files/resumes/:filename", serveResume);
 // @desc    Serve company verification documents (Local Storage only)
 // @access  Private (files are protected by company ID)
 router.get("/files/company-verification/:companyId/:filename", auth, serveCompanyVerificationDocument);
+
+// @route   GET /api/upload/files/individual-verification/:userId/:filename
+// @desc    Serve individual verification documents (Local Storage only)
+// @access  Private (files are protected by user ID)
+router.get("/files/individual-verification/:userId/:filename", auth, serveIndividualVerificationDocument);
 
 // @route   GET /api/upload/test-resume-parser
 // @desc    Test resume parser API connection

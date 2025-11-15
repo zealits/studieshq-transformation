@@ -13,7 +13,7 @@ const DashboardLayout = ({ role }) => {
     account: true,
   });
   const { user } = useSelector((state) => state.auth);
-  console.log(user);
+  // console.log(user);
   const { data: profileData } = useSelector((state) => state.profile);
   const { totalUnreadCount } = useSelector((state) => state.chat);
   const dispatch = useDispatch();
@@ -54,11 +54,7 @@ const DashboardLayout = ({ role }) => {
       // Check if company profile is complete and verified
       const isProfileComplete = !!(
         user.company?.businessName &&
-        user.company.businessName.trim().length > 0 &&
-        user.company?.industry &&
-        user.company.industry.trim().length > 0 &&
-        user.company?.companySize &&
-        user.company.companySize.trim().length > 0
+        user.company.businessName.trim().length > 0 
       );
 
       // For company users, check company verification status instead of individual documents
@@ -167,7 +163,14 @@ const DashboardLayout = ({ role }) => {
     switch (role) {
       case "freelancer":
         // Check if individual freelancer profile is complete
-        const freelancerProfileComplete = true;
+      
+        let freelancerProfileComplete;
+        if(profileData?.data?.profile?.verificationStatus === "verified"){
+          freelancerProfileComplete = true;
+        }else{
+          freelancerProfileComplete = false;
+        }
+       
         // const freelancerProfileComplete = !!(
         //   profileData?.data?.profile?.bio &&
         //   profileData.data.profile.bio.trim().length > 0 &&
@@ -196,9 +199,12 @@ const DashboardLayout = ({ role }) => {
         ];
       case "client":
         // Check if individual client profile is complete
-        const clientProfileComplete = !!(
-          profileData?.data?.profile?.company && profileData.data.profile.company.trim().length > 0
-        );
+        let clientProfileComplete;
+        if(profileData?.data?.profile?.verificationStatus === "verified"){
+          clientProfileComplete = true;
+        }else{
+          clientProfileComplete = false;
+        }
 
         return [
           { path: "/client", label: "Dashboard", icon: "home" },
