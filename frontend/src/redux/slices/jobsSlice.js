@@ -421,11 +421,15 @@ const jobsSlice = createSlice({
           // If it was previously in draft, remove it from there
           state.clientJobs.draft = state.clientJobs.draft.filter((job) => job._id !== updatedJob._id);
         } else if (updatedJob.status === "completed" || updatedJob.status === "cancelled") {
-          state.clientJobs.closed = state.clientJobs.closed.map((job) =>
-            job._id === updatedJob._id ? updatedJob : job
-          );
-          // If it was previously active, remove it from there
+          // Remove from active jobs
           state.clientJobs.active = state.clientJobs.active.filter((job) => job._id !== updatedJob._id);
+          // Add or update in closed jobs
+          const closedJobIndex = state.clientJobs.closed.findIndex((job) => job._id === updatedJob._id);
+          if (closedJobIndex !== -1) {
+            state.clientJobs.closed[closedJobIndex] = updatedJob;
+          } else {
+            state.clientJobs.closed.push(updatedJob);
+          }
         } else if (updatedJob.status === "draft") {
           state.clientJobs.draft = state.clientJobs.draft.map((job) => (job._id === updatedJob._id ? updatedJob : job));
         }

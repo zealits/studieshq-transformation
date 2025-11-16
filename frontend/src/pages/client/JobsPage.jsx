@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchClientJobs, publishDraftJob } from "../../redux/slices/jobsSlice";
+import { fetchClientJobs, publishDraftJob, updateJob } from "../../redux/slices/jobsSlice";
 import PostJobForm from "./PostJobForm";
 import Spinner from "../../components/common/Spinner";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "react-hot-toast";
 import ProposalsList from "../../components/client/ProposalsList";
 import { useNavigate } from "react-router-dom";
+import ConfirmModal from "../../components/common/ConfirmModal";
 
 const JobsPage = () => {
   const [activeTab, setActiveTab] = useState("active");
@@ -14,6 +15,8 @@ const JobsPage = () => {
   const [editingJob, setEditingJob] = useState(null);
   const [showProposals, setShowProposals] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState(null);
+  const [showCloseJobModal, setShowCloseJobModal] = useState(false);
+  const [jobToClose, setJobToClose] = useState(null);
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -86,6 +89,38 @@ const JobsPage = () => {
       toast.success("Job published successfully!");
     } catch (err) {
       toast.error(err || "Failed to publish project");
+    }
+  };
+
+  const handleCloseJobClick = (jobId) => {
+    // Check if the client owns this job before showing modal
+    const jobExists = clientJobs.active.some((job) => job._id === jobId);
+
+    if (!jobExists) {
+      toast.error("You don't have permission to close this job");
+      return;
+    }
+
+    // Show confirmation modal
+    setJobToClose(jobId);
+    setShowCloseJobModal(true);
+  };
+
+  const handleConfirmCloseJob = async () => {
+    if (!jobToClose) return;
+
+    try {
+      await dispatch(updateJob({ jobId: jobToClose, jobData: { status: "cancelled" } })).unwrap();
+      toast.success("Job closed successfully!");
+      // Refresh the jobs list to update the UI
+      dispatch(fetchClientJobs());
+      // Close modal and reset state
+      setShowCloseJobModal(false);
+      setJobToClose(null);
+    } catch (err) {
+      toast.error(err || "Failed to close job");
+      setShowCloseJobModal(false);
+      setJobToClose(null);
     }
   };
 
@@ -270,7 +305,12 @@ const JobsPage = () => {
                   Publish Project
                 </button>
               ) : job.status === "open" ? (
-                <button className="text-red-600 hover:text-red-800 text-sm py-1 px-3">Close Job</button>
+                <button 
+                  className="text-red-600 hover:text-red-800 text-sm py-1 px-3" 
+                  onClick={() => handleCloseJobClick(job._id)}
+                >
+                  Close Job
+                </button>
               ) : null}
             </div>
           </div>
@@ -366,6 +406,21 @@ const JobsPage = () => {
           {activeTab === "draft" && renderJobsForTab(clientJobs.draft)}
         </>
       )}
+
+      {/* Close Job Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showCloseJobModal}
+        onClose={() => {
+          setShowCloseJobModal(false);
+          setJobToClose(null);
+        }}
+        onConfirm={handleConfirmCloseJob}
+        title="Close Job"
+        message="Are you sure you want to close this job? This action cannot be undone. The job will be moved to closed listings and will no longer accept new proposals."
+        confirmText="Close Job"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   );
 };
