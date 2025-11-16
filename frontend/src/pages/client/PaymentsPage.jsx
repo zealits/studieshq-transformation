@@ -251,20 +251,45 @@ const PaymentsPage = () => {
                       <div className="text-sm text-gray-500">Withdraw to PayPal account</div>
                     </div>
                   </button>
-                  {paymentMethods.filter(
-                    (method) => method.type === "bank" && method.provider === "xe" && method.approved === true
-                  ).length > 0 && (
-                    <button
-                      className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors border-t border-gray-100"
-                      onClick={() => handleWithdrawalMethodSelect("xe")}
-                    >
-                      <span className="text-green-600">🏦</span>
-                      <div>
-                        <div className="font-medium text-gray-900">Bank Transfer</div>
-                        <div className="text-sm text-gray-500">Withdraw to approved bank account</div>
-                      </div>
-                    </button>
-                  )}
+                  {(() => {
+                    const hasApprovedBank = paymentMethods.filter(
+                      (method) => method.type === "bank" && method.provider === "xe" && method.approved === true
+                    ).length > 0;
+                    return (
+                      <button
+                        className={`w-full px-4 py-3 text-left flex items-center gap-3 transition-colors border-t border-gray-100 ${
+                          hasApprovedBank
+                            ? "hover:bg-gray-50 cursor-pointer"
+                            : "opacity-50 cursor-not-allowed bg-gray-50"
+                        }`}
+                        onClick={() => {
+                          if (hasApprovedBank) {
+                            handleWithdrawalMethodSelect("xe");
+                          } else {
+                            // Navigate to payment methods tab if no bank account
+                            setActiveTab("methods");
+                            setShowWithdrawalDropdown(false);
+                            toast.info("Please add a bank account first", {
+                              duration: 3000,
+                            });
+                          }
+                        }}
+                        disabled={!hasApprovedBank}
+                      >
+                        <span className={hasApprovedBank ? "text-green-600" : "text-gray-400"}>🏦</span>
+                        <div className="flex-1">
+                          <div className={`font-medium ${hasApprovedBank ? "text-gray-900" : "text-gray-500"}`}>
+                            Bank Transfer
+                          </div>
+                          <div className={`text-sm ${hasApprovedBank ? "text-gray-500" : "text-gray-400"}`}>
+                            {hasApprovedBank
+                              ? "Withdraw to approved bank account"
+                              : "Add bank account to enable"}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })()}
                 </div>
               )}
             </div>

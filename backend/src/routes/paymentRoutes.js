@@ -661,25 +661,25 @@ router.get(
 
 // *** PAYPAL WITHDRAWAL ROUTES ***
 
-// Withdraw funds via PayPal (Freelancers, Clients, and Project Sponsor Companies)
+// Withdraw funds via PayPal (Freelancers, Clients, Freelancer Companies, and Project Sponsor Companies)
 router.post(
   "/paypal/withdraw",
   [
     auth,
-    checkRole(["freelancer", "client", "project_sponsor_company"]),
+    checkRole(["freelancer", "client", "freelancer_company", "project_sponsor_company"]),
     check("amount", "Amount must be a valid positive number").isFloat({ min: 1 }),
   ],
   paymentController.withdrawViaPayPal
 );
 
-// Get PayPal withdrawal history (Freelancers, Clients, and Project Sponsor Companies)
-router.get("/paypal/withdrawals", auth, checkRole(["freelancer", "client", "project_sponsor_company"]), paymentController.getPayPalWithdrawals);
+// Get PayPal withdrawal history (Freelancers, Clients, Freelancer Companies, and Project Sponsor Companies)
+router.get("/paypal/withdrawals", auth, checkRole(["freelancer", "client", "freelancer_company", "project_sponsor_company"]), paymentController.getPayPalWithdrawals);
 
-// Check PayPal payout status (Freelancers, Clients, and Project Sponsor Companies)
+// Check PayPal payout status (Freelancers, Clients, Freelancer Companies, and Project Sponsor Companies)
 router.get(
   "/paypal/payout/:batchId/status",
   auth,
-  checkRole(["freelancer", "client", "project_sponsor_company"]),
+  checkRole(["freelancer", "client", "freelancer_company", "project_sponsor_company"]),
   paymentController.checkPayPalPayoutStatus
 );
 
@@ -785,21 +785,21 @@ router.post(
 
 // @route   POST /api/payments/bank/withdraw/approve/:transactionId
 // @desc    Approve XE withdrawal contract
-// @access  Private (Freelancers, Clients, and Project Sponsor Companies)
+// @access  Private (Freelancers, Clients, Freelancer Companies, and Project Sponsor Companies)
 router.post(
   "/bank/withdraw/approve/:transactionId",
   auth,
-  checkRole(["freelancer", "client", "project_sponsor_company"]),
+  checkRole(["freelancer", "client", "freelancer_company", "project_sponsor_company"]),
   paymentController.approveXeWithdrawal
 );
 
 // @route   POST /api/payments/bank/withdraw/cancel/:transactionId
 // @desc    Cancel XE withdrawal contract
-// @access  Private (Freelancers, Clients, and Project Sponsor Companies)
+// @access  Private (Freelancers, Clients, Freelancer Companies, and Project Sponsor Companies)
 router.post(
   "/bank/withdraw/cancel/:transactionId",
   auth,
-  checkRole(["freelancer", "client", "project_sponsor_company"]),
+  checkRole(["freelancer", "client", "freelancer_company", "project_sponsor_company"]),
   paymentController.cancelXeWithdrawal
 );
 
