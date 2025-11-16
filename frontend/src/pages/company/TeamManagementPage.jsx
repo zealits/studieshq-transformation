@@ -34,6 +34,11 @@ const TeamManagementPage = () => {
     try {
       setLoading(true);
       const response = await api.get("/api/company/team-members");
+      console.log("Team members response:", response.data.data.teamMembers);
+      // Log avatar info for debugging
+      response.data.data.teamMembers.forEach((member) => {
+        console.log(`Member ${member.name}: avatar =`, member.avatar);
+      });
       setTeamMembers(response.data.data.teamMembers);
       setStats(response.data.data.stats);
     } catch (error) {
@@ -367,13 +372,22 @@ const TeamManagementPage = () => {
                 <tr key={member._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="h-10 w-10 rounded-full overflow-hidden mr-3">
-                        {member.avatar ? (
-                          <img src={member.avatar} alt={member.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="h-full w-full bg-primary text-white flex items-center justify-center">
-                            {member.name.charAt(0)}
-                          </div>
+                      <div className="h-10 w-10 rounded-full overflow-hidden mr-3 flex-shrink-0 bg-primary relative">
+                        {/* Fallback - always rendered behind image */}
+                        <div className="absolute inset-0 h-full w-full bg-primary text-white flex items-center justify-center text-sm font-semibold">
+                          {member.name?.charAt(0)?.toUpperCase() || "?"}
+                        </div>
+                        {/* Avatar image - will cover fallback if it loads successfully */}
+                        {member.avatar && (
+                          <img 
+                            src={member.avatar} 
+                            alt={member.name} 
+                            className="h-full w-full object-cover relative z-10"
+                            onError={(e) => {
+                              console.error("Avatar image failed to load for", member.name, "URL:", member.avatar);
+                              e.target.style.display = 'none';
+                            }}
+                          />
                         )}
                       </div>
                       <div>
@@ -468,17 +482,22 @@ const TeamManagementPage = () => {
                     <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Team Member Details</h3>
 
                     <div className="flex flex-col items-center mb-6">
-                      <div className="h-20 w-20 rounded-full overflow-hidden mb-2">
-                        {selectedMember.avatar ? (
+                      <div className="h-20 w-20 rounded-full overflow-hidden mb-2 bg-primary relative">
+                        {/* Fallback - always rendered behind image */}
+                        <div className="absolute inset-0 h-full w-full bg-primary text-white flex items-center justify-center text-2xl font-bold">
+                          {selectedMember.name?.charAt(0)?.toUpperCase() || "?"}
+                        </div>
+                        {/* Avatar image - will cover fallback if it loads successfully */}
+                        {selectedMember.avatar && (
                           <img
                             src={selectedMember.avatar}
                             alt={selectedMember.name}
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-cover relative z-10"
+                            onError={(e) => {
+                              console.error("Avatar image failed to load for", selectedMember.name, "URL:", selectedMember.avatar);
+                              e.target.style.display = 'none';
+                            }}
                           />
-                        ) : (
-                          <div className="h-full w-full bg-primary text-white flex items-center justify-center text-2xl font-bold">
-                            {selectedMember.name.charAt(0)}
-                          </div>
                         )}
                       </div>
                       <h4 className="text-xl font-semibold">{selectedMember.name}</h4>

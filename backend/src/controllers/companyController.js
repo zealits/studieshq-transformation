@@ -987,8 +987,10 @@ exports.getTeamMembers = async (req, res) => {
         return isMemberTransaction ? total + (tx.netAmount || 0) : total;
       }, 0);
 
+      const memberObject = member.toObject();
       return {
-        ...member.toObject(),
+        ...memberObject,
+        avatar: memberObject.avatar || null, // Explicitly include avatar field
         totalRevenue: Math.round(memberRevenue * 100) / 100, // Round to 2 decimal places
         projectCount: projectCountMap[memberIdStr] || 0,
       };
