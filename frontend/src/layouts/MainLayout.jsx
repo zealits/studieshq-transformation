@@ -3,7 +3,7 @@ import { Outlet } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../redux/slices/authSlice";
-
+import logo from "../assets/images/studieshq_logo.png";
 const MainLayout = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
@@ -44,8 +44,8 @@ const MainLayout = () => {
         <div className="container-custom py-4 flex justify-between items-center">
           <a href="https://www.studieshq.com/" className="flex items-center">
             <img
-              src="https://res.cloudinary.com/dzmn9lnk5/image/upload/v1762091880/agile/logos/studieshqwithagilelabs_dt6jbb_c_crop_w_2000_h_700_zfnepb.png"
-              alt="StudiesHQ Logo"
+                src={logo}
+                alt="StudiesHQ Logo"
               className="h-12"
             />
           </a>

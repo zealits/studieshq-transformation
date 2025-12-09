@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { logout, getMe } from "../redux/slices/authSlice";
 import { fetchMyProfile } from "../redux/slices/profileSlice";
 import NotificationBadge from "../components/common/NotificationBadge";
-
+import logo from "../assets/images/studieshq_logo.png";
 const DashboardLayout = ({ role }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
@@ -52,10 +52,7 @@ const DashboardLayout = ({ role }) => {
     // Handle company users - use collapsible sections
     if (user?.userType === "company") {
       // Check if company profile is complete and verified
-      const isProfileComplete = !!(
-        user.company?.businessName &&
-        user.company.businessName.trim().length > 0 
-      );
+      const isProfileComplete = !!(user.company?.businessName && user.company.businessName.trim().length > 0);
 
       // For company users, check company verification status instead of individual documents
       const isVerified = isProfileComplete && user.company?.verificationStatus === "verified";
@@ -163,14 +160,14 @@ const DashboardLayout = ({ role }) => {
     switch (role) {
       case "freelancer":
         // Check if individual freelancer profile is complete
-      
+
         let freelancerProfileComplete;
-        if(profileData?.data?.profile?.verificationStatus === "verified"){
+        if (profileData?.data?.profile?.verificationStatus === "verified") {
           freelancerProfileComplete = true;
-        }else{
+        } else {
           freelancerProfileComplete = false;
         }
-       
+
         // const freelancerProfileComplete = !!(
         //   profileData?.data?.profile?.bio &&
         //   profileData.data.profile.bio.trim().length > 0 &&
@@ -200,9 +197,9 @@ const DashboardLayout = ({ role }) => {
       case "client":
         // Check if individual client profile is complete
         let clientProfileComplete;
-        if(profileData?.data?.profile?.verificationStatus === "verified"){
+        if (profileData?.data?.profile?.verificationStatus === "verified") {
           clientProfileComplete = true;
-        }else{
+        } else {
           clientProfileComplete = false;
         }
 
@@ -515,11 +512,7 @@ const DashboardLayout = ({ role }) => {
         {/* Logo section */}
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
           <Link to="/" className="flex items-center">
-            <img
-              src="https://res.cloudinary.com/dzmn9lnk5/image/upload/v1720717646/agile/logos/STUDIES-HQ_qkotcf.png"
-              alt="StudiesHQ Logo"
-              className="h-12"
-            />
+            <img src={logo} alt="StudiesHQ Logo" className="h-12" />
           </Link>
 
           <button className="lg:hidden text-gray-500 hover:text-gray-700" onClick={toggleSidebar}>
@@ -746,7 +739,9 @@ const DashboardLayout = ({ role }) => {
                   ? user?.companyType === "freelancer_company"
                     ? "Freelancer Company Dashboard"
                     : "Project Sponsor Organization Dashboard"
-                  : role === "client" ? "Project Sponsor Dashboard" : `${role} Dashboard`}
+                  : role === "client"
+                  ? "Project Sponsor Dashboard"
+                  : `${role} Dashboard`}
               </h1>
             </div>
           </div>
