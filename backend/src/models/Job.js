@@ -120,6 +120,10 @@ const JobSchema = new Schema({
     type: String,
     default: null,
   },
+  verificationMandatory: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 // Update the updatedAt field before saving

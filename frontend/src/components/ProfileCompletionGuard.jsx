@@ -17,6 +17,7 @@ const ProfileCompletionGuard = ({ children }) => {
     "/reset-password",
     "/verify-email",
     "/admin", // Admin users don't need profile verification
+    "/freelancer/find-jobs", // Allow access to Find Projects without profile completion
   ];
 
   // For company users, only allow dashboard and profile pages until profile is complete
@@ -102,17 +103,31 @@ const ProfileCompletionGuard = ({ children }) => {
         }
       }
 
-      // If profile is not complete, redirect to profile page (for non-company users)
+      // If profile is not complete, show reminder but allow access to Find Projects
+      // Verification is only required when applying to projects that mandate it
       if (!isProfileComplete && user.userType !== "company") {
-        if (!toastShownRef.current) {
-          toast.info("Please complete your profile to access the platform", {
-            autoClose: 10000,
-            toastId: "profile-completion",
-          });
-          toastShownRef.current = true;
+        // Allow access to Find Projects page - verification check happens when applying
+        if (location.pathname === "/freelancer/find-jobs" || location.pathname.startsWith("/freelancer/find-jobs")) {
+          // Show gentle reminder but don't block access
+          if (!toastShownRef.current) {
+            toast.info("Complete your profile verification to unlock all features and apply to verified projects", {
+              autoClose: 8000,
+              toastId: "verification-reminder",
+            });
+            toastShownRef.current = true;
+          }
+          // Allow access - don't return early
+        } else {
+          // For other pages, show reminder but don't block (removed blocking)
+          if (!toastShownRef.current) {
+            toast.info("Complete your profile to unlock all features", {
+              autoClose: 8000,
+              toastId: "profile-completion",
+            });
+            toastShownRef.current = true;
+          }
+          // Don't block access - removed the return statement
         }
-        // navigate(`/${user.role}/profile`);
-        return;
       }
 
       // Check if profile verification documents are uploaded

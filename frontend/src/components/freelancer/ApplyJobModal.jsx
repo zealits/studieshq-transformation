@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { submitProposal } from "../../redux/slices/jobsSlice";
 import { toast } from "react-hot-toast";
 
 const ApplyJobModal = ({ job, onClose }) => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { isLoading } = useSelector((state) => state.jobs);
   const [formData, setFormData] = useState({
     bidPrice: "",
@@ -37,7 +39,17 @@ const ApplyJobModal = ({ job, onClose }) => {
       toast.success("Proposal submitted successfully");
       onClose();
     } catch (error) {
-      toast.error(error || "Failed to submit proposal");
+      // Check if error indicates verification is required
+      const errorMessage = typeof error === "string" ? error : error?.message || error;
+      const requiresVerification = typeof error === "object" && error?.requiresVerification;
+      
+      if (requiresVerification || errorMessage?.includes("Verification is required") || errorMessage?.includes("verification")) {
+        toast.error("Verification is required to apply for this project. Please complete your verification documents first.");
+        onClose();
+        navigate("/freelancer/profile?tab=verification");
+      } else {
+        toast.error(errorMessage || "Failed to submit proposal");
+      }
     }
   };
 

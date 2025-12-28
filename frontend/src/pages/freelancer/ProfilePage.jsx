@@ -339,6 +339,14 @@ const ProfilePage = () => {
   // State for active tab
   const [activeTab, setActiveTab] = useState("basic");
 
+  // Handle tab parameter from URL
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && ["basic", "skills", "experience", "portfolio", "verification", "test"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
   // State for address dropdowns
   const [availableStates, setAvailableStates] = useState([]);
   const [availableCities, setAvailableCities] = useState([]);

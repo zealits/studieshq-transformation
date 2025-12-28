@@ -21,9 +21,15 @@ const initialState = {
 };
 
 // Async thunks
-export const fetchJobs = createAsyncThunk("jobs/fetchAll", async (_, { rejectWithValue }) => {
+export const fetchJobs = createAsyncThunk("jobs/fetchAll", async (params = {}, { rejectWithValue }) => {
   try {
-    const response = await api.get("/api/jobs");
+    const queryParams = new URLSearchParams();
+    if (params.bestMatch) {
+      queryParams.append("bestMatch", "true");
+    }
+    const queryString = queryParams.toString();
+    const url = queryString ? `/api/jobs?${queryString}` : "/api/jobs";
+    const response = await api.get(url);
     return response.data.data;
   } catch (error) {
     return rejectWithValue(error.response?.data || error.message);
@@ -173,7 +179,12 @@ export const submitProposal = createAsyncThunk(
       const response = await api.post(`/api/jobs/${jobId}/proposals`, proposalData);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Failed to submit proposal");
+      // Preserve the full error response to check for requiresVerification flag
+      const errorData = error.response?.data || {};
+      return rejectWithValue({
+        message: errorData.message || "Failed to submit proposal",
+        requiresVerification: errorData.requiresVerification || false,
+      });
     }
   }
 );

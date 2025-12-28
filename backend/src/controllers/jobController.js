@@ -68,6 +68,7 @@ exports.createJob = async (req, res) => {
       deadline,
       status,
       freelancersNeeded,
+      verificationMandatory,
     } = req.body;
 
     // Get client profile for company details
@@ -111,6 +112,7 @@ exports.createJob = async (req, res) => {
       status: status === "draft" ? "draft" : "draft", // Always start as draft, will be open after budget blocking
       companyDetails,
       freelancersNeeded: freelancersNeeded || 1,
+      verificationMandatory: verificationMandatory || false,
     });
 
     await job.save();
@@ -281,10 +283,12 @@ exports.getJobs = async (req, res) => {
     // console.log("Final query:", JSON.stringify(query));
 
     // If user is a freelancer with candidateId, fetch relevant projects from API
+    // Only do AI matching if bestMatch query parameter is true
     let relevantProjectsMap = new Map(); // Map of project_id -> overall_score
     let shouldSortByRelevance = false;
+    const bestMatch = req.query.bestMatch === "true";
 
-    if (req.user && req.user.role === "freelancer") {
+    if (req.user && req.user.role === "freelancer" && bestMatch) {
       try {
         // Get user with candidateId
         const user = await User.findById(req.user.id).select("candidateId");
@@ -641,6 +645,7 @@ exports.updateJob = async (req, res) => {
       "status",
       "featured",
       "freelancersNeeded",
+      "verificationMandatory",
     ];
 
     updatableFields.forEach((field) => {
@@ -767,6 +772,23 @@ exports.submitProposal = async (req, res) => {
         success: false,
         message: "You must complete your profile before submitting a proposal",
       });
+    }
+
+    // Check if verification is mandatory for this job
+    if (job.verificationMandatory) {
+      // Check if freelancer is verified
+      const isVerified =
+        freelancerProfile.verificationStatus === "verified" ||
+        (freelancerProfile.verificationDocuments?.addressProof?.status === "approved" &&
+          freelancerProfile.verificationDocuments?.identityProof?.status === "approved");
+
+      if (!isVerified) {
+        return res.status(403).json({
+          success: false,
+          message: "Verification is required to apply for this project. Please complete your verification documents first.",
+          requiresVerification: true,
+        });
+      }
     }
 
     // Validate bid price against freelancer's hourly rate

@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { fetchJobs, filterJobs } from "../../redux/slices/jobsSlice";
 import { fetchProposals } from "../../redux/actions/proposalActions";
+import { fetchMyProfile } from "../../redux/slices/profileSlice";
 import Spinner from "../../components/common/Spinner";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "react-hot-toast";
 import ApplyJobModal from "../../components/freelancer/ApplyJobModal";
 
 // AI Job Matching Loading Component
@@ -100,14 +103,20 @@ const FindJobsPage = () => {
   });
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [isBestMatchLoading, setIsBestMatchLoading] = useState(false);
+  const [isBestMatchActive, setIsBestMatchActive] = useState(false);
 
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { filteredJobs, isLoading, categories } = useSelector((state) => state.jobs);
   const { proposals } = useSelector((state) => state.proposals);
+  const { user } = useSelector((state) => state.auth);
+  const { profile } = useSelector((state) => state.profile);
 
   useEffect(() => {
-    dispatch(fetchJobs());
+    dispatch(fetchJobs()); // Fetch jobs without AI matching by default
     dispatch(fetchProposals());
+    dispatch(fetchMyProfile()); // Fetch profile to check verification status
   }, [dispatch]);
 
   // Apply filters when searchTerm or filters change
@@ -124,6 +133,21 @@ const FindJobsPage = () => {
   };
 
   const handleApplyClick = (job) => {
+    // Check if verification is mandatory for this job
+    if (job.verificationMandatory) {
+      // Check if user is verified
+      const isVerified =
+        profile?.verificationStatus === "verified" ||
+        (profile?.verificationDocuments?.addressProof?.status === "approved" &&
+          profile?.verificationDocuments?.identityProof?.status === "approved");
+
+      if (!isVerified) {
+        toast.error("Verification is required to apply for this project. Please complete your verification documents first.");
+        navigate("/freelancer/profile?tab=verification");
+        return;
+      }
+    }
+
     setSelectedJob(job);
     setShowApplyModal(true);
   };
@@ -153,6 +177,21 @@ const FindJobsPage = () => {
   const getProposalStatus = (jobId) => {
     const proposal = proposals.find((proposal) => proposal.job?._id === jobId);
     return proposal ? proposal.status : null;
+  };
+
+  // Handle Find Best Match button click
+  const handleFindBestMatch = async () => {
+    setIsBestMatchLoading(true);
+    setIsBestMatchActive(true);
+    try {
+      // Fetch jobs with bestMatch parameter
+      await dispatch(fetchJobs({ bestMatch: true })).unwrap();
+    } catch (error) {
+      toast.error("Failed to find best matches");
+      setIsBestMatchActive(false);
+    } finally {
+      setIsBestMatchLoading(false);
+    }
   };
 
   return (
@@ -300,26 +339,53 @@ const FindJobsPage = () => {
               </button>
             </div>
           </div>
-          <button
-            onClick={() => {
-              setSearchTerm("");
-              setFilters({
-                category: "",
-                budget: "",
-                jobType: "",
-                experience: "",
-                sortBy: "newest",
-              });
-            }}
-            className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
-          >
-            Reset Filters
-          </button>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={handleFindBestMatch}
+              disabled={isBestMatchLoading}
+              className={`px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                isBestMatchActive
+                  ? "bg-green-600 text-white hover:bg-green-700 focus:ring-green-500"
+                  : "bg-primary text-white hover:bg-primary-dark focus:ring-primary"
+              } ${isBestMatchLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              {isBestMatchLoading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Finding Matches...
+                </span>
+              ) : isBestMatchActive ? (
+                "✓ Best Matches Found"
+              ) : (
+                "Find Best Match"
+              )}
+            </button>
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setFilters({
+                  category: "",
+                  budget: "",
+                  jobType: "",
+                  experience: "",
+                  sortBy: "newest",
+                });
+                setIsBestMatchActive(false);
+                dispatch(fetchJobs()); // Reset to normal view
+              }}
+              className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            >
+              Reset Filters
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Jobs List */}
-      {isLoading ? (
+      {isLoading || isBestMatchLoading ? (
         <AIJobMatchingLoader />
       ) : filteredJobs.length === 0 ? (
         <div className="bg-white rounded-lg shadow-md p-6 text-center">

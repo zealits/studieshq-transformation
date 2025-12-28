@@ -25,6 +25,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
     deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), // 30 days from now
     freelancersNeeded: 1, // Add default value for number of freelancers
     status: "open", // Default status for new jobs
+    verificationMandatory: false, // Default to false (optional verification)
   });
 
   // Initialize form data if editing an existing job
@@ -66,6 +67,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
         deadline: jobToEdit.deadline ? new Date(jobToEdit.deadline).toISOString().slice(0, 10) : "",
         status: jobToEdit.status || "open",
         freelancersNeeded: jobToEdit.freelancersNeeded || 1,
+        verificationMandatory: jobToEdit.verificationMandatory || false,
       });
     }
   }, [jobToEdit]);
@@ -412,6 +414,24 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
               required
             />
           </div>
+        </div>
+
+        <div>
+          <label className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              name="verificationMandatory"
+              checked={formData.verificationMandatory}
+              onChange={(e) => setFormData((prev) => ({ ...prev, verificationMandatory: e.target.checked }))}
+              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+            />
+            <span className="text-sm font-medium text-gray-700">
+              Verification Mandatory for Freelancers
+            </span>
+          </label>
+          <p className="text-xs text-gray-500 mt-1">
+            If checked, freelancers must be verified before they can apply to this project
+          </p>
         </div>
 
         <div>
