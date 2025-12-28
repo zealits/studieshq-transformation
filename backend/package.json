@@ -10,7 +10,8 @@
     "seed:payment-fields": "node src/utils/seedPaymentFields.js",
     "seed:payment-fields:force": "node src/utils/seedPaymentFields.js --force",
     "seed:payment-fields:dry-run": "node src/utils/seedPaymentFields.js --dry-run",
-    "seed:payment-fields:stats": "node src/utils/seedPaymentFields.js --stats"
+    "seed:payment-fields:stats": "node src/utils/seedPaymentFields.js --stats",
+    "seed:country-business-fields": "node src/utils/seedCountryBusinessFields.js"
   },
   "keywords": [],
   "author": "",

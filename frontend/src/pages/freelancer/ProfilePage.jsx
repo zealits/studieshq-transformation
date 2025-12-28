@@ -591,7 +591,6 @@ const ProfilePage = () => {
 
       if (result.success) {
         setUpdateSuccess(true);
-        setIsEditing(false);
         // Refresh profile data
         dispatch(fetchMyProfile());
       }
@@ -625,11 +624,6 @@ const ProfilePage = () => {
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    // Auto-enable edit mode if not already enabled (for avatar click in view mode)
-    if (!isEditing) {
-      setIsEditing(true);
-    }
 
     // Validate file type
     if (!file.type.startsWith("image/")) {
@@ -1050,12 +1044,6 @@ const ProfilePage = () => {
                 )}
               </div>
             </div>
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="mt-4 md:mt-0 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
-            >
-              {isEditing ? "Cancel" : "Edit Profile"}
-            </button>
           </div>
 
           {/* Image Upload Confirmation Modal */}
@@ -1224,7 +1212,6 @@ const ProfilePage = () => {
                       name="fullName"
                       value={formData.fullName}
                       onChange={handleChange}
-                      disabled={!isEditing}
                       className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
@@ -1254,8 +1241,7 @@ const ProfilePage = () => {
                           name="phone.countryCode"
                           value={formData.phone.countryCode}
                           onChange={handleChange}
-                          disabled={!isEditing}
-                          className="appearance-none bg-white border border-gray-300 rounded-l-md px-3 py-3 pr-8 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+                          className="appearance-none bg-white border border-gray-300 rounded-l-md px-3 py-3 pr-8 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                         >
                           <option value="+1">🇺🇸 +1</option>
                           <option value="+91">🇮🇳 +91</option>
@@ -1290,8 +1276,7 @@ const ProfilePage = () => {
                         name="phone.number"
                         value={formData.phone.number}
                         onChange={handleChange}
-                        disabled={!isEditing}
-                        className="flex-1 p-3 border border-gray-300 border-l-0 rounded-r-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100"
+                        className="flex-1 p-3 border border-gray-300 border-l-0 rounded-r-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                         placeholder="Enter phone number"
                       />
                     </div>
@@ -1358,8 +1343,7 @@ const ProfilePage = () => {
                           name="address.line1"
                           value={formData.address.line1}
                           onChange={handleChange}
-                          disabled={!isEditing}
-                          className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                          className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                           placeholder="Street address, P.O. box"
                         />
                       </div>
@@ -1375,8 +1359,7 @@ const ProfilePage = () => {
                           name="address.line2"
                           value={formData.address.line2}
                           onChange={handleChange}
-                          disabled={!isEditing}
-                          className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                          className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                           placeholder="Apartment, suite, unit, building, floor, etc."
                         />
                       </div>
@@ -1393,8 +1376,7 @@ const ProfilePage = () => {
                             name="address.countryCode"
                             value={formData.address.countryCode}
                             onChange={handleChange}
-                            disabled={!isEditing}
-                            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                           >
                             <option value="">Select Country</option>
                             {Country.getAllCountries().map((country) => (
@@ -1416,8 +1398,7 @@ const ProfilePage = () => {
                               name="address.stateCode"
                               value={formData.address.stateCode}
                               onChange={handleChange}
-                              disabled={!isEditing}
-                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                             >
                               <option value="">Select State</option>
                               {availableStates.map((state) => (
@@ -1433,8 +1414,7 @@ const ProfilePage = () => {
                               name="address.state"
                               value={formData.address.state}
                               onChange={handleChange}
-                              disabled={!isEditing}
-                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                               placeholder="State/Province"
                             />
                           )}
@@ -1451,8 +1431,7 @@ const ProfilePage = () => {
                               name="address.city"
                               value={formData.address.city}
                               onChange={handleChange}
-                              disabled={!isEditing}
-                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                             >
                               <option value="">Select City</option>
                               {availableCities.map((city) => (
@@ -1468,8 +1447,7 @@ const ProfilePage = () => {
                               name="address.city"
                               value={formData.address.city}
                               onChange={handleChange}
-                              disabled={!isEditing}
-                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                               placeholder="City"
                             />
                           )}
@@ -1487,8 +1465,7 @@ const ProfilePage = () => {
                           name="address.postalCode"
                           value={formData.address.postalCode}
                           onChange={handleChange}
-                          disabled={!isEditing}
-                          className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100"
+                          className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                           placeholder="Postal/ZIP Code"
                         />
                       </div>
@@ -1504,7 +1481,6 @@ const ProfilePage = () => {
                       name="bio"
                       value={formData.bio}
                       onChange={handleChange}
-                      disabled={!isEditing}
                       rows="4"
                       className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                     />
@@ -1520,7 +1496,6 @@ const ProfilePage = () => {
                           name="hourlyRate.min"
                           value={formData.hourlyRate.min}
                           onChange={handleChange}
-                          disabled={!isEditing}
                           min="0"
                           step="10"
                           className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -1535,7 +1510,6 @@ const ProfilePage = () => {
                           name="hourlyRate.max"
                           value={formData.hourlyRate.max}
                           onChange={handleChange}
-                          disabled={!isEditing}
                           min="0"
                           step="10"
                           className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
@@ -1598,24 +1572,22 @@ const ProfilePage = () => {
                             >
                               Download
                             </a>
-                            {isEditing && (
-                              <>
-                                <span className="text-gray-300">|</span>
-                                <label
-                                  htmlFor="resume-upload"
-                                  className="text-primary hover:text-primary-dark text-sm font-medium cursor-pointer"
-                                >
-                                  Replace
-                                </label>
-                                <span className="text-gray-300">|</span>
-                                <button
-                                  onClick={() => setShowDeleteConfirm(true)}
-                                  className="text-red-600 hover:text-red-800 text-sm font-medium"
-                                >
-                                  Delete
-                                </button>
-                              </>
-                            )}
+                            <>
+                              <span className="text-gray-300">|</span>
+                              <label
+                                htmlFor="resume-upload"
+                                className="text-primary hover:text-primary-dark text-sm font-medium cursor-pointer"
+                              >
+                                Replace
+                              </label>
+                              <span className="text-gray-300">|</span>
+                              <button
+                                onClick={() => setShowDeleteConfirm(true)}
+                                className="text-red-600 hover:text-red-800 text-sm font-medium"
+                              >
+                                Delete
+                              </button>
+                            </>
                           </div>
                         </div>
                       ) : (
@@ -1635,14 +1607,12 @@ const ProfilePage = () => {
                           </svg>
                           <p className="mt-2 text-sm text-gray-600">No resume uploaded</p>
                           <p className="text-xs text-gray-500">Upload your resume to showcase your experience</p>
-                          {isEditing && (
-                            <label
-                              htmlFor="resume-upload"
-                              className="mt-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark cursor-pointer"
-                            >
-                              Upload Resume
-                            </label>
-                          )}
+                          <label
+                            htmlFor="resume-upload"
+                            className="mt-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark cursor-pointer"
+                          >
+                            Upload Resume
+                          </label>
                         </div>
                       )}
                       <input
@@ -1651,7 +1621,6 @@ const ProfilePage = () => {
                         className="hidden"
                         accept=".pdf,.doc,.docx,.txt"
                         onChange={handleResumeUpload}
-                        disabled={!isEditing}
                       />
                       <p className="text-xs text-gray-500 mt-2">Accepted formats: PDF, DOC, DOCX, TXT (max 10MB)</p>
                     </div>
@@ -1807,7 +1776,7 @@ const ProfilePage = () => {
                                 </span>
                               )}
                             </label>
-                            {isEditing && linkedinStatus.isVerified && (
+                            {linkedinStatus.isVerified && (
                               <button
                                 type="button"
                                 onClick={() => setShowLinkedInDisconnectModal(true)}
@@ -1881,62 +1850,52 @@ const ProfilePage = () => {
                             </div>
                           ) : (
                             <div className="space-y-3">
-                              {isEditing ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={handleLinkedInAuth}
-                                    disabled={linkedinLoading}
-                                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
-                                      linkedinLoading
-                                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                        : "bg-[#0077b5] text-white hover:bg-[#005885] shadow-sm hover:shadow-md"
-                                    }`}
-                                  >
-                                    {linkedinLoading ? (
-                                      <>
-                                        <svg
-                                          className="animate-spin h-5 w-5"
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          fill="none"
-                                          viewBox="0 0 24 24"
-                                        >
-                                          <circle
-                                            className="opacity-25"
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            strokeWidth="4"
-                                          ></circle>
-                                          <path
-                                            className="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                          ></path>
-                                        </svg>
-                                        <span>Connecting...</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                                        </svg>
-                                        <span>Verify LinkedIn Account</span>
-                                      </>
-                                    )}
-                                  </button>
-                                  <p className="text-xs text-gray-500 leading-relaxed">
-                                    Verify your LinkedIn account by signing in. This ensures your profile is authentic.
-                                  </p>
-                                </>
-                              ) : (
-                                <div className="text-center py-4 px-3 bg-gray-50 rounded-lg border border-gray-200">
-                                  <p className="text-sm text-gray-600">
-                                    Click "Edit Profile" to verify your LinkedIn account
-                                  </p>
-                                </div>
-                              )}
+                              <button
+                                type="button"
+                                onClick={handleLinkedInAuth}
+                                disabled={linkedinLoading}
+                                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+                                  linkedinLoading
+                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                    : "bg-[#0077b5] text-white hover:bg-[#005885] shadow-sm hover:shadow-md"
+                                }`}
+                              >
+                                {linkedinLoading ? (
+                                  <>
+                                    <svg
+                                      className="animate-spin h-5 w-5"
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <circle
+                                        className="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        strokeWidth="4"
+                                      ></circle>
+                                      <path
+                                        className="opacity-75"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                      ></path>
+                                    </svg>
+                                    <span>Connecting...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                                    </svg>
+                                    <span>Verify LinkedIn Account</span>
+                                  </>
+                                )}
+                              </button>
+                              <p className="text-xs text-gray-500 leading-relaxed">
+                                Verify your LinkedIn account by signing in. This ensures your profile is authentic.
+                              </p>
                             </div>
                           )}
                         </div>
@@ -1969,8 +1928,7 @@ const ProfilePage = () => {
                                 socialLinks: { ...formData.socialLinks, github: e.target.value },
                               })
                             }
-                            disabled={!isEditing}
-                            className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all bg-white disabled:bg-gray-50 disabled:text-gray-500"
+                            className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all bg-white"
                             placeholder="https://github.com/your-username"
                           />
                         </div>
@@ -2009,8 +1967,7 @@ const ProfilePage = () => {
                                 socialLinks: { ...formData.socialLinks, portfolio: e.target.value },
                               })
                             }
-                            disabled={!isEditing}
-                            className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all bg-white disabled:bg-gray-50 disabled:text-gray-500"
+                            className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all bg-white"
                             placeholder="https://your-portfolio.com"
                           />
                         </div>
@@ -2185,45 +2142,35 @@ const ProfilePage = () => {
               <div className="bg-white p-6 rounded-lg ">
                 <h3 className="text-lg font-semibold mb-4">Skills & Expertise</h3>
 
-                {isEditing ? (
-                  <div className="mb-6">
-                    <div className="flex gap-2 mb-4">
-                      <input
-                        type="text"
-                        value={newSkill}
-                        onChange={(e) => setNewSkill(e.target.value)}
-                        placeholder="Add a skill"
-                        className="flex-grow p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                      <button type="button" onClick={addSkill} className="btn-primary px-4 py-2 rounded-md">
-                        Add
-                      </button>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {formData.skills.map((skill, index) => (
-                        <div key={index} className="bg-background-light px-3 py-2 rounded-md flex items-center">
-                          <span>{skill}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeSkill(skill)}
-                            className="ml-2 text-gray-500 hover:text-red-500"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                <div className="mb-6">
+                  <div className="flex gap-2 mb-4">
+                    <input
+                      type="text"
+                      value={newSkill}
+                      onChange={(e) => setNewSkill(e.target.value)}
+                      placeholder="Add a skill"
+                      className="flex-grow p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <button type="button" onClick={addSkill} className="btn-primary px-4 py-2 rounded-md">
+                      Add
+                    </button>
                   </div>
-                ) : (
+
                   <div className="flex flex-wrap gap-2">
                     {formData.skills.map((skill, index) => (
-                      <div key={index} className="bg-background-light px-3 py-2 rounded-md">
-                        {skill}
+                      <div key={index} className="bg-background-light px-3 py-2 rounded-md flex items-center">
+                        <span>{skill}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeSkill(skill)}
+                          className="ml-2 text-gray-500 hover:text-red-500"
+                        >
+                          ×
+                        </button>
                       </div>
                     ))}
                   </div>
-                )}
+                </div>
               </div>
             )}
 
@@ -2232,8 +2179,8 @@ const ProfilePage = () => {
               <div className="bg-white p-6 rounded-lg">
                 <h3 className="text-lg font-semibold mb-4">Work Experience</h3>
 
-                {/* Empty State - Show when no experience and not editing */}
-                {!isEditing && formData.experience.length === 0 && (
+                {/* Empty State - Show when no experience */}
+                {formData.experience.length === 0 && (
                   <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
                     <svg
                       className="mx-auto h-16 w-16 text-gray-400 mb-4"
@@ -2255,8 +2202,7 @@ const ProfilePage = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        setIsEditing(true);
-                        // Automatically add a new empty experience entry when entering edit mode
+                        // Automatically add a new empty experience entry
                         const newExperience = JSON.parse(JSON.stringify(formData.experience || []));
                         newExperience.push({
                           title: "",
@@ -2286,8 +2232,7 @@ const ProfilePage = () => {
                 {formData.experience.length > 0 &&
                   formData.experience.map((exp, index) => (
                     <div key={index} className="mb-6 pb-6 border-b border-gray-200">
-                      {isEditing ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
                             <label className="block text-gray-700 mb-2">Job Title</label>
                             <input
@@ -2404,22 +2349,11 @@ const ProfilePage = () => {
                             </button>
                           </div>
                         </div>
-                      ) : (
-                        <div>
-                          <h4 className="text-lg font-medium">{exp.title}</h4>
-                          <p className="text-gray-600">{exp.company}</p>
-                          <p className="text-gray-500">
-                            {new Date(exp.from).toLocaleDateString()} -{" "}
-                            {exp.current ? "Present" : new Date(exp.to).toLocaleDateString()}
-                          </p>
-                          <p className="mt-2">{exp.description}</p>
-                        </div>
-                      )}
                     </div>
                   ))}
 
-                {/* Add button when editing and there are existing experiences */}
-                {isEditing && formData.experience.length > 0 && (
+                {/* Add button when there are existing experiences */}
+                {formData.experience.length > 0 && (
                   <div className="mt-4">
                     <button
                       type="button"
@@ -2450,8 +2384,8 @@ const ProfilePage = () => {
                 <div className="mt-12">
                   <h3 className="text-lg font-semibold mb-4">Education</h3>
 
-                  {/* Empty State - Show when no education and not editing */}
-                  {!isEditing && formData.education.length === 0 && (
+                  {/* Empty State - Show when no education */}
+                  {formData.education.length === 0 && (
                     <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
                       <svg
                         className="mx-auto h-16 w-16 text-gray-400 mb-4"
@@ -2480,8 +2414,7 @@ const ProfilePage = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          setIsEditing(true);
-                          // Automatically add a new empty education entry when entering edit mode
+                          // Automatically add a new empty education entry
                           const newEducation = JSON.parse(JSON.stringify(formData.education || []));
                           newEducation.push({
                             institution: "",
@@ -2511,8 +2444,7 @@ const ProfilePage = () => {
                   {formData.education.length > 0 &&
                     formData.education.map((edu, index) => (
                       <div key={index} className="mb-6 pb-6 border-b border-gray-200">
-                        {isEditing ? (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                               <label className="block text-gray-700 mb-2">Institution *</label>
                               <input
@@ -2633,27 +2565,11 @@ const ProfilePage = () => {
                               </button>
                             </div>
                           </div>
-                        ) : (
-                          <div>
-                            <h4 className="text-lg font-medium">
-                              {edu.degree && edu.fieldOfStudy
-                                ? `${edu.degree} in ${edu.fieldOfStudy}`
-                                : edu.degree || edu.fieldOfStudy || "Education"}
-                            </h4>
-                            {edu.institution && <p className="text-gray-600">{edu.institution}</p>}
-                            <p className="text-gray-500">
-                              {edu.from ? new Date(edu.from).toLocaleDateString() : ""}
-                              {edu.from && (edu.current || edu.to) ? " - " : ""}
-                              {edu.current ? "Present" : edu.to ? new Date(edu.to).toLocaleDateString() : ""}
-                            </p>
-                            {edu.description && <p className="mt-2">{edu.description}</p>}
-                          </div>
-                        )}
                       </div>
                     ))}
 
-                  {/* Add button when editing and there are existing education entries */}
-                  {isEditing && formData.education.length > 0 && (
+                  {/* Add button when there are existing education entries */}
+                  {formData.education.length > 0 && (
                     <div className="mt-4">
                       <button
                         type="button"
@@ -2688,8 +2604,8 @@ const ProfilePage = () => {
               <div className="bg-white p-6 rounded-lg">
                 <h3 className="text-lg font-semibold mb-4">Portfolio Items</h3>
 
-                {/* Empty State - Show when no portfolio items and not editing */}
-                {!isEditing && formData.portfolioItems.length === 0 && (
+                {/* Empty State - Show when no portfolio items */}
+                {formData.portfolioItems.length === 0 && (
                   <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
                     <svg
                       className="mx-auto h-16 w-16 text-gray-400 mb-4"
@@ -2711,8 +2627,7 @@ const ProfilePage = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        setIsEditing(true);
-                        // Automatically add a new empty portfolio item when entering edit mode
+                        // Automatically add a new empty portfolio item
                         const newPortfolioItems = JSON.parse(JSON.stringify(formData.portfolioItems || []));
                         newPortfolioItems.push({
                           title: "",
@@ -2739,8 +2654,7 @@ const ProfilePage = () => {
                 {formData.portfolioItems.length > 0 &&
                   formData.portfolioItems.map((item, index) => (
                     <div key={index} className="mb-6 pb-6 border-b border-gray-200">
-                      {isEditing ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
                             <label className="block text-gray-700 mb-2">Project Title</label>
                             <input
@@ -2811,34 +2725,11 @@ const ProfilePage = () => {
                             </button>
                           </div>
                         </div>
-                      ) : (
-                        <div>
-                          <h4 className="text-lg font-medium">{item.title}</h4>
-                          {item.imageUrl && (
-                            <img
-                              src={item.imageUrl}
-                              alt={item.title}
-                              className="w-full h-48 object-cover rounded-lg mt-2"
-                            />
-                          )}
-                          <p className="mt-2">{item.description}</p>
-                          {item.projectUrl && (
-                            <a
-                              href={item.projectUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline mt-2 inline-block"
-                            >
-                              View Project
-                            </a>
-                          )}
-                        </div>
-                      )}
                     </div>
                   ))}
 
-                {/* Add button when editing and there are existing portfolio items */}
-                {isEditing && formData.portfolioItems.length > 0 && (
+                {/* Add button when there are existing portfolio items */}
+                {formData.portfolioItems.length > 0 && (
                   <div className="mt-4">
                     <button
                       type="button"
@@ -2884,7 +2775,6 @@ const ProfilePage = () => {
                           name="verificationDocuments.addressProof.type"
                           value={formData.verificationDocuments.addressProof.type}
                           onChange={handleChange}
-                          disabled={!isEditing}
                           className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                         >
                           <option value="">Select document type</option>
@@ -2903,14 +2793,14 @@ const ProfilePage = () => {
                             type="file"
                             accept=".jpg,.jpeg,.png"
                             onChange={(e) => handleDocumentSelect(e, "addressProof")}
-                            disabled={!isEditing || !formData.verificationDocuments.addressProof.type}
+                            disabled={!formData.verificationDocuments.addressProof.type}
                             className="hidden"
                             id="address-proof-upload"
                           />
                           <label
                             htmlFor="address-proof-upload"
                             className={`px-4 py-2 rounded-md cursor-pointer ${
-                              isEditing && formData.verificationDocuments.addressProof.type
+                              formData.verificationDocuments.addressProof.type
                                 ? "bg-primary text-white hover:bg-primary-dark"
                                 : "bg-gray-200 text-gray-500 cursor-not-allowed"
                             }`}
@@ -2995,7 +2885,6 @@ const ProfilePage = () => {
                           name="verificationDocuments.identityProof.type"
                           value={formData.verificationDocuments.identityProof.type}
                           onChange={handleChange}
-                          disabled={!isEditing}
                           className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                         >
                           <option value="">Select document type</option>
@@ -3014,14 +2903,14 @@ const ProfilePage = () => {
                             type="file"
                             accept=".jpg,.jpeg,.png"
                             onChange={(e) => handleDocumentSelect(e, "identityProof")}
-                            disabled={!isEditing || !formData.verificationDocuments.identityProof.type}
+                            disabled={!formData.verificationDocuments.identityProof.type}
                             className="hidden"
                             id="identity-proof-upload"
                           />
                           <label
                             htmlFor="identity-proof-upload"
                             className={`px-4 py-2 rounded-md cursor-pointer ${
-                              isEditing && formData.verificationDocuments.identityProof.type
+                              formData.verificationDocuments.identityProof.type
                                 ? "bg-primary text-white hover:bg-primary-dark"
                                 : "bg-gray-200 text-gray-500 cursor-not-allowed"
                             }`}
@@ -3329,13 +3218,11 @@ const ProfilePage = () => {
             )}
 
             {/* Save Button */}
-            {isEditing && (
-              <div className="mt-8">
-                <button type="submit" className="btn-primary px-6 py-3 rounded-md">
-                  Save Changes
-                </button>
-              </div>
-            )}
+            <div className="mt-8">
+              <button type="submit" className="btn-primary px-6 py-3 rounded-md">
+                Save Changes
+              </button>
+            </div>
           </form>
         </div>
       </div>
