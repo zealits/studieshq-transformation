@@ -8,6 +8,7 @@ import Spinner from "../../components/common/Spinner";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "react-hot-toast";
 import ApplyJobModal from "../../components/freelancer/ApplyJobModal";
+import { formatBudgetRange } from "../../utils/currencyUtils";
 
 // AI Job Matching Loading Component
 const AIJobMatchingLoader = () => {
@@ -466,7 +467,7 @@ const FindJobsPage = () => {
                     </div>
                     <div className="flex items-center text-sm text-gray-500 mt-1">
                       <span>
-                        ${job.budget.min} - ${job.budget.max} USD
+                        {formatBudgetRange(job.budget)}
                       </span>
                       <span className="mx-2">•</span>
                       <span>{job.budget.type === "milestone" ? "Milestone Based" : "After Completion"}</span>

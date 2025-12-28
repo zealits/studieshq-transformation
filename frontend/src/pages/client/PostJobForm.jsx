@@ -18,6 +18,7 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
       min: "",
       max: "",
       type: "milestone",
+      format: "range", // "fixed" or "range"
     },
     experience: "intermediate",
     duration: "less_than_1_month",
@@ -35,10 +36,13 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
       const formattedSkills = jobToEdit.skills || [];
 
       // Handle budgetType vs type field difference
+      // Check if it's a fixed budget (min === max) or range
+      const isFixedBudget = jobToEdit.budget.min === jobToEdit.budget.max;
       const budget = {
         min: jobToEdit.budget.min,
         max: jobToEdit.budget.max,
-        type: jobToEdit.budget.budgetType || jobToEdit.budget.type || "fixed",
+        type: jobToEdit.budget.budgetType || jobToEdit.budget.type || "milestone",
+        format: isFixedBudget ? "fixed" : "range",
       };
 
       // Check if the category is in the predefined list
@@ -75,15 +79,32 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    if (name === "budget.min" || name === "budget.max" || name === "budget.type") {
+    if (name === "budget.min" || name === "budget.max" || name === "budget.type" || name === "budget.format") {
       const [parent, child] = name.split(".");
-      setFormData((prev) => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value,
-        },
-      }));
+      setFormData((prev) => {
+        const updated = {
+          ...prev,
+          [parent]: {
+            ...prev[parent],
+            [child]: value,
+          },
+        };
+        
+        // If format changed to fixed, set max = min
+        if (child === "format" && value === "fixed" && prev.budget.min) {
+          updated[parent].max = prev.budget.min;
+        }
+        // If format changed to range and min exists but max doesn't, keep min
+        else if (child === "format" && value === "range" && prev.budget.min && !prev.budget.max) {
+          updated[parent].max = prev.budget.min;
+        }
+        // If fixed budget and min changes, update max too
+        else if (child === "min" && prev.budget.format === "fixed") {
+          updated[parent].max = value;
+        }
+        
+        return updated;
+      });
     } else {
       setFormData((prev) => ({
         ...prev,
@@ -105,7 +126,16 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
       const draftData = { ...formData };
       // Convert budget values to numbers
       draftData.budget.min = Number(draftData.budget.min);
-      draftData.budget.max = Number(draftData.budget.max);
+      
+      // For fixed budget, set max = min
+      if (draftData.budget.format === "fixed") {
+        draftData.budget.max = draftData.budget.min;
+      } else {
+        draftData.budget.max = Number(draftData.budget.max);
+      }
+
+      // Remove format field as it's not needed in the API
+      delete draftData.budget.format;
 
       // Use custom category if "other" is selected
       if (draftData.category === "other") {
@@ -134,7 +164,16 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
       const jobData = { ...formData };
       // Convert budget values to numbers
       jobData.budget.min = Number(jobData.budget.min);
-      jobData.budget.max = Number(jobData.budget.max);
+      
+      // For fixed budget, set max = min
+      if (jobData.budget.format === "fixed") {
+        jobData.budget.max = jobData.budget.min;
+      } else {
+        jobData.budget.max = Number(jobData.budget.max);
+      }
+
+      // Remove format field as it's not needed in the API
+      delete jobData.budget.format;
 
       // Use custom category if "other" is selected
       if (jobData.category === "other") {
@@ -258,10 +297,26 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="budget.format" className="block text-sm font-medium text-gray-700 mb-1">
+            Budget Type
+          </label>
+          <select
+            id="budget.format"
+            name="budget.format"
+            value={formData.budget.format}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary mb-4"
+          >
+            <option value="range">Budget Range</option>
+            <option value="fixed">Fixed Budget</option>
+          </select>
+        </div>
+
+        {formData.budget.format === "fixed" ? (
           <div>
             <label htmlFor="budget.min" className="block text-sm font-medium text-gray-700 mb-1">
-              Minimum Budget (USD)
+              Budget Amount (USD)
             </label>
             <input
               type="number"
@@ -271,24 +326,44 @@ const PostJobForm = ({ onClose, jobToEdit }) => {
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
               required
+              min={1}
             />
           </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="budget.min" className="block text-sm font-medium text-gray-700 mb-1">
+                Minimum Budget (USD)
+              </label>
+              <input
+                type="number"
+                id="budget.min"
+                name="budget.min"
+                value={formData.budget.min}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                required
+                min={1}
+              />
+            </div>
 
-          <div>
-            <label htmlFor="budget.max" className="block text-sm font-medium text-gray-700 mb-1">
-              Maximum Budget (USD)
-            </label>
-            <input
-              type="number"
-              id="budget.max"
-              name="budget.max"
-              value={formData.budget.max}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-              required
-            />
+            <div>
+              <label htmlFor="budget.max" className="block text-sm font-medium text-gray-700 mb-1">
+                Maximum Budget (USD)
+              </label>
+              <input
+                type="number"
+                id="budget.max"
+                name="budget.max"
+                value={formData.budget.max}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                required
+                min={formData.budget.min || 1}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Escrow Information */}
         {formData.budget.max && formData.freelancersNeeded && (

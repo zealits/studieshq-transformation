@@ -6,6 +6,7 @@ import Spinner from "../../components/common/Spinner";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "react-hot-toast";
 import ProposalsList from "../../components/client/ProposalsList";
+import { formatBudgetRange } from "../../utils/currencyUtils";
 
 const JobDetailPage = () => {
   const { jobId } = useParams();
@@ -146,7 +147,7 @@ const JobDetailPage = () => {
           <div>
             <span className="block text-sm text-gray-500">Budget</span>
             <div className="text-lg font-semibold text-primary">
-              ${job.budget.min} - ${job.budget.max} USD
+              {formatBudgetRange(job.budget)}
             </div>
           </div>
           <div>

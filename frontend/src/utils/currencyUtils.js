@@ -31,12 +31,25 @@ export const formatUSD = (amount, options = {}) => {
  * @returns {string} Formatted budget range string
  */
 export const formatBudgetRange = (budget, options = {}) => {
-  if (!budget || !budget.min || !budget.max) {
+  if (!budget || budget.min === undefined || budget.min === null) {
     return "N/A";
   }
 
-  const { showCurrencyCode = true } = options;
+  const { showCurrencyCode = true, showFixedLabel = false } = options;
   const currency = showCurrencyCode ? " USD" : "";
+  
+  // Check if it's a fixed budget (min === max)
+  const isFixedBudget = budget.min === budget.max;
+  
+  if (isFixedBudget) {
+    const fixedLabel = showFixedLabel ? " (Fixed)" : "";
+    return `$${budget.min.toLocaleString()}${fixedLabel}${currency}`;
+  }
+  
+  // Range budget
+  if (!budget.max) {
+    return `$${budget.min.toLocaleString()}${currency}+`;
+  }
 
   return `$${budget.min.toLocaleString()} - $${budget.max.toLocaleString()}${currency}`;
 };

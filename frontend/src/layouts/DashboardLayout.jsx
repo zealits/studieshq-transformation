@@ -181,7 +181,7 @@ const DashboardLayout = ({ role }) => {
           { path: "/freelancer", label: "Dashboard", icon: "home", locked: !freelancerProfileComplete },
           { path: "/freelancer/find-jobs", label: "Find Projects", icon: "search" }, // Allow access without profile completion
           { path: "/freelancer/invitations", label: "Invitations", icon: "mail", locked: !freelancerProfileComplete },
-          { path: "/freelancer/projects", label: "My Projects", icon: "folder", locked: !freelancerProfileComplete },
+          { path: "/freelancer/projects", label: "My Projects", icon: "folder" }, // Allow access without profile completion
           {
             path: "/freelancer/messages",
             label: "Messages",

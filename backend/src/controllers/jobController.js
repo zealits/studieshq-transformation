@@ -91,11 +91,20 @@ exports.createJob = async (req, res) => {
     };
 
     // Handle the budget field to ensure we use budgetType
+    // For fixed budgets, ensure min === max
     const normalizedBudget = {
-      min: budget.min,
-      max: budget.max,
+      min: Number(budget.min),
+      max: Number(budget.max),
       type: budget.budgetType || budget.type || "milestone", // Support both budgetType and type
     };
+    
+    // Validate budget range
+    if (normalizedBudget.max < normalizedBudget.min) {
+      return res.status(400).json({
+        success: false,
+        message: "Maximum budget must be greater than or equal to minimum budget",
+      });
+    }
 
     // Create new job
     const job = new Job({
@@ -787,6 +796,28 @@ exports.submitProposal = async (req, res) => {
           success: false,
           message: "Verification is required to apply for this project. Please complete your verification documents first.",
           requiresVerification: true,
+        });
+      }
+    }
+
+    // Validate bid price against job budget
+    const isFixedBudget = job.budget.min === job.budget.max;
+    
+    if (isFixedBudget) {
+      // For fixed budgets, bid must match exactly (allow small tolerance for rounding)
+      const tolerance = 0.01; // Allow 1 cent difference for rounding
+      if (Math.abs(bidPrice - job.budget.min) > tolerance) {
+        return res.status(400).json({
+          success: false,
+          message: `This job has a fixed budget of $${job.budget.min}. Your bid must match this amount exactly.`,
+        });
+      }
+    } else {
+      // For range budgets, bid must be within the range
+      if (bidPrice < job.budget.min || bidPrice > job.budget.max) {
+        return res.status(400).json({
+          success: false,
+          message: `Your bid price ($${bidPrice}) must be within the budget range of $${job.budget.min} - $${job.budget.max}`,
         });
       }
     }

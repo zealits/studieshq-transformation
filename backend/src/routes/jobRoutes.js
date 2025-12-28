@@ -22,7 +22,16 @@ router.post(
       check("skills", "Skills are required").isArray().not().isEmpty(),
       check("budget", "Budget information is required").isObject(),
       check("budget.min", "Minimum budget is required").isNumeric(),
-      check("budget.max", "Maximum budget is required").isNumeric(),
+      check("budget.max", "Maximum budget is required").isNumeric().custom((value, { req }) => {
+        // For fixed budgets (min === max), max should equal min
+        // For range budgets, max should be >= min
+        if (req.body.budget && req.body.budget.min !== undefined) {
+          if (value < req.body.budget.min) {
+            throw new Error("Maximum budget must be greater than or equal to minimum budget");
+          }
+        }
+        return true;
+      }),
       check("budget.budgetType", "Budget type is required").optional().isIn(["milestone", "completion"]),
       check("duration", "Duration is required").isIn([
         "less_than_1_month",

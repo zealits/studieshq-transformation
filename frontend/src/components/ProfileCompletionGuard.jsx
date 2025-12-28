@@ -18,6 +18,7 @@ const ProfileCompletionGuard = ({ children }) => {
     "/verify-email",
     "/admin", // Admin users don't need profile verification
     "/freelancer/find-jobs", // Allow access to Find Projects without profile completion
+    "/freelancer/projects", // Allow access to My Projects without profile completion
   ];
 
   // For company users, only allow dashboard and profile pages until profile is complete

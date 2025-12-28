@@ -29,9 +29,31 @@ const ApplyJobModal = ({ job, onClose }) => {
     }
 
     // Convert bidPrice to number
+    const bidPrice = parseFloat(formData.bidPrice);
+    
+    // Validate bid price against job budget
+    if (job.budget) {
+      const isFixedBudget = job.budget.min === job.budget.max;
+      
+      if (isFixedBudget) {
+        // For fixed budgets, bid must match exactly (allow small tolerance for rounding)
+        const tolerance = 0.01;
+        if (Math.abs(bidPrice - job.budget.min) > tolerance) {
+          toast.error(`This job has a fixed budget of $${job.budget.min}. Your bid must match this amount exactly.`);
+          return;
+        }
+      } else {
+        // For range budgets, bid must be within the range
+        if (bidPrice < job.budget.min || bidPrice > job.budget.max) {
+          toast.error(`Your bid must be within the budget range of $${job.budget.min} - $${job.budget.max}`);
+          return;
+        }
+      }
+    }
+
     const proposalData = {
       ...formData,
-      bidPrice: parseFloat(formData.bidPrice),
+      bidPrice,
     };
 
     try {
@@ -84,7 +106,9 @@ const ApplyJobModal = ({ job, onClose }) => {
             </div>
             <div className="mt-3 text-sm text-gray-600">
               <p>
-                Budget: ${job.budget.min} - ${job.budget.max}
+                Budget: {job.budget.min === job.budget.max 
+                  ? `$${job.budget.min} (Fixed)` 
+                  : `$${job.budget.min} - $${job.budget.max}`}
               </p>
               <p>Payment Type: {job.budget.type === "milestone" ? "Milestone Based" : "After Completion"}</p>
             </div>
@@ -109,7 +133,11 @@ const ApplyJobModal = ({ job, onClose }) => {
               />
               {job.budget && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Suggested budget: ${job.budget.min} - ${job.budget.max} USD
+                  {job.budget.min === job.budget.max ? (
+                    <>Fixed budget: <strong>${job.budget.min} USD</strong> (must match exactly)</>
+                  ) : (
+                    <>Suggested budget range: ${job.budget.min} - ${job.budget.max} USD</>
+                  )}
                 </p>
               )}
             </div>

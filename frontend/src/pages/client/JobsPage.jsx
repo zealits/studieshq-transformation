@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 import ProposalsList from "../../components/client/ProposalsList";
 import { useNavigate } from "react-router-dom";
 import ConfirmModal from "../../components/common/ConfirmModal";
+import { formatBudgetRange } from "../../utils/currencyUtils";
 
 const JobsPage = () => {
   const [activeTab, setActiveTab] = useState("active");
@@ -245,7 +246,7 @@ const JobsPage = () => {
               <div>
                 <span className="block text-sm text-gray-500">Budget</span>
                 <span className="font-medium">
-                  ${job.budget.min} - ${job.budget.max}
+                  {formatBudgetRange(job.budget, { showCurrencyCode: false })}
                 </span>
               </div>
               <div>
