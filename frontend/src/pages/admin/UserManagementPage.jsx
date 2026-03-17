@@ -151,6 +151,21 @@ const UserManagementPage = () => {
     }
   };
 
+  const updateInvitationFilters = (updates) => {
+    setInvitationFilters((prev) => ({
+      ...prev,
+      ...updates,
+    }));
+  };
+
+  const handleInvitationPageChange = (page) => {
+    if (page < 1 || page > (invitationPagination.pages || 1) || page === invitationFilters.page) {
+      return;
+    }
+
+    updateInvitationFilters({ page });
+  };
+
   // Freelancer Invitations functions
   const fetchInvitations = async () => {
     try {
@@ -771,7 +786,10 @@ const UserManagementPage = () => {
               <div className="flex justify-center items-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
+            ) : invitations.length === 0 ? (
+              <div className="py-8 text-center text-gray-500">No invited freelancers found.</div>
             ) : (
+              <div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
@@ -798,7 +816,7 @@ const UserManagementPage = () => {
                       <tr key={invitation._id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{invitation.email}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {invitation.firstName + " " + invitation.lastName || invitation.name || "-"}
+                          {`${invitation.firstName || ""} ${invitation.lastName || ""}`.trim() || invitation.name || "-"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <span
@@ -841,6 +859,48 @@ const UserManagementPage = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {invitationPagination.pages > 1 && (
+                <div className="mt-4 flex flex-col gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-gray-700">
+                    Showing{" "}
+                    <span className="font-medium">
+                      {(invitationPagination.page - 1) * invitationPagination.limit + 1}
+                    </span>{" "}
+                    to{" "}
+                    <span className="font-medium">
+                      {Math.min(
+                        invitationPagination.page * invitationPagination.limit,
+                        invitationPagination.total
+                      )}
+                    </span>{" "}
+                    of <span className="font-medium">{invitationPagination.total}</span> invited freelancers
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleInvitationPageChange(invitationPagination.page - 1)}
+                      disabled={invitationPagination.page === 1}
+                      className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-gray-600">
+                      Page {invitationPagination.page} of {invitationPagination.pages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleInvitationPageChange(invitationPagination.page + 1)}
+                      disabled={invitationPagination.page === invitationPagination.pages}
+                      className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
               </div>
             )}
           </div>
